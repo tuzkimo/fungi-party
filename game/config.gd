@@ -24,7 +24,7 @@ const GAZE_AWAY_MAX := 5.0
 const GAZE_WARN := 0.3
 const GAZE_WATCH := 2.0
 const GAZE_HALF_ANGLE := 14.0
-const GAZE_RANGE := 5.5
+const GAZE_RANGE := 8.5
 const SEAT_POSITIONS := [
 	Vector3(-1.2, 0.0, 1.2), Vector3(-4.0, 0.0, 0.6), Vector3(1.6, 0.0, 0.6), Vector3(4.2, 0.0, 1.2)
 ]
