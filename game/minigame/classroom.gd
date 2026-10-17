@@ -1,7 +1,7 @@
 class_name Classroom
 extends Node3D
 
-## 教室编排：程序化建房间、摆四张课桌、驱动老师视线。
+## 教室编排：程序化建房间、摆四张课桌、驱动视线/人机/回合与结算。
 ## 自包含单场景：节点间直接引用，不跨场景查 group。
 
 const FLOOR_COLOR := Color(0.62, 0.45, 0.30)
@@ -10,13 +10,19 @@ const BOARD_COLOR := Color(0.16, 0.32, 0.26)
 
 var _gaze := Gaze.new()
 var _round := StealEat.new()
+var _eat := EatInput.new()
+var _npcs: Array[NpcSeat] = []
+var _press: Array[bool] = []
 var _teacher: Teacher
 var _seats: Array[SeatVisual] = []
+var _settled := false
 
 @onready var _camera: Camera3D = $Camera3D
+@onready var _ui: ClassroomUI = $UI
 
 
 func _ready() -> void:
+	Controls.ensure()
 	_camera.look_at(Vector3(0.0, 0.8, -1.5))
 	_build_room()
 
@@ -31,13 +37,43 @@ func _ready() -> void:
 		seat.setup(i)
 		add_child(seat)
 		_seats.append(seat)
+		_press.append(false)
+
+	for i in Config.NPC_GUTS.size():
+		_npcs.append(NpcSeat.new(Config.NPC_GUTS[i], i + 11))
+
+
+func _input(event: InputEvent) -> void:
+	_eat.feed(event)
 
 
 func _process(delta: float) -> void:
 	_gaze.advance(delta)
 	_teacher.apply(_gaze, delta)
+
+	if not _round.over:
+		_press[0] = _eat.pressing() or Input.is_action_pressed("jump")
+		for i in _npcs.size():
+			var seat_index: int = i + 1
+			_press[seat_index] = _npcs[i].decide(delta, _gaze, seat_index, _round.seats[seat_index].stun > 0.0)
+		var events := _round.tick(delta, _press, _gaze.watching())
+		for caught in events["caught"]:
+			if caught:
+				_ui.flash()
+
 	for i in _seats.size():
-		_seats[i].apply(_round.seats[i], false, delta, _gaze.watching() == i)
+		var seat: StealEat.Seat = _round.seats[i]
+		var eating: bool = _press[i] and seat.stun <= 0.0 and not seat.out
+		_seats[i].apply(seat, eating, delta, _gaze.watching() == i)
+
+	_ui.set_state(_round.time_left, _round.seats[0].bites, _round.seats[0].caught, _round.seats[0].stun > 0.0)
+
+	if _round.over and not _settled:
+		_settled = true
+		var mine: StealEat.Seat = _round.seats[0]
+		var won := _round.winner == 0
+		var earned := int(Save.apply_round(mine.bites, won, mine.caught)["earned"])
+		_ui.show_result(mine.bites, mine.caught, won, earned)
 
 
 func _build_room() -> void:
