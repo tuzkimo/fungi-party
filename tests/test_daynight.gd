@@ -14,7 +14,7 @@ func test_sun_energy_peaks_at_noon() -> void:
 	check(DayNight.sun_energy(0.25) < 0.001, "日出无直射")
 	check(DayNight.sun_energy(0.0) < 0.001, "午夜无直射")
 	# sin(PI) 是 1.2e-16，不是精确 0，所以用容差
-	check(DayNight.sun_energy(0.75) < 0.001, "日落无直射（实得 %.2e）" % DayNight.sun_energy(0.75))
+	check(DayNight.sun_energy(0.75) < 0.001, "日落无直射（实得 %.6f）" % DayNight.sun_energy(0.75))
 
 
 func test_ambient_day_color() -> void:
