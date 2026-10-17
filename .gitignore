@@ -1,0 +1,8 @@
+.godot/
+build/
+*.apk
+*.aab
+skins/local/
+.vscode/
+export_credentials.cfg
+shots/
