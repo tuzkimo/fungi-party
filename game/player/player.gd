@@ -6,6 +6,8 @@ extends CharacterBody3D
 @onready var _visual: MushroomMesh = $MushroomMesh
 
 var speed_input := Vector2.ZERO
+var _touch: TouchControls = null
+var _prev_touch_jump := false
 var _was_on_floor := true
 var _land_timer := 0.0
 var _walk_phase := 0.0
@@ -13,10 +15,18 @@ var _walk_phase := 0.0
 
 func _ready() -> void:
 	Controls.ensure()
+	_touch = get_tree().get_first_node_in_group("touch_controls") as TouchControls
 
 
 func _physics_process(delta: float) -> void:
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var want_jump := Input.is_action_just_pressed("jump")
+	if _touch != null:
+		if _touch.move_input.length() > 0.05:
+			input = _touch.move_input
+		if _touch.jump_pressed and not _prev_touch_jump:
+			want_jump = true
+		_prev_touch_jump = _touch.jump_pressed
 	speed_input = input
 
 	var on_floor := is_on_floor()
@@ -36,7 +46,7 @@ func _physics_process(delta: float) -> void:
 		velocity.y = 0.0
 	elif not on_floor:
 		velocity.y -= Config.GRAVITY * delta
-	if on_floor and Input.is_action_just_pressed("jump"):
+	if on_floor and want_jump:
 		velocity.y = Movement.jump_velocity(Config.GRAVITY, Config.JUMP_HEIGHT)
 
 	move_and_slide()

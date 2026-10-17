@@ -6,8 +6,8 @@ func _initialize() -> void:
 	var failures := 0
 	for f in files:
 		var script: GDScript = load("res://tests/%s" % f)
-		if script == null:
-			printerr("无法加载 tests/%s" % f)
+		if script == null or not script.can_instantiate():
+			printerr("无法加载 tests/%s（语法错误？）" % f)
 			failures += 1
 			continue
 		var case: Object = script.new()

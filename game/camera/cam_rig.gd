@@ -17,6 +17,11 @@ var _pitch := -0.3141593        # -18°
 var _yaw := 0.0
 
 @onready var _camera: Camera3D = $Camera3D
+var _touch: TouchControls = null
+
+
+func _ready() -> void:
+	_touch = get_tree().get_first_node_in_group("touch_controls") as TouchControls
 
 
 static func orbit(current: Vector3, drag: Vector2, sens: float, pitch_min: float, pitch_max: float) -> Vector3:
@@ -33,6 +38,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.is_action_pressed("orbit"):
 		_apply_drag(event.relative)
 	elif event is InputEventScreenDrag:
+		if _touch != null and _touch.is_on_control(event.position):
+			return
 		_apply_drag(event.relative)
 
 

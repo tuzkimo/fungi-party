@@ -2,6 +2,7 @@
 
 [ext_resource type="PackedScene" path="res://game/ui/debug_hud.tscn" id="1_hud"]
 [ext_resource type="PackedScene" path="res://game/player/mushroom.tscn" id="2_mushroom"]
+[ext_resource type="PackedScene" path="res://game/ui/touch_controls.tscn" id="3_touch"]
 
 [sub_resource type="ProceduralSkyMaterial" id="Sky_1"]
 sky_top_color = Color(0.35, 0.5, 0.75, 1)
@@ -45,3 +46,5 @@ mesh = SubResource("Mesh_floor")
 position = Vector3(0, 0.05, 0)
 
 [node name="DebugHUD" parent="." instance=ExtResource("1_hud")]
+
+[node name="TouchControls" parent="." instance=ExtResource("3_touch")]
