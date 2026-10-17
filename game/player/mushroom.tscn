@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/player/mushroom_mesh.gd" id="1_mesh"]
+
+[node name="Mushroom" type="Node3D"]
+
+[node name="MushroomMesh" type="Node3D" parent="."]
+script = ExtResource("1_mesh")

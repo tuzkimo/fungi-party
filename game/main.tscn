@@ -1,7 +1,35 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="PackedScene" path="res://game/ui/debug_hud.tscn" id="1_hud"]
+[ext_resource type="PackedScene" path="res://game/player/mushroom.tscn" id="2_mushroom"]
+
+[sub_resource type="ProceduralSkyMaterial" id="Sky_1"]
+sky_top_color = Color(0.35, 0.5, 0.75, 1)
+sky_horizon_color = Color(0.75, 0.82, 0.9, 1)
+ground_bottom_color = Color(0.3, 0.35, 0.28, 1)
+ground_horizon_color = Color(0.75, 0.82, 0.9, 1)
+
+[sub_resource type="Environment" id="Env_1"]
+background_mode = 2
+sky = SubResource("Sky_1")
+ambient_light_source = 2
+ambient_light_color = Color(0.72, 0.78, 0.86, 1)
+ambient_light_energy = 0.7
+tonemap_mode = 2
 
 [node name="Main" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env_1")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-55, -35, 0)
+shadow_enabled = true
+
+[node name="Camera3D" type="Camera3D" parent="."]
+rotation_degrees = Vector3(-6, 0, 0)
+position = Vector3(0, 1.05, 3.2)
+
+[node name="Mushroom" parent="." instance=ExtResource("2_mushroom")]
 
 [node name="DebugHUD" parent="." instance=ExtResource("1_hud")]
