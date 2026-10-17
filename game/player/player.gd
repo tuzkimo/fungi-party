@@ -8,6 +8,9 @@ extends CharacterBody3D
 @onready var _cam: CamRig = $CamRig
 
 var speed_input := Vector2.ZERO
+var _base_cap := Color.WHITE
+var _base_body := Color.WHITE
+var _base_spots := 0
 var _touch: TouchControls = null
 var _prev_touch_jump := false
 var _was_on_floor := true
@@ -25,19 +28,20 @@ static func resolve_direction(input: Vector2, camera_yaw: float) -> Vector3:
 func _ready() -> void:
 	Controls.ensure()
 	add_to_group("player")
+	_base_cap = _visual.tint_cap
+	_base_body = _visual.tint_body
+	_base_spots = _visual.spot_count
 	apply_skin()
 
 
-## 有皮肤且已穿戴时，把皮肤的三个数写进外观再重建一次。
+## 按存档把外观刷成「戴着的那个皮肤」；没戴就回到默认配色。
 func apply_skin() -> void:
-	if not bool(Save.read()["equipped"]):
-		return
-	var skin := load(Config.SKIN_PATH) as MushroomSkin
-	if skin == null:
-		return
-	_visual.tint_cap = skin.tint_cap
-	_visual.tint_body = skin.tint_body
-	_visual.spot_count = skin.spot_count
+	var skin: MushroomSkin = null
+	if bool(Save.read()["equipped"]):
+		skin = load(Config.SKIN_PATH) as MushroomSkin
+	_visual.tint_cap = skin.tint_cap if skin != null else _base_cap
+	_visual.tint_body = skin.tint_body if skin != null else _base_body
+	_visual.spot_count = skin.spot_count if skin != null else _base_spots
 	_visual.build()
 
 

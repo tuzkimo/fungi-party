@@ -7,6 +7,8 @@ extends Node3D
 const FLOOR_COLOR := Color(0.62, 0.45, 0.30)
 const WALL_COLOR := Color(0.93, 0.89, 0.80)
 const BOARD_COLOR := Color(0.16, 0.32, 0.26)
+const COUNTDOWN_SECONDS := 3.0
+const START_FLASH := 0.5
 
 var _gaze := Gaze.new(randi())
 var _round := StealEat.new()
@@ -16,6 +18,8 @@ var _press: Array[bool] = []
 var _teacher: Teacher
 var _seats: Array[SeatVisual] = []
 var _settled := false
+var _countdown := COUNTDOWN_SECONDS
+var _start_flash := 0.0
 
 @onready var _camera: Camera3D = $Camera3D
 @onready var _ui: ClassroomUI = $UI
@@ -63,17 +67,19 @@ func _notification(what: int) -> void:
 
 
 func _process(delta: float) -> void:
-	_gaze.advance(delta)
-	_teacher.apply(_gaze, delta)
-
-	if not _round.over:
-		_press[0] = _eat.pressing() or Input.is_action_pressed("jump")
-		for i in _npcs.size():
-			var seat_index: int = i + 1
-			_press[seat_index] = _npcs[i].decide(delta, _gaze, seat_index, _round.seats[seat_index].stun > 0.0)
-		var events := _round.tick(delta, _press, _gaze.watching())
-		if events["caught"][0]:
-			_ui.flash()
+	if _countdown > 0.0:
+		_countdown -= delta
+		if _countdown > 0.0:
+			_ui.show_countdown(str(ceili(_countdown)))
+		else:
+			_ui.show_countdown("开始！")
+			_start_flash = START_FLASH
+	elif _start_flash > 0.0:
+		_start_flash -= delta
+		if _start_flash <= 0.0:
+			_ui.hide_countdown()
+	else:
+		_play(delta)
 
 	for i in _seats.size():
 		var seat: StealEat.Seat = _round.seats[i]
@@ -88,6 +94,20 @@ func _process(delta: float) -> void:
 		var won := _round.winner == 0
 		var earned := int(Save.apply_round(mine.bites, won, mine.caught)["earned"])
 		_ui.show_result(mine.bites, mine.caught, won, earned)
+
+
+func _play(delta: float) -> void:
+	_gaze.advance(delta)
+	_teacher.apply(_gaze, delta)
+
+	if not _round.over:
+		_press[0] = _eat.pressing() or Input.is_action_pressed("jump")
+		for i in _npcs.size():
+			var seat_index: int = i + 1
+			_press[seat_index] = _npcs[i].decide(delta, _gaze, seat_index, _round.seats[seat_index].stun > 0.0)
+		var events := _round.tick(delta, _press, _gaze.watching())
+		if events["caught"][0]:
+			_ui.flash()
 
 
 func _build_room() -> void:

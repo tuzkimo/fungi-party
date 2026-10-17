@@ -27,6 +27,8 @@ func setup(index_value: int) -> void:
 	position = Config.SEAT_POSITIONS[index]
 	_build_desk()
 	_build_body()
+	# 学生面向老师；只转蘑菇本体，课桌和头顶的条不跟着转
+	_body.rotation.y = Gaze.yaw_to(position, Config.TEACHER_POS)
 	_build_bar()
 	_build_mark()
 

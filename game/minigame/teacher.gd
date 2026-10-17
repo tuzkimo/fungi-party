@@ -54,8 +54,10 @@ func _build_cone() -> void:
 	_cone_material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 
 	_cone = MeshInstance3D.new()
+	_cone.visible = false
 	_cone.name = "GazeCone"
 	_cone.mesh = surface.commit()
 	_cone.material_override = _cone_material
 	_cone.position.y = 0.02
+	_cone_material.albedo_color = Color(1.0, 1.0, 1.0, 0.0)
 	add_child(_cone)

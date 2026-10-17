@@ -8,6 +8,7 @@ signal forest_pressed
 
 var _hud: Label
 var _stun: Label
+var _count: Label
 var _flash: ColorRect
 var _result: ColorRect
 var _title: Label
@@ -19,7 +20,7 @@ func _ready() -> void:
 	root.name = "Root"
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.theme = _make_theme()
+	root.theme = UIStyle.theme()
 	add_child(root)
 
 	_hud = Label.new()
@@ -36,6 +37,15 @@ func _ready() -> void:
 	_stun.visible = false
 	root.add_child(_stun)
 
+	_count = Label.new()
+	_count.name = "Countdown"
+	_count.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_count.add_theme_font_size_override("font_size", 120)
+	_count.visible = false
+	root.add_child(_count)
+
 	_build_result(root)
 
 	_flash = ColorRect.new()
@@ -45,6 +55,15 @@ func _ready() -> void:
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_flash.modulate.a = 0.0
 	root.add_child(_flash)
+
+
+func show_countdown(text: String) -> void:
+	_count.text = text
+	_count.visible = true
+
+
+func hide_countdown() -> void:
+	_count.visible = false
 
 
 func set_state(time_left: float, bites: int, caught: int, stunned: bool) -> void:
@@ -98,20 +117,12 @@ func _build_result(root: Control) -> void:
 	again.text = "再来一局"
 	again.custom_minimum_size = Vector2(200.0, 64.0)
 	again.pressed.connect(func() -> void: again_pressed.emit())
+	UIStyle.style_button(again)
 	row.add_child(again)
 
 	var forest := Button.new()
 	forest.text = "回森林"
 	forest.custom_minimum_size = Vector2(200.0, 64.0)
 	forest.pressed.connect(func() -> void: forest_pressed.emit())
+	UIStyle.style_button(forest)
 	row.add_child(forest)
-
-
-func _make_theme() -> Theme:
-	var font := SystemFont.new()
-	font.font_names = PackedStringArray(["Noto Sans CJK SC", "Noto Sans SC", "Droid Sans Fallback", "sans-serif"])
-	font.allow_system_fallback = true
-	var theme := Theme.new()
-	theme.default_font = font
-	theme.default_font_size = 30
-	return theme
