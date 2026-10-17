@@ -1,8 +1,18 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://game/player/mushroom_mesh.gd" id="1_mesh"]
+[ext_resource type="Script" path="res://game/player/player.gd" id="1_player"]
+[ext_resource type="Script" path="res://game/player/mushroom_mesh.gd" id="2_mesh"]
 
-[node name="Mushroom" type="Node3D"]
+[sub_resource type="CapsuleShape3D" id="Shape_1"]
+radius = 0.45
+height = 1.5
+
+[node name="Player" type="CharacterBody3D"]
+script = ExtResource("1_player")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.75, 0)
+shape = SubResource("Shape_1")
 
 [node name="MushroomMesh" type="Node3D" parent="."]
-script = ExtResource("1_mesh")
+script = ExtResource("2_mesh")
