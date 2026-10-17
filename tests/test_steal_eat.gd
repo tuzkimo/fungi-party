@@ -95,3 +95,10 @@ func test_coins_formula() -> void:
 	check_eq(StealEat.coins(20, true, 0), 110, "满分一局")
 	check_eq(StealEat.coins(12, false, 1), 41, "典型一局")
 	check_eq(StealEat.coins(0, false, 3), 0, "扣成负数夹到 0")
+
+func test_player_out_ends_round() -> void:
+	var r := StealEat.new(4)
+	r.seats[0].caught = Config.MAX_CAUGHT
+	r.seats[0].out = true
+	_feed(r, IDLE, -1, 0.1)
+	check(r.over, "玩家出局后回合立刻结束，不留几十秒干等的空转")

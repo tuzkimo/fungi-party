@@ -69,6 +69,9 @@ func tick(delta: float, press: Array, watched: int) -> Dictionary:
 				over = true
 				winner = i
 
+	if not over and seats[0].out:
+		over = true
+		winner = decide_winner()
 	if not over and time_left <= 0.0:
 		over = true
 		winner = decide_winner()

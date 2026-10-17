@@ -7,6 +7,7 @@ var _panel: Panel
 var _coins: Label
 var _price: Label
 var _buy: Button
+var _shown := false
 
 
 func _ready() -> void:
@@ -55,10 +56,13 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	# 只在「刚走近」时读一次存档：站着看菜单时每帧开一次 user:// 文件是白花的
 	var stall := get_tree().get_first_node_in_group("stall") as Stall
-	_panel.visible = stall != null and stall.player_inside
-	if _panel.visible:
+	var show_now: bool = stall != null and stall.player_inside
+	_panel.visible = show_now
+	if show_now and not _shown:
 		_refresh()
+	_shown = show_now
 
 
 func _refresh() -> void:
@@ -90,6 +94,7 @@ func _on_buy() -> void:
 	var player := get_tree().get_first_node_in_group("player") as Player
 	if player != null:
 		player.apply_skin()
+	_refresh()
 
 
 func _make_theme() -> Theme:

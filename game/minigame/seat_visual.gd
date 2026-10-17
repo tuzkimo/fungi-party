@@ -31,6 +31,14 @@ func setup(index_value: int) -> void:
 	_build_mark()
 
 
+## 座位上的自己也要跟玩家穿的皮肤一致。
+func apply_skin(skin: MushroomSkin) -> void:
+	_body.tint_cap = skin.tint_cap
+	_body.tint_body = skin.tint_body
+	_body.spot_count = skin.spot_count
+	_body.build()
+
+
 func apply(seat: StealEat.Seat, eating: bool, delta: float, watched := false) -> void:
 	_mark.visible = watched or seat.stun > 0.0 or seat.out
 

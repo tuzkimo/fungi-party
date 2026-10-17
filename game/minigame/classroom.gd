@@ -8,7 +8,7 @@ const FLOOR_COLOR := Color(0.62, 0.45, 0.30)
 const WALL_COLOR := Color(0.93, 0.89, 0.80)
 const BOARD_COLOR := Color(0.16, 0.32, 0.26)
 
-var _gaze := Gaze.new()
+var _gaze := Gaze.new(randi())
 var _round := StealEat.new()
 var _eat := EatInput.new()
 var _npcs: Array[NpcSeat] = []
@@ -40,7 +40,13 @@ func _ready() -> void:
 		_press.append(false)
 
 	for i in Config.NPC_GUTS.size():
-		_npcs.append(NpcSeat.new(Config.NPC_GUTS[i], i + 11))
+		_npcs.append(NpcSeat.new(Config.NPC_GUTS[i], randi()))
+
+	# 玩家穿上买了的皮肤，教室里的自己也换色（换场景后 Player 不在，座位 0 才是「我」）
+	if bool(Save.read()["equipped"]):
+		var skin := load(Config.SKIN_PATH) as MushroomSkin
+		if skin != null:
+			_seats[0].apply_skin(skin)
 
 	_ui.again_pressed.connect(func() -> void: get_tree().reload_current_scene())
 	_ui.forest_pressed.connect(func() -> void: get_tree().change_scene_to_file(Config.FOREST_PATH))
@@ -48,6 +54,12 @@ func _ready() -> void:
 
 func _input(event: InputEvent) -> void:
 	_eat.feed(event)
+
+
+func _notification(what: int) -> void:
+	# 系统抢走前台时抬手事件可能永远不来，不清掉就会一直「按着」
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		_eat.finger = -1
 
 
 func _process(delta: float) -> void:
@@ -60,9 +72,8 @@ func _process(delta: float) -> void:
 			var seat_index: int = i + 1
 			_press[seat_index] = _npcs[i].decide(delta, _gaze, seat_index, _round.seats[seat_index].stun > 0.0)
 		var events := _round.tick(delta, _press, _gaze.watching())
-		for caught in events["caught"]:
-			if caught:
-				_ui.flash()
+		if events["caught"][0]:
+			_ui.flash()
 
 	for i in _seats.size():
 		var seat: StealEat.Seat = _round.seats[i]

@@ -47,3 +47,19 @@ func test_big_delta_crosses_phases_once() -> void:
 	var g := Gaze.new(3)
 	g.advance(1000.0)
 	check(g.phase != Gaze.Phase.WATCH or g.watching() == g.target, "大 delta 不把状态机卡在矛盾状态")
+
+func test_warn_alpha_fades_in() -> void:
+	var g := Gaze.new(2)
+	g.advance(g.time_left)
+	var begin := g.alpha()
+	g.advance(Config.GAZE_WARN * 0.5)
+	check(begin < 0.2, "预警刚开始很淡（%f）" % begin)
+	check(g.alpha() > begin, "越接近盯视越显眼")
+
+func test_cone_reaches_every_seat() -> void:
+	for seat in Config.SEAT_POSITIONS:
+		var yaw := Gaze.yaw_to(Config.TEACHER_POS, seat)
+		check(
+			Gaze.seen(Config.TEACHER_POS, yaw, seat, Config.GAZE_HALF_ANGLE, Config.GAZE_RANGE),
+			"视线锥必须够到座位 %s，否则视觉在骗人" % seat
+		)
