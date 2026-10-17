@@ -1,0 +1,42 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://game/world/terrain.gd" id="1_terrain"]
+[ext_resource type="Script" path="res://game/world/forest_gen.gd" id="2_trees"]
+[ext_resource type="PackedScene" path="res://game/player/mushroom.tscn" id="3_player"]
+
+[sub_resource type="ProceduralSkyMaterial" id="Sky_1"]
+sky_top_color = Color(0.33, 0.5, 0.78, 1)
+sky_horizon_color = Color(0.78, 0.85, 0.92, 1)
+ground_bottom_color = Color(0.3, 0.35, 0.28, 1)
+ground_horizon_color = Color(0.78, 0.85, 0.92, 1)
+
+[sub_resource type="Environment" id="Env_1"]
+background_mode = 2
+sky = SubResource("Sky_1")
+ambient_light_source = 2
+ambient_light_color = Color(0.72, 0.78, 0.86, 1)
+ambient_light_energy = 0.3
+tonemap_mode = 2
+fog_enabled = true
+fog_light_color = Color(0.72, 0.8, 0.88, 1)
+fog_density = 0.0012
+
+[node name="Forest" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env_1")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-55, -35, 0)
+light_energy = 1.0
+shadow_enabled = true
+directional_shadow_max_distance = 70.0
+
+[node name="Terrain" type="Node3D" parent="."]
+script = ExtResource("1_terrain")
+
+[node name="ForestGen" type="Node3D" parent="."]
+script = ExtResource("2_trees")
+
+[node name="Player" parent="." instance=ExtResource("3_player")]
+position = Vector3(0, 0.2, 0)
