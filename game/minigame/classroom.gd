@@ -42,6 +42,9 @@ func _ready() -> void:
 	for i in Config.NPC_GUTS.size():
 		_npcs.append(NpcSeat.new(Config.NPC_GUTS[i], i + 11))
 
+	_ui.again_pressed.connect(func() -> void: get_tree().reload_current_scene())
+	_ui.forest_pressed.connect(func() -> void: get_tree().change_scene_to_file(Config.FOREST_PATH))
+
 
 func _input(event: InputEvent) -> void:
 	_eat.feed(event)
