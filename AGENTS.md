@@ -3,9 +3,8 @@
 ## 项目概述
 
 菌子派对（FungiParty）— 安卓横屏单机 3D 小游戏，圆润几何风格的可爱卡通，玩家是一朵蘑菇。
-- 引擎：Godot 4.7.2，Mobile 渲染器，导出 APK
-- 语言：GDScript
-- 美术：全部程序化生成（SurfaceTool / MultiMesh），不依赖外部模型
+- 引擎：Godot 4.7.2，Mobile 渲染器（真机 Redmi 24122RKC7C / Vulkan 1.3 已验证）
+- 语言：GDScript；美术全部程序化生成（内置 mesh + MultiMesh），不依赖外部模型
 - 平台：Android，单机离线，不上架商店
 
 ## 开发命令
@@ -17,19 +16,22 @@ bash scripts/test.sh                                           # 无头测试（
 godot --headless --path . --export-debug "Android" build/app.apk
 adb install -r build/app.apk
 adb shell monkey -p com.tuzki.fungiparty -c android.intent.category.LAUNCHER 1
-adb logcat -s godot                                            # 看设备日志
+adb logcat -s godot                                            # 设备日志（脚本报错靠它）
+adb exec-out screencap -p > shots/shot.png                     # 设备截图
+# release 包需要自己配 keystore；朋友间分发用 --export-debug，装上就能玩
 ```
 
-- Android SDK：`D:/dev/Android/Sdk`
-- JDK：`D:/dev/java/jdk-17.0.15.6-hotspot`
+- Android SDK：`D:/dev/Android/Sdk`　JDK：`D:/dev/java/jdk-17.0.15.6-hotspot`
+- MIUI 会拦 adb 注入输入，触摸只能人肉验；装机需在开发者选项里开「USB 安装」。
 
 ## 技术约束
 
-- Godot 锁定 4.7.2，渲染器 `mobile`（真机不支持 Vulkan 时整体退到 `gl_compatibility`，不并存两条路）。
-- 性能：中端机 60 FPS，低端机 ≥30；可见三角面 <60k，draw call <150。
+- Godot 锁定 4.7.2，渲染器 `mobile`（真机不支持 Vulkan 才整体退到 `gl_compatibility`）。
+- 性能以真机帧率为准：中端机 60 FPS 以上，记录在 `docs/perf-log.md`。
 - 禁止：实时 GI、SSAO、SSR、体积雾、每帧实例化节点。
+- 大件几何一律 MultiMesh；球体分段不要用默认的 64×32。
 - 虚拟摇杆自己用 `Control` + 触摸事件实现，不引第三方插件。
-- 可调数字集中在 `game/config.gd` 的 `const`，不散落在脚本里。
+- 可调数字集中在 `game/config.gd` 的 `const`。
 - 角色逻辑不引用 mesh 节点路径；外观只在 `game/player/mushroom_mesh.gd` 改。
-- 非平凡逻辑先写测试，能抽成纯函数的抽成 `static func`。
+- 非平凡逻辑先写测试，能抽纯函数的抽成 `static func`。
 - 提交信息用中文。
