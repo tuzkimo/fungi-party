@@ -17,11 +17,18 @@ var _pitch := -0.3141593        # -18°
 var _yaw := 0.0
 
 @onready var _camera: Camera3D = $Camera3D
+
 var _touch: TouchControls = null
 
 
 func _ready() -> void:
-	_touch = get_tree().get_first_node_in_group("touch_controls") as TouchControls
+	# 相机是 Player 的子节点，不脱钩就会跟着角色转身一起甩。
+	top_level = true
+
+
+func _find_touch() -> void:
+	if _touch == null:
+		_touch = get_tree().get_first_node_in_group("touch_controls") as TouchControls
 
 
 static func orbit(current: Vector3, drag: Vector2, sens: float, pitch_min: float, pitch_max: float) -> Vector3:
@@ -38,7 +45,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.is_action_pressed("orbit"):
 		_apply_drag(event.relative)
 	elif event is InputEventScreenDrag:
-		if _touch != null and _touch.is_on_control(event.position):
+		_find_touch()
+		# 按手指判，不按位置判：拇指推出摇杆圈外时不该顺手转视角。
+		if _touch != null and _touch.is_stick_finger(event.index):
 			return
 		_apply_drag(event.relative)
 
@@ -49,7 +58,7 @@ func _apply_drag(drag: Vector2) -> void:
 	_yaw = next.y
 
 
-func _process(_delta: float) -> void:
+func _physics_process(_delta: float) -> void:
 	var target := get_node_or_null(target_path) as Node3D
 	if target != null:
 		global_position = target.global_position + Vector3.UP * follow_height

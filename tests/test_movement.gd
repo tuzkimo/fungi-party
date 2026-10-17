@@ -7,11 +7,6 @@ func test_accelerate_no_overshoot() -> void:
 	check(v.x > 0.0, "朝目标移动")
 
 
-func test_accelerate_big_delta_clamped() -> void:
-	var v := Movement.accelerate(Vector3.ZERO, Vector3(10, 0, 0), 20.0, 25.0, 0.5)
-	check(v.length() <= 20.0 / 30.0 + 0.0001, "大 delta 单帧步长上限（实得 %.3f）" % v.length())
-
-
 func test_accelerate_decelerates_to_zero() -> void:
 	var v := Movement.accelerate(Vector3(5, 0, 0), Vector3.ZERO, 20.0, 25.0, 0.016)
 	check(v.length() > 0.0 and v.length() < 5.0, "松手后减速")
@@ -27,3 +22,8 @@ func test_squash_stretch() -> void:
 	check(down.y < 1.0 and down.x > 1.0, "下落压扁")
 	var up := Movement.squash_stretch(10.0, 0.2)
 	check(up.y > 1.0 and up.x < 1.0, "上升拉长")
+
+
+func test_big_delta_does_not_overshoot() -> void:
+	var v := Movement.accelerate(Vector3.ZERO, Vector3(3, 0, 0), 20.0, 25.0, 0.5)
+	check(v.length() <= 3.0001, "大 delta 也不越过目标速度（实得 %.3f）" % v.length())

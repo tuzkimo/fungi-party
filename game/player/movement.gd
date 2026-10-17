@@ -2,14 +2,12 @@ class_name Movement
 
 ## 纯函数移动数学，方便无头测试。Node 脚本只做编排。
 
-const MAX_STEP_DELTA := 1.0 / 30.0
 const SQUASH_REFERENCE_SPEED := 10.0
 
 
 static func accelerate(current: Vector3, target: Vector3, accel: float, decel: float, delta: float) -> Vector3:
-	var dt := minf(delta, MAX_STEP_DELTA)
 	var rate := accel if target.length() > 0.01 else decel
-	return current.move_toward(target, rate * dt)
+	return current.move_toward(target, rate * delta)
 
 
 static func jump_velocity(gravity: float, height: float) -> float:

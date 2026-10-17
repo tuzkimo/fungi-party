@@ -1,9 +1,11 @@
+class_name Player
 extends CharacterBody3D
 
 ## 编排层：读输入、走 Movement 的数学、驱动外观动画。
 ## 不引用任何具体 mesh 节点名字，只认 MushroomMesh 的 scale / position。
 
 @onready var _visual: MushroomMesh = $MushroomMesh
+@onready var _cam: CamRig = $CamRig
 
 var speed_input := Vector2.ZERO
 var _touch: TouchControls = null
@@ -13,12 +15,29 @@ var _land_timer := 0.0
 var _walk_phase := 0.0
 
 
+static func resolve_direction(input: Vector2, camera_yaw: float) -> Vector3:
+	var dir := Vector3(input.x, 0.0, input.y)
+	if dir.length() > 1.0:
+		dir = dir.normalized()
+	return dir.rotated(Vector3.UP, camera_yaw)
+
+
 func _ready() -> void:
 	Controls.ensure()
+
+
+func _find_touch() -> void:
+	# main.tscn 里 TouchControls 排在 Forest 之后，Player._ready 时它还没 add_to_group，
+	# 只在 _ready 里找一次会永远是 null。惰性取，取到为止。
+	if _touch != null:
+		return
 	_touch = get_tree().get_first_node_in_group("touch_controls") as TouchControls
+	if _touch != null:
+		print("touch controls wired")
 
 
 func _physics_process(delta: float) -> void:
+	_find_touch()
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var want_jump := Input.is_action_just_pressed("jump")
 	if _touch != null:
@@ -31,9 +50,7 @@ func _physics_process(delta: float) -> void:
 
 	var on_floor := is_on_floor()
 	var speed := Config.RUN_SPEED if Input.is_action_pressed("run") else Config.WALK_SPEED
-	var dir := Vector3(input.x, 0.0, input.y)
-	if dir.length() > 1.0:
-		dir = dir.normalized()
+	var dir := Player.resolve_direction(input, _cam.global_rotation.y)
 
 	var accel := Config.ACCEL if on_floor else Config.ACCEL * Config.AIR_CONTROL
 	var horizontal := Movement.accelerate(

@@ -11,8 +11,8 @@ extends Node3D
 
 
 static func rim_offset(distance: float, flat: float, outer: float, height: float) -> float:
-	var t := clampf((distance - flat) / (outer - flat), 0.0, 1.0)
-	return t * t * height
+	# 线性而不是二次：二次曲线起点坡度是 0，角色能顺着爬高几米才撞墙。
+	return clampf((distance - flat) / (outer - flat), 0.0, 1.0) * height
 
 
 func _ready() -> void:
@@ -43,8 +43,10 @@ func build() -> void:
 		verts[i] = p
 	arrays[Mesh.ARRAY_VERTEX] = verts
 
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var surface := SurfaceTool.new()
+	surface.create_from_arrays(arrays, Mesh.PRIMITIVE_TRIANGLES)
+	surface.generate_normals()
+	var mesh: ArrayMesh = surface.commit()
 
 	var material := StandardMaterial3D.new()
 	material.albedo_color = Color(0.30, 0.48, 0.26)

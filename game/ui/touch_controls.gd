@@ -19,6 +19,15 @@ var _stick_center := Vector2.ZERO
 var _jump_center := Vector2.ZERO
 
 
+static func safe_insets(screen: Vector2i, safe: Rect2i, viewport: Vector2) -> Vector2:
+	if screen.x <= 0 or screen.y <= 0:
+		return Vector2.ZERO
+	var scale := viewport.x / float(screen.x)
+	var left := maxf(0.0, float(safe.position.x) * scale)
+	var right := maxf(0.0, float(screen.x - safe.position.x - safe.size.x) * scale)
+	return Vector2(left, right)
+
+
 static func joystick_vector(center: Vector2, touch: Vector2, radius: float, deadzone: float) -> Vector2:
 	var delta := touch - center
 	var length := delta.length()
@@ -42,8 +51,19 @@ func _notification(what: int) -> void:
 
 func _layout() -> void:
 	var view := get_viewport_rect().size
-	_stick_center = Vector2(EDGE_MARGIN + STICK_RADIUS, view.y - EDGE_MARGIN - STICK_RADIUS)
-	_jump_center = Vector2(view.x - EDGE_MARGIN - JUMP_RADIUS, view.y - EDGE_MARGIN - JUMP_RADIUS)
+	var insets := TouchControls.safe_insets(
+		DisplayServer.screen_get_size(), DisplayServer.get_display_safe_area(), view
+	)
+	_stick_center = Vector2(
+		insets.x + EDGE_MARGIN + STICK_RADIUS, view.y - EDGE_MARGIN - STICK_RADIUS
+	)
+	_jump_center = Vector2(
+		view.x - insets.y - EDGE_MARGIN - JUMP_RADIUS, view.y - EDGE_MARGIN - JUMP_RADIUS
+	)
+
+
+func is_stick_finger(index: int) -> bool:
+	return index >= 0 and index == _stick_finger
 
 
 func is_on_control(pos: Vector2) -> bool:

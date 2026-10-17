@@ -15,8 +15,13 @@ func _initialize() -> void:
 		for m in case.get_method_list():
 			var method_name: String = m["name"]
 			if method_name.begins_with("test_"):
+				var before_calls: int = case.total
 				case.call(method_name)
 				total += 1
+				if case.total == before_calls:
+					# 方法内抛了运行时错误会中断该函数，断言一条都没执行
+					printerr("FAIL: %s::%s 没有执行到任何断言（运行时错误？）" % [f, method_name])
+					failures += 1
 		failures += case.failures - before
 		print("  %s: %d 项，失败 %d" % [f, case.total, case.failures])
 	print("测试 %d 项，失败 %d 项" % [total, failures])

@@ -106,6 +106,15 @@ func _build_rocks(rng: RandomNumberGenerator) -> void:
 		rocks.set_instance_transform(i, Transform3D(basis, spots[i] + Vector3.UP * 0.15))
 		rocks.set_instance_color(i, _tint(rng, Color(0.55, 0.55, 0.57), 0.08))
 
+		var body := StaticBody3D.new()
+		var shape := CollisionShape3D.new()
+		var sphere := SphereShape3D.new()
+		sphere.radius = 0.55 * scale_factor
+		shape.shape = sphere
+		shape.position = spots[i] + Vector3.UP * 0.15
+		body.add_child(shape)
+		add_child(body)
+
 
 func _multimesh(node_name: String, mesh: Mesh, count: int, _rng: RandomNumberGenerator) -> MultiMesh:
 	var multimesh := MultiMesh.new()

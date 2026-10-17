@@ -2,6 +2,10 @@ extends CanvasLayer
 
 @onready var _label: Label = $Label
 
+
+func _ready() -> void:
+	visible = OS.is_debug_build()
+
 func _process(_delta: float) -> void:
 	_label.text = "FPS %d  DRAW %d  TRI %d" % [
 		Engine.get_frames_per_second(),
