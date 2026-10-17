@@ -24,6 +24,21 @@ static func resolve_direction(input: Vector2, camera_yaw: float) -> Vector3:
 
 func _ready() -> void:
 	Controls.ensure()
+	add_to_group("player")
+	apply_skin()
+
+
+## 有皮肤且已穿戴时，把皮肤的三个数写进外观再重建一次。
+func apply_skin() -> void:
+	if not bool(Save.read()["equipped"]):
+		return
+	var skin := load(Config.SKIN_PATH) as MushroomSkin
+	if skin == null:
+		return
+	_visual.tint_cap = skin.tint_cap
+	_visual.tint_body = skin.tint_body
+	_visual.spot_count = skin.spot_count
+	_visual.build()
 
 
 func _find_touch() -> void:

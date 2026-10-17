@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="MushroomSkin" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/skins/mushroom_skin.gd" id="1_skin"]
+
+[resource]
+script = ExtResource("1_skin")
+tint_cap = Color(0.35, 0.45, 0.95, 1)
+tint_body = Color(0.86, 0.9, 0.98, 1)
+spot_count = 9
