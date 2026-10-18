@@ -65,6 +65,8 @@ func _ready() -> void:
 	_ui.forest_pressed.connect(_to_forest)
 	_ui.quit_pressed.connect(_quit)
 	_ui.throw_pressed.connect(_on_throw_pressed)
+	# 倒数期间两个投掷键不接收触摸
+	_ui.set_armed(false)
 
 	# 开局那颗：模型已经点燃了，视觉上让它从篝火飞过去
 	_round.events.clear()
@@ -83,6 +85,8 @@ func _physics_process(delta: float) -> void:
 	if _countdown_shown >= 0:
 		_countdown_shown = -1
 		_ui.hide_countdown()
+		_ui.set_armed(true)
+		_round.queued_side = 0
 	if _settled:
 		return
 

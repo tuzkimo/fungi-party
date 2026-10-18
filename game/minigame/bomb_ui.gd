@@ -202,6 +202,12 @@ func _button(text: String, width: float) -> Button:
 	return button
 
 
+## 倒数期间把两个投掷键关掉：新一局开场时的残留触摸/复用事件一律点不动，
+## 只有倒数结束后新按下的手指才算数。
+func set_armed(value: bool) -> void:
+	_set_armed(value)
+
+
 func show_countdown(text: String) -> void:
 	_countdown.text = text
 	_countdown.visible = true
