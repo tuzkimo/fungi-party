@@ -25,7 +25,15 @@ var _start_flash := 0.0
 @onready var _ui: ClassroomUI = $UI
 
 
+func _bail_to_forest() -> void:
+	get_tree().change_scene_to_file(Config.FOREST_PATH)
+
+
 func _ready() -> void:
+	if not Save.spend_stamina(Config.STAMINA_COST_CLASSROOM):
+		# 体力不够就别开始，直接回森林；_ready 里换场景要延后
+		call_deferred("_bail_to_forest")
+		return
 	Controls.ensure()
 	_camera.look_at(Vector3(0.0, 0.8, -1.5))
 	_build_room()

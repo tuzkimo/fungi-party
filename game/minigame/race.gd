@@ -31,7 +31,15 @@ var _dash_requested := false
 var _settled := false
 
 
+func _bail_to_forest() -> void:
+	get_tree().change_scene_to_file(Config.FOREST_PATH)
+
+
 func _ready() -> void:
+	if not Save.spend_stamina(Config.STAMINA_COST_RACE):
+		# 体力不够就别开始，直接回森林；_ready 里换场景要延后
+		call_deferred("_bail_to_forest")
+		return
 	Controls.ensure()
 	_camera = $Camera3D
 	_ui = $UI

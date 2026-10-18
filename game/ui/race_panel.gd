@@ -5,6 +5,8 @@ extends CanvasLayer
 ## 和校门/商店一样每帧惰性找 start_gate：场景往返后旧引用都会失效。
 
 var _root: Control
+var _start: Button
+var _cost_label: Label
 
 
 func _ready() -> void:
@@ -50,20 +52,34 @@ func _ready() -> void:
 	rules.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(rules)
 
-	var start := Button.new()
-	start.text = "开始比赛"
-	start.custom_minimum_size = Vector2(240.0, 64.0)
-	start.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	start.pressed.connect(_on_start)
-	UIStyle.style_button(start)
-	box.add_child(start)
+	_cost_label = Label.new()
+	_cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(_cost_label)
+
+	_start = Button.new()
+	_start.text = "开始比赛"
+	_start.custom_minimum_size = Vector2(240.0, 64.0)
+	_start.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_start.pressed.connect(_on_start)
+	UIStyle.style_button(_start)
+	box.add_child(_start)
 
 	root.visible = false
 
 
 func _process(_delta: float) -> void:
 	var gate := get_tree().get_first_node_in_group("start_gate") as StartGate
-	_root.visible = gate != null and gate.player_inside
+	var show_now: bool = gate != null and gate.player_inside
+	_root.visible = show_now
+	if show_now:
+		_refresh()
+
+
+func _refresh() -> void:
+	var stamina := int(Save.read()["stamina"])
+	var can := Day.can_play(stamina, Config.STAMINA_COST_RACE)
+	_start.disabled = not can
+	_cost_label.text = Day.entry_label(stamina, Config.STAMINA_COST_RACE)
 
 
 func _on_start() -> void:
