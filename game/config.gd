@@ -92,6 +92,17 @@ const SUN_DISTANCE := 120.0
 const SUN_RADIUS := 4.5
 const MOON_RADIUS := 3.2
 const SKY_BODY_MIN_ELEVATION := -0.15
+# v3 天空：低多边形云 + 会闪的星星（见 docs/superpowers/specs/2026-10-18-v3-sky-design.md）
+const CLOUD_COUNT := 10
+const CLOUD_PUFFS := 4
+const CLOUD_DISTANCE := 210.0
+const CLOUD_HEIGHT_MIN := 95.0
+const CLOUD_HEIGHT_MAX := 160.0
+const CLOUD_DRIFT := 0.004
+const STAR_COUNT := 150
+const STAR_GROUPS := 3
+const STAR_DISTANCE := 300.0
+const STAR_TWINKLE_SPEED := 2.4
 
 # v3 传炸弹
 const BOMB_SEAT_RADIUS := 2.2

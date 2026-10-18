@@ -12,10 +12,21 @@ const MAX_AMBIENT_ENERGY := 0.55
 const MIN_AMBIENT_ENERGY := 0.38
 const SUN_NOON := Color(1.0, 0.98, 0.92)
 const SUN_DAWN := Color(1.0, 0.62, 0.35)
-const SKY_DAY_TOP := Color(0.33, 0.5, 0.78)
-const SKY_DAY_HORIZON := Color(0.78, 0.85, 0.92)
-const SKY_NIGHT_TOP := Color(0.06, 0.08, 0.18)
-const SKY_NIGHT_HORIZON := Color(0.20, 0.24, 0.36)
+## 天色关键帧：t 与两条颜色曲线一一对应。玩家实际只看到 0.28 ~ 0.86 这一段
+## （满体力是 0.28，见底压到 0.86），所以表只铺到这里。
+const SKY_KEYS_T: Array[float] = [0.28, 0.36, 0.50, 0.68, 0.78, 0.80, 0.84, 0.86]
+const SKY_TOP_KEYS: Array[Color] = [
+	Color(0.58, 0.62, 0.84), Color(0.29, 0.55, 0.83), Color(0.18, 0.43, 0.78),
+	Color(0.24, 0.44, 0.71), Color(0.42, 0.42, 0.66), Color(0.27, 0.25, 0.48),
+	Color(0.10, 0.11, 0.24), Color(0.04, 0.06, 0.14),
+]
+const SKY_HORIZON_KEYS: Array[Color] = [
+	Color(1.0, 0.73, 0.54), Color(0.81, 0.89, 0.96), Color(0.86, 0.92, 0.97),
+	Color(0.95, 0.85, 0.75), Color(1.0, 0.65, 0.42), Color(1.0, 0.43, 0.24),
+	Color(0.42, 0.24, 0.31), Color(0.11, 0.15, 0.26),
+]
+const CLOUD_WHITE := Color(1.0, 1.0, 1.0)
+const CLOUD_WARM := Color(1.0, 0.78, 0.62)
 
 @export var sun_path: NodePath
 @export var environment_path: NodePath
@@ -65,21 +76,44 @@ static func sun_color(t: float) -> Color:
 
 
 static func sky_top(t: float) -> Color:
-	return SKY_NIGHT_TOP.lerp(SKY_DAY_TOP, smoothstep(0.20, 0.40, t) if t < 0.5 else smoothstep(0.80, 0.60, t))
+	return _ramp(t, SKY_TOP_KEYS)
 
 
 static func sky_horizon(t: float) -> Color:
-	var day := SKY_NIGHT_HORIZON.lerp(SKY_DAY_HORIZON, smoothstep(0.20, 0.35, t))
-	if t >= 0.5:
-		day = SKY_NIGHT_HORIZON.lerp(SKY_DAY_HORIZON, smoothstep(0.80, 0.65, t))
-	return day.lerp(SUN_DAWN, 0.25 * (1.0 - sun_energy(t)))
+	return _ramp(t, SKY_HORIZON_KEYS)
+
+
+## 云看不看得见：天黑就没了，朝霞和晚霞都还在。
+static func cloud_fade(t: float) -> float:
+	return 1.0 - smoothstep(0.76, 0.84, t)
+
+
+## 云的颜色：太阳越低越暖（朝霞和晚霞里的云才是暖的）。
+static func cloud_color(t: float) -> Color:
+	return CLOUD_WHITE.lerp(CLOUD_WARM, clampf(1.0 - sun_energy(t), 0.0, 1.0) * 0.8)
+
+
+## 星星：0.78 起淡入，天黑透才满。
+static func star_fade(t: float) -> float:
+	return smoothstep(0.78, 0.855, t)
+
+
+## 关键帧插值：t 落在表外取两端。
+static func _ramp(t: float, keys: Array[Color]) -> Color:
+	if t <= SKY_KEYS_T[0]:
+		return keys[0]
+	for i in range(1, SKY_KEYS_T.size()):
+		if t <= SKY_KEYS_T[i]:
+			var k: float = (t - SKY_KEYS_T[i - 1]) / (SKY_KEYS_T[i] - SKY_KEYS_T[i - 1])
+			return keys[i - 1].lerp(keys[i], k)
+	return keys[keys.size() - 1]
 
 
 static func ambient_color(t: float) -> Color:
 	if t < 0.25:
 		return NIGHT.lerp(DAWN, smoothstep(0.10, 0.25, t))
-	if t < 0.35:
-		return DAWN.lerp(DAY, smoothstep(0.25, 0.35, t))
+	if t < 0.36:
+		return DAWN.lerp(DAY, smoothstep(0.22, 0.36, t))
 	if t < 0.65:
 		return DAY
 	if t < 0.75:

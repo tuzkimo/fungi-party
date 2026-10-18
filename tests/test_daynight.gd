@@ -67,3 +67,40 @@ func test_moon_is_opposite_and_complementary() -> void:
 	check(not DayNight.body_visible(DayNight.moon_dir(0.5)), "白天看不见月亮")
 	check(DayNight.body_visible(DayNight.moon_dir(0.0)), "夜里看得见月亮")
 	check(not DayNight.body_visible(DayNight.sun_dir(0.0)), "夜里看不见太阳")
+
+
+func test_sky_is_blue_at_noon() -> void:
+	var top := DayNight.sky_top(0.5)
+	check(top.b > top.r + 0.3, "正午天顶是蓝的（r %.2f b %.2f）" % [top.r, top.b])
+	check(DayNight.sky_horizon(0.5).v > 0.85, "正午地平线接近白（v %.2f）" % DayNight.sky_horizon(0.5).v)
+
+
+func test_sky_darkens_into_night() -> void:
+	var night := DayNight.sky_top(0.86)
+	check(night.v < 0.2, "入夜天顶很暗（实得 %.2f）" % night.v)
+	check(night.b > night.r, "夜色偏蓝")
+
+
+func test_dawn_glow_is_warm() -> void:
+	var dawn := DayNight.sky_horizon(0.28)
+	check(dawn.r > dawn.b + 0.3, "刚醒的地平线是暖的（r %.2f b %.2f）" % [dawn.r, dawn.b])
+
+
+func test_sunset_gives_sunset_colors() -> void:
+	var sunset := DayNight.sky_horizon(0.80)
+	check(sunset.r > sunset.g + 0.3 and sunset.r > sunset.b + 0.4, "晚霞是橙红的")
+
+
+func test_clouds_fade_out_at_night_only() -> void:
+	check(DayNight.cloud_fade(0.28) > 0.9, "朝霞时也有云")
+	check(DayNight.cloud_fade(0.5) > 0.99, "白天有云")
+	check(DayNight.cloud_fade(0.86) < 0.01, "夜里看不见云")
+	var white := DayNight.cloud_color(0.5)
+	check(white.v > 0.95 and white.s < 0.1, "白天云是白的")
+	check(DayNight.cloud_color(0.80).r > DayNight.cloud_color(0.80).b + 0.2, "晚霞里的云是暖的")
+
+
+func test_stars_only_at_night() -> void:
+	check(DayNight.star_fade(0.5) < 0.01, "白天没有星星")
+	check(DayNight.star_fade(0.80) < 0.3, "晚霞时星星还没出来")
+	check(DayNight.star_fade(0.86) > 0.99, "天黑了满天星")
