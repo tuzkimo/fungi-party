@@ -123,3 +123,14 @@ func test_tier_and_danger() -> void:
 	r.fuse = Config.BOMB_TIER_HOT - 0.1
 	check_eq(r.tier(), 2, "发白")
 	check(is_equal_approx(r.danger(), 0.0) or true, "danger 不为 NaN")
+
+
+func test_npc_cannot_throw_during_lock() -> void:
+	# 设计文档 4.5：人机也受相同的 0.3 秒站稳限制
+	var r := BombRound.new(20)
+	r.holder = 1
+	r.lock = Config.BOMB_CATCH_LOCK
+	r.fuse = 0.5
+	r.tick(0.05)
+	check_eq(r.holder, 1, "硬直期间人机也扔不出去")
+	check_eq(r.flight, 0.0, "没有偷偷起飞")

@@ -176,7 +176,7 @@ func _explode() -> void:
 
 ## 抱到自己的忍耐线就扔；记仇型优先扔回上一手扔给他的人。
 func _npc_think() -> void:
-	if holder <= PLAYER:
+	if holder <= PLAYER or lock > 0.0:
 		return
 	var style: int = NPC_STYLE[holder - 1]
 	var deadline := clampf(float(Config.BOMB_NPC_THROW_AT[style]) - _error, 0.3, 2.5)
