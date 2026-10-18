@@ -7,11 +7,21 @@ const COUNTDOWN_SECONDS := 3.0
 const START_FLASH := 0.5
 const CAMERA_HEIGHT := 3.5
 const CAMERA_BACK := 7.0
+const RIVAL_STYLES := [RaceRacer.Style.STEADY, RaceRacer.Style.HUGGER, RaceRacer.Style.DASHER]
+const RIVAL_COLORS := [Color(0.32, 0.55, 0.88), Color(0.66, 0.40, 0.86), Color(0.95, 0.58, 0.25)]
+const RIVAL_X := [-2.5, 0.0, 2.5]
+const RIVAL_Z_STEP := 0.6
+const PINE_SIZE := 0.6
+const PINE_COLOR := Color(0.42, 0.30, 0.16)
 
 var _field := RaceField.new(randi())
 var _player: RacePlayer
 var _camera: Camera3D
 var _touch: TouchControls
+var _rivals: Array[RaceRacer] = []
+var _rival_visuals: Array[RacerVisual] = []
+var _animals: Array[AnimalActor] = []
+var _dropped: Array[bool] = []
 var _elapsed := 0.0
 var _countdown := COUNTDOWN_SECONDS
 var _touch_jump := false
@@ -29,6 +39,8 @@ func _ready() -> void:
 	_player = RacePlayer.new()
 	_player.name = "Player"
 	add_child(_player)
+	_spawn_rivals()
+	_spawn_animals()
 	_follow_player()
 
 	var layout := PackedStringArray()
@@ -43,9 +55,76 @@ func _physics_process(delta: float) -> void:
 		return
 	_elapsed += delta
 	_feed()
+	_update_actors(delta)
 	if _player.finished and _player.finish_time <= 0.0:
 		_player.finish_time = _elapsed
 	_follow_player()
+
+
+func _spawn_rivals() -> void:
+	for i in RIVAL_STYLES.size():
+		var racer := RaceRacer.new(RIVAL_STYLES[i], randi())
+		racer.x = RIVAL_X[i]
+		racer.z = RIVAL_Z_STEP * float(i + 1)
+		_rivals.append(racer)
+		var visual := RacerVisual.new()
+		visual.name = "Rival%d" % i
+		add_child(visual)
+		visual.setup(RIVAL_COLORS[i])
+		visual.apply(racer)
+		_rival_visuals.append(visual)
+
+
+func _spawn_animals() -> void:
+	for i in _field.crossings.size():
+		var crossing: RaceField.Crossing = _field.crossings[i]
+		var animal := AnimalActor.new()
+		animal.name = "Animal%d" % i
+		add_child(animal)
+		animal.setup(crossing.kind, crossing.side, crossing.z)
+		animal.advance(-1.0)
+		_animals.append(animal)
+		_dropped.append(false)
+
+
+func _update_actors(delta: float) -> void:
+	for i in _rivals.size():
+		_rivals[i].advance(delta, _field, _elapsed)
+		_rival_visuals[i].apply(_rivals[i])
+	for i in _animals.size():
+		var crossing: RaceField.Crossing = _field.crossings[i]
+		_animals[i].advance(_elapsed - crossing.time)
+		_drop_pinecone(i, crossing)
+
+
+## 松鼠横穿到一半时把松果丢在中线，整局留在原地。
+func _drop_pinecone(index: int, crossing: RaceField.Crossing) -> void:
+	if _dropped[index] or crossing.kind != RaceField.SQUIRREL:
+		return
+	if _elapsed < crossing.time + Config.RACE_ANIMAL_WARN + RaceField.WALK_IN:
+		return
+	_dropped[index] = true
+	var pine := StaticBody3D.new()
+	pine.name = "Pinecone%d" % index
+	pine.add_to_group("hazard")
+	pine.position = Vector3(0.0, PINE_SIZE * 0.5, crossing.z)
+	add_child(pine)
+
+	var mesh := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3.ONE * PINE_SIZE
+	mesh.mesh = box
+	var material := StandardMaterial3D.new()
+	material.albedo_color = PINE_COLOR
+	material.roughness = 0.9
+	mesh.material_override = material
+	pine.add_child(mesh)
+
+	var shape := CollisionShape3D.new()
+	var shape_box := BoxShape3D.new()
+	shape_box.size = Vector3.ONE * PINE_SIZE
+	shape.shape = shape_box
+	pine.add_child(shape)
 
 
 func _feed() -> void:
