@@ -6,8 +6,8 @@
 - 引擎：Godot 4.7.2，Mobile 渲染器（真机 Redmi 24122RKC7C / Vulkan 1.3 已验证）
 - 语言：GDScript；美术全部程序化生成（内置 mesh + MultiMesh），不依赖外部模型
 - 平台：Android，单机离线，不上架商店
-- v3：森林里三个 POI —— 校门（进教室偷吃）、摊位（开商店买皮肤）、起跑线（进 220m 障碍赛跑）；两款小游戏都是自包含单场景，名次/口数换蘑菇币
-- 场景：`game/world/` 森林与 POI、`game/minigame/` 教室与赛跑、`game/skins/` 皮肤数据（`.tres`）、`game/ui/` HUD 与浮层
+- v3：森林里六个 POI —— 校门（进教室偷吃）、摊位（开商店买皮肤）、起跑线（进 220m 障碍赛跑）、蘑菇圈（进传炸弹）、饭店（花币吃饭回体力）、帐篷（睡觉过夜、换衣服）；体力按局扣，天色由体力派生，三款小游戏都是自包含单场景，名次/口数换蘑菇币
+- 场景：`game/world/` 森林与 POI、`game/minigame/` 教室/赛跑/传炸弹、`game/skins/` 皮肤数据（`.tres`）、`game/ui/` HUD 与浮层
 
 ## 开发命令
 
@@ -37,5 +37,6 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
 - 可调数字集中在 `game/config.gd` 的 `const`。
 - 角色逻辑不引用 mesh 节点路径；外观只在 `game/player/mushroom_mesh.gd` 改。
 - 教室是自包含单场景，节点间直接 `$` 引用；森林侧的跨场景引用（摊位/玩家）每帧惰性 `get_first_node_in_group`，别在 `_ready` 里查。
+- 体力与天色只有 `game/systems/day.gd` 一套公式；别处不许再算天色。扣体力只在小游戏 `_ready` 一处。
 - 非平凡逻辑先写测试，能抽纯函数的抽成 `static func`。
 - 提交信息用中文。
