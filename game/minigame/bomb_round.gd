@@ -31,6 +31,8 @@ var _error := 0.0
 var _giver := -1
 var _burn := 1.0
 var _burn_left := BURN_REROLL
+## 人机这次接住打算抱多久；引信很长也照这个节奏出手。
+var _hold_left := 0.0
 
 
 func _init(seed_value: int = 1) -> void:
@@ -61,7 +63,7 @@ func tick(delta: float) -> void:
 		if queued_side != 0 and lock <= 0.0:
 			_throw(queued_side)
 		return
-	_npc_think()
+	_npc_think(delta)
 
 
 ## side：-1 左 / +1 右。硬直期间只记方向（回来一结束自动扔），空中或已死直接拒绝。
@@ -109,6 +111,7 @@ func _ignite() -> void:
 	flight = 0.0
 	_giver = -1
 	_error = _roll_error(holder)
+	_hold_left = _roll_hold(holder)
 	events.append({"kind": "ignite", "seat": holder})
 
 
@@ -118,6 +121,14 @@ func _roll_fuse() -> float:
 		span = Config.BOMB_FUSE_3
 	elif alive.size() <= 2:
 		span = Config.BOMB_FUSE_2
+	return _rng.randf_range(span.x, span.y)
+
+
+## 人机每次接住重掷「打算抱多久」；玩家座位由玩家自己决定，永远是 0。
+func _roll_hold(seat: int) -> float:
+	if seat == PLAYER:
+		return 0.0
+	var span: Vector2 = Config.BOMB_NPC_HOLD[NPC_STYLE[seat - 1]]
 	return _rng.randf_range(span.x, span.y)
 
 
@@ -152,6 +163,7 @@ func _land() -> void:
 	lock = Config.BOMB_CATCH_LOCK
 	queued_side = 0
 	_error = _roll_error(holder)
+	_hold_left = _roll_hold(holder)
 
 
 func _explode() -> void:
@@ -176,13 +188,16 @@ func _explode() -> void:
 	_ignite()
 
 
-## 抱到自己的忍耐线就扔；记仇型优先扔回上一手扔给他的人。
-func _npc_think() -> void:
-	if holder <= PLAYER or lock > 0.0:
+## 抱够自己的节奏、或者引信逼近忍耐线，就扔；记仇型优先扔回上一手扔给他的人。
+func _npc_think(delta: float) -> void:
+	if holder <= PLAYER:
+		return
+	_hold_left -= delta
+	if lock > 0.0:
 		return
 	var style: int = NPC_STYLE[holder - 1]
 	var deadline := clampf(float(Config.BOMB_NPC_THROW_AT[style]) - _error, 0.3, 2.5)
-	if fuse > deadline:
+	if fuse > deadline and _hold_left > 0.0:
 		return
 	var side := -1 if _rng.randf() < 0.5 else 1
 	if style == Style.SPITEFUL:

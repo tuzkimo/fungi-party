@@ -70,9 +70,9 @@ const RACE_PATH := "res://game/minigame/race.tscn"
 
 # v3 传炸弹
 const BOMB_SEAT_RADIUS := 2.2
-const BOMB_FUSE_4 := Vector2(6.0, 11.0)
-const BOMB_FUSE_3 := Vector2(5.0, 9.0)
-const BOMB_FUSE_2 := Vector2(3.0, 6.0)
+const BOMB_FUSE_4 := Vector2(10.0, 16.0)
+const BOMB_FUSE_3 := Vector2(8.0, 13.0)
+const BOMB_FUSE_2 := Vector2(5.0, 9.0)
 const BOMB_FUSE_JITTER := 0.15
 const BOMB_THROW_SECONDS := 0.2
 const BOMB_CATCH_LOCK := 0.3
@@ -83,3 +83,6 @@ const BOMB_RANK_COINS := [70, 50, 35, 20]
 const BOMB_PATH := "res://game/minigame/bomb.tscn"
 const BOMB_NPC_ERROR := [0.5, 1.2, 0.7]
 const BOMB_NPC_THROW_AT := [1.2, 0.5, 0.9]
+# 人机每次接住打算抱多久（蓝 / 红 / 紫）：引信还长的时候也照这个节奏往外扔，
+# 不然炸弹会一直在一个人手里，玩家没得玩
+const BOMB_NPC_HOLD := [Vector2(0.6, 1.3), Vector2(1.2, 2.6), Vector2(0.8, 1.8)]

@@ -146,3 +146,27 @@ func test_request_throw_when_npc_holds_is_rejected() -> void:
 	check(not r.request_throw(1), "炸弹不在自己手上时按不动")
 	check_eq(r.holder, 1, "炸弹留在人机手里")
 	check_eq(r.queued_side, 0, "也不会被记成待扔方向")
+
+
+func test_npc_passes_periodically() -> void:
+	# 人机不能一直抱着：长引信下也要在几秒内出手（不然炸弹总是在一个人手里）
+	var r := BombRound.new(22)
+	r.holder = 1
+	r.lock = 0.0
+	r.flight = 0.0
+	r.fuse = 10.0
+	_run_until(r, 3.0)
+	var thrown := r.events.any(func(e): return e["kind"] == "throw")
+	check(thrown or r.holder != 1, "人机抱着的时间有上限")
+
+
+func test_round_has_many_passes() -> void:
+	# 「多扔几次」：一局至少十次传递，不能是抱着不动
+	for seed_value in [1, 3, 5]:
+		var r := BombRound.new(seed_value)
+		var throws := 0
+		_run_until(r, 120.0)
+		for e in r.events:
+			if e["kind"] == "throw":
+				throws += 1
+		check(throws >= 10, "seed %d 一局只有 %d 次传递（至少 10 次）" % [seed_value, throws])
