@@ -44,3 +44,26 @@ const SKIN_PRICE := 200
 const SKIN_PATH := "res://game/skins/blueberry.tres"
 const CLASSROOM_PATH := "res://game/minigame/classroom.tscn"
 const FOREST_PATH := "res://game/main.tscn"
+
+# v3 森林赛跑
+const RACE_TRACK_LENGTH := 220.0
+const RACE_TRACK_HALF_WIDTH := 4.5
+const RACE_BASE_SPEED := 6.0
+const RACE_DASH_SPEED := 12.0
+const RACE_DASH_SECONDS := 0.3
+const RACE_DASH_COOLDOWN := 3.0
+const RACE_HIT_PUSH := 1.5
+const RACE_HIT_FREEZE := 0.6
+const RACE_GROUP_MIN_GAP := 12.0
+const RACE_GROUP_MAX_GAP := 18.0
+const RACE_TALL_CHANCE := 0.7
+const RACE_LOW_CHANCE := 0.2
+const RACE_TALL_WIDTH := 2.6
+const RACE_LOW_WIDTH := 3.4
+const RACE_ANIMAL_COUNT := 6
+const RACE_ANIMAL_WARN := 1.0
+const RACE_ANIMAL_CLEAR := 8.0
+const RACE_RANK_COINS := [70, 50, 35, 20]
+const RACE_HIT_PENALTY := 5
+const RACE_TIME_LIMIT := 120.0
+const RACE_PATH := "res://game/minigame/race.tscn"
