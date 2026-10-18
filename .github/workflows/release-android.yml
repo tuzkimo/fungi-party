@@ -1,0 +1,135 @@
+name: release-android
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: release-android
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  GODOT_RELEASE: 4.7.2-stable
+  GODOT_TEMPLATES_DIR: 4.7.2.stable
+  BUILD_TOOLS: "35.0.0"
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 校验签名 Secrets 完整性
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=0
+          for v in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!v}" ]; then
+              echo "::error::缺少 Secret: ${v}，请到仓库 Settings > Secrets and variables > Actions 添加"
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: 读取版本号，tag 时校验一致
+        run: |
+          VERSION=$(sed -n 's/^version\/name="\(.*\)"/\1/p' export_presets.cfg)
+          if [ -z "$VERSION" ]; then
+            echo "::error::export_presets.cfg 里读不到 version/name"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "版本号 $VERSION"
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            if [ "$VERSION" != "$TAG_VERSION" ]; then
+              echo "::error::tag ${GITHUB_REF_NAME} 与 export_presets.cfg 的 version/name ${VERSION} 不一致，先 bump 版本号或改用正确 tag"
+              exit 1
+            fi
+          fi
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: 安装 Android build-tools
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "build-tools;${BUILD_TOOLS}" > /dev/null
+          echo "ANDROID_HOME=${ANDROID_HOME}" >> "$GITHUB_ENV"
+
+      - name: 安装 Godot
+        run: |
+          curl -fsSL -o godot.zip \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_linux.x86_64.zip"
+          unzip -q godot.zip
+          sudo mv "Godot_v${GODOT_RELEASE}_linux.x86_64" /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+          godot --version
+
+      - name: 安装导出模板
+        run: |
+          curl -fsSL -o templates.tpz \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_export_templates.tpz"
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_TEMPLATES_DIR}"
+          unzip -q templates.tpz -d /tmp/templates
+          mv /tmp/templates/templates/* "$HOME/.local/share/godot/export_templates/${GODOT_TEMPLATES_DIR}/"
+          ls "$HOME/.local/share/godot/export_templates/${GODOT_TEMPLATES_DIR}/" | head -5
+
+      - name: 无头测试
+        run: bash scripts/test.sh
+
+      - name: 还原签名材料
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/fungi-party-release.keystore"
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/fungi-party-release.keystore" >> "$GITHUB_ENV"
+
+      - name: 导出 arm64 release APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          # Godot 4 在没有编辑器配置的机器上靠这三个环境变量找发布密钥
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$KEYSTORE_PATH"
+          export GODOT_ANDROID_KEYSTORE_RELEASE_USER="$ANDROID_KEY_ALIAS"
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$ANDROID_KEYSTORE_PASSWORD"
+          godot --headless --path . --export-release "Android" "build/fungi_party_${VERSION}_arm64.apk"
+          ls -la "build/fungi_party_${VERSION}_arm64.apk"
+
+      - name: 校验签名与版本
+        run: |
+          APK="build/fungi_party_${VERSION}_arm64.apk"
+          APKSIGNER="$ANDROID_HOME/build-tools/${BUILD_TOOLS}/apksigner"
+          "$APKSIGNER" verify --print-certs "$APK"
+          if "$ANDROID_HOME/build-tools/${BUILD_TOOLS}/aapt" dump badging "$APK" | grep -q application-debuggable; then
+            echo "::error::产物带 debuggable 标记，不是 release 包"
+            exit 1
+          fi
+          echo "同目录产物："
+          ls -la build/*.apk
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: fungi_party_${{ env.VERSION }}_arm64
+          path: build/fungi_party_${{ env.VERSION }}_arm64.apk
+          if-no-files-found: error
+
+      - name: 发布 GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/fungi_party_${{ env.VERSION }}_arm64.apk
+          generate_release_notes: true
