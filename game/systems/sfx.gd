@@ -27,6 +27,14 @@ func _ready() -> void:
 	_ensure()
 
 
+## 强制退出时还挂着播放中的流，会留下 AudioStream 泄漏告警。
+func _exit_tree() -> void:
+	if _fizz != null:
+		_fizz.stop()
+	if _oneshot != null:
+		_oneshot.stop()
+
+
 ## 滴答只在 danger > 0（进入冒白星档附近）之后才响，越危险越急。
 func _process(delta: float) -> void:
 	if _danger <= 0.0:
