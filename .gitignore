@@ -6,3 +6,4 @@ skins/local/
 .vscode/
 export_credentials.cfg
 shots/
+refs/
