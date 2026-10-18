@@ -64,7 +64,7 @@ func _ready() -> void:
 	_ui.again_pressed.connect(_restart)
 	_ui.forest_pressed.connect(_to_forest)
 	_ui.quit_pressed.connect(_quit)
-	_ui.throw_pressed.connect(func(side: int) -> void: _round.request_throw(side))
+	_ui.throw_pressed.connect(_on_throw_pressed)
 
 	# 开局那颗：模型已经点燃了，视觉上让它从篝火飞过去
 	_round.events.clear()
@@ -93,6 +93,13 @@ func _physics_process(delta: float) -> void:
 	_update_visuals(delta)
 	if _round.over or not _round.alive.has(BombRound.PLAYER):
 		_settle()
+
+
+## 倒数期间按按钮不许记账：否则倒数一结束炸弹会自己飞出去（玩家根本没按）。
+func _on_throw_pressed(side: int) -> void:
+	if _countdown > 0.0 or _settled:
+		return
+	_round.request_throw(side)
 
 
 func _feed() -> void:
