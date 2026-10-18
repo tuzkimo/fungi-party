@@ -30,6 +30,26 @@ static func sun_rotation(t: float) -> Vector3:
 	return Vector3(deg_to_rad(90.0 - 360.0 * t), deg_to_rad(-30.0), 0.0)
 
 
+## 从地面指向太阳的单位向量：+Z 侧升起、正午头顶、-Z 侧落下。
+## 直接用 sun_rotation 的基，不另定一套角度。
+static func sun_dir(t: float) -> Vector3:
+	return Basis.from_euler(sun_rotation(t)).z.normalized()
+
+
+## 月亮在天色上的刻度：永远比太阳晚半圈。
+static func moon_dir_t(t: float) -> float:
+	return fmod(t + 0.5, 1.0)
+
+
+static func moon_dir(t: float) -> Vector3:
+	return sun_dir(moon_dir_t(t))
+
+
+## 落到地平线以下就不画了，太阳月亮天然互斥。
+static func body_visible(dir: Vector3) -> bool:
+	return dir.y > Config.SKY_BODY_MIN_ELEVATION
+
+
 static func sun_energy(t: float) -> float:
 	return clampf(sin(PI * clampf((t - 0.25) / 0.5, 0.0, 1.0)), 0.0, 1.0)
 

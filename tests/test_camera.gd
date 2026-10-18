@@ -1,7 +1,7 @@
 extends "res://tests/test_base.gd"
 
-const PITCH_MIN := -1.2217305
-const PITCH_MAX := -0.1745329
+const PITCH_MIN := CamRig.PITCH_MIN
+const PITCH_MAX := CamRig.PITCH_MAX
 
 
 func test_pitch_clamped_at_bottom() -> void:
@@ -22,3 +22,7 @@ func test_yaw_accumulates() -> void:
 func test_arm_length_minimum() -> void:
 	check_eq(CamRig.clamp_arm_length(0.3, 1.2), 1.2, "贴脸时拉回最短距离")
 	check_eq(CamRig.clamp_arm_length(4.0, 1.2), 4.0, "正常距离不变")
+
+
+func test_can_look_up_at_the_sky() -> void:
+	check(CamRig.PITCH_MAX > 0.3, "俯仰上限能抬到天上看（实得 %.3f）" % CamRig.PITCH_MAX)

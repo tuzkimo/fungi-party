@@ -11,7 +11,7 @@ extends Node3D
 @export var collision_mask := 1
 
 const PITCH_MIN := -1.2217305   # -70°
-const PITCH_MAX := -0.1745329   # -10°
+const PITCH_MAX := 0.3839724    # +22°：抬头能看见天
 
 var _pitch := -0.3141593        # -18°
 var _yaw := 0.0

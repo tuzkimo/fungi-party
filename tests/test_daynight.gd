@@ -44,3 +44,26 @@ func test_night_ambient_is_bright_enough_to_see() -> void:
 	# 只看能量不够：颜色本身很暗时乘积照样是黑的
 	var effective := DayNight.ambient_color(0.0).v * DayNight.ambient_energy(0.0)
 	check(effective > 0.18, "夜间实际环境亮度（实得 %.3f）" % effective)
+
+
+func test_sun_rises_in_plus_z_and_sets_in_minus_z() -> void:
+	var rise := DayNight.sun_dir(0.25)
+	check(absf(rise.y) < 0.01, "日出贴着地平线（实得 %.3f）" % rise.y)
+	check(rise.z > 0.5, "日出在 +Z 那侧（实得 %.3f）" % rise.z)
+	var set := DayNight.sun_dir(0.75)
+	check(absf(set.y) < 0.01, "日落贴着地平线")
+	check(set.z < -0.5, "日落在 -Z 那侧（实得 %.3f）" % set.z)
+
+
+func test_sun_overhead_at_noon_direction() -> void:
+	var noon := DayNight.sun_dir(0.5)
+	check(noon.y > 0.99, "正午在头顶（实得 %.3f）" % noon.y)
+
+
+func test_moon_is_opposite_and_complementary() -> void:
+	var t := 0.3
+	check(DayNight.moon_dir(t).is_equal_approx(-DayNight.sun_dir(t)), "月亮永远在太阳对面")
+	check(DayNight.body_visible(DayNight.sun_dir(0.5)), "白天看得见太阳")
+	check(not DayNight.body_visible(DayNight.moon_dir(0.5)), "白天看不见月亮")
+	check(DayNight.body_visible(DayNight.moon_dir(0.0)), "夜里看得见月亮")
+	check(not DayNight.body_visible(DayNight.sun_dir(0.0)), "夜里看不见太阳")
