@@ -105,6 +105,7 @@ jobs:
           export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$KEYSTORE_PATH"
           export GODOT_ANDROID_KEYSTORE_RELEASE_USER="$ANDROID_KEY_ALIAS"
           export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$ANDROID_KEYSTORE_PASSWORD"
+          mkdir -p build
           godot --headless --path . --export-release "Android" "build/fungi_party_${VERSION}_arm64.apk"
           ls -la "build/fungi_party_${VERSION}_arm64.apk"
 
