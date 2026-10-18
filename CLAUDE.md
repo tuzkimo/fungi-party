@@ -15,7 +15,8 @@
 godot --path . -e                                              # 打开编辑器
 godot --path .                                                 # 桌面运行
 bash scripts/test.sh                                           # 无头测试（先刷全局类缓存）
-godot --headless --path . --export-debug "Android" build/app.apk
+godot --headless --path . --export-debug "Android" build/app.apk   # 调试包，带 FPS/DRAW/TRI 信息条
+bash scripts/export-release.sh                                      # 正式签名包 build/fungi_party_<版本>_arm64.apk
 adb install -r build/app.apk
 adb shell monkey -p com.tuzki.fungiparty -c android.intent.category.LAUNCHER 1
 adb logcat -s godot                                            # 设备日志（脚本报错靠它）
@@ -25,6 +26,8 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
 
 - Android SDK：`D:/dev/Android/Sdk`　JDK：`D:/dev/java/jdk-17.0.15.6-hotspot`
 - MIUI 会拦 adb 注入输入，触摸只能人肉验；装机需在开发者选项里开「USB 安装」。
+- 发布密钥在仓库外：`~/.fungi-party/fungi-party-release.keystore` + `password.txt`（别名 `fungi-party`），丢了就没法给已装机的包升级。CI 走 GitHub Secrets（`ANDROID_KEYSTORE_BASE64` / `_PASSWORD` / `ANDROID_KEY_ALIAS` / `_PASSWORD`），tag `v*` 触发 `release-android` 工作流出包并发 Release。
+- debug 包和 release 包签名不同，互相覆盖安装要先卸载（卸载会清掉存档）。
 
 ## 技术约束
 
