@@ -1,7 +1,7 @@
 class_name DayNight
 extends Node
 
-## 一天 = day_length_seconds 秒。0 午夜、0.25 日出、0.5 正午、0.75 日落。
+## 0 午夜、0.25 日出、0.5 正午、0.75 日落。时间由森林侧的 DayLoop 每帧写入。
 ## 角度与颜色都是纯函数，Node 部分只负责写进灯和环境。
 
 const NIGHT := Color(0.42, 0.48, 0.62)
@@ -20,7 +20,6 @@ const SKY_NIGHT_HORIZON := Color(0.20, 0.24, 0.36)
 @export var sun_path: NodePath
 @export var environment_path: NodePath
 @export var time_of_day := 0.35
-@export var day_length_seconds := Config.DAY_LENGTH_SECONDS
 
 var _sun: DirectionalLight3D
 var _environment: Environment
@@ -75,17 +74,11 @@ func _ready() -> void:
 		_environment = world_environment.environment
 		if _environment != null and _environment.sky != null:
 			_sky = _environment.sky.sky_material as ProceduralSkyMaterial
-	_apply()
+	apply()
 
 
-func _process(delta: float) -> void:
-	if day_length_seconds <= 0.0:
-		return
-	time_of_day = fmod(time_of_day + delta / day_length_seconds, 1.0)
-	_apply()
-
-
-func _apply() -> void:
+## 外部改完 time_of_day 之后调它，把天色写进灯和环境。
+func apply() -> void:
 	var energy := DayNight.sun_energy(time_of_day)
 	if _sun != null:
 		_sun.rotation = DayNight.sun_rotation(time_of_day)

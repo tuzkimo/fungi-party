@@ -8,7 +8,6 @@ const GRAVITY := 24.0
 const JUMP_HEIGHT := 1.5
 const AIR_CONTROL := 0.35
 const SQUASH_MAX := 0.2
-const DAY_LENGTH_SECONDS := 600.0
 const CAM_MIN_LENGTH := 1.2
 
 # v2 教室偷吃

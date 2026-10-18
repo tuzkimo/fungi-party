@@ -94,9 +94,10 @@ func _skin_button(text: String, blueberry: bool) -> Button:
 
 func _process(_delta: float) -> void:
 	var tent := get_tree().get_first_node_in_group("tent") as Tent
-	var show_now: bool = tent != null and tent.player_inside
-	_root.visible = show_now
-	if show_now:
+	var day_loop := get_tree().get_first_node_in_group("day_loop") as DayLoop
+	var sleeping := day_loop != null and day_loop.sleeping
+	_root.visible = tent != null and tent.player_inside and not sleeping
+	if _root.visible:
 		_refresh()
 
 
@@ -111,7 +112,9 @@ func _refresh() -> void:
 
 
 func _on_sleep() -> void:
-	print("TODO sleep")
+	var day_loop := get_tree().get_first_node_in_group("day_loop") as DayLoop
+	if day_loop != null:
+		day_loop.sleep()
 
 
 func _on_clothes() -> void:
