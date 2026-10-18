@@ -23,3 +23,9 @@ func test_rows_lists_dead_and_alive() -> void:
 	check_eq(rows[0]["note"], "仍在场上", "活着的人排最前")
 	check_eq(rows[rows.size() - 1]["name"], "红", "最先死的排最后")
 	check(rows[rows.size() - 1]["note"].ends_with("被炸"), "死人有注记")
+
+
+func test_early_settlement_ranks_by_who_was_alive() -> void:
+	var death := [0]
+	var alive := [1, 2, 3]
+	check_eq(BombScore.rank_of(0, death, alive), 3, "四个人时第一个死的是第四名")

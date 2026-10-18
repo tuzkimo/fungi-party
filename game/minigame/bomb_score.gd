@@ -5,13 +5,14 @@ extends RefCounted
 
 
 ## 0 基名次：活着的人第 0，最后死的第 1，最先死的排最后。
+## 人数按「死的那一刻还有几个人活着」算：玩家提前阵亡时 death_order 还没记满。
 static func rank_of(seat: int, death_order: Array, alive: Array) -> int:
 	if alive.has(seat):
 		return 0
 	var index := death_order.find(seat)
 	if index < 0:
 		return death_order.size()
-	return death_order.size() - index
+	return alive.size() + death_order.size() - 1 - index
 
 
 static func coins(rank: int) -> int:
