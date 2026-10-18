@@ -68,6 +68,26 @@ const RACE_HIT_PENALTY := 5
 const RACE_TIME_LIMIT := 120.0
 const RACE_PATH := "res://game/minigame/race.tscn"
 
+# v3 体力与一天
+const STAMINA_MAX := 100
+const STAMINA_MIN_COST := 12
+const STAMINA_COST_CLASSROOM := 12
+const STAMINA_COST_RACE := 20
+const STAMINA_COST_BOMB := 25
+const MEAL_COINS := 20
+const MEAL_STAMINA := 25
+const MEALS_PER_DAY := 3
+const MORNING_TIME := 0.28
+const DAYTIME_MAX_T := 0.80
+const NIGHT_TIME := 0.86
+const DAY_SAVE_INTERVAL := 5.0
+const TENT_POS := Vector3(-8.0, 0.0, 2.0)
+const RESTAURANT_POS := Vector3(8.0, 0.0, 2.0)
+const SUN_DISTANCE := 120.0
+const SUN_RADIUS := 4.5
+const MOON_RADIUS := 3.2
+const SKY_BODY_MIN_ELEVATION := -0.15
+
 # v3 传炸弹
 const BOMB_SEAT_RADIUS := 2.2
 const BOMB_FUSE_4 := Vector2(10.0, 16.0)

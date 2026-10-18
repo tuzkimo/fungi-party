@@ -31,16 +31,16 @@ func test_already_owned_not_charged_again() -> void:
 func test_equip_requires_owned() -> void:
 	_clean()
 	Save.write(P, {"coins": 0, "owned": false, "equipped": false})
-	check(not ShopPanel.equip(true, P), "没买过不能戴")
+	check(not Save.equip(true, P), "没买过不能戴")
 	check(not Save.read(P).equipped, "仍然是默认")
 	_clean()
 
 func test_equip_and_unequip_owned_skin() -> void:
 	_clean()
 	Save.write(P, {"coins": 0, "owned": true, "equipped": true})
-	check(ShopPanel.equip(false, P), "已拥有就能换回默认")
+	check(Save.equip(false, P), "已拥有就能换回默认")
 	check(not Save.read(P).equipped, "换回默认后 equipped 为假")
 	check_eq(Save.read(P).coins, 0, "换皮肤不动钱")
-	check(ShopPanel.equip(true, P), "再换回来")
+	check(Save.equip(true, P), "再换回来")
 	check(Save.read(P).equipped, "又戴上了")
 	_clean()

@@ -7,8 +7,6 @@ var _root: Control
 var _coins: Label
 var _price: Label
 var _buy: Button
-var _wear_default: Button
-var _wear_skin: Button
 var _shown := false
 
 
@@ -57,26 +55,6 @@ func _ready() -> void:
 	UIStyle.style_button(_buy)
 	box.add_child(_buy)
 
-	# 买过之后这里换成两个「戴哪个」的按钮
-	var wear := HBoxContainer.new()
-	wear.alignment = BoxContainer.ALIGNMENT_CENTER
-	wear.add_theme_constant_override("separation", 20)
-	box.add_child(wear)
-
-	_wear_default = Button.new()
-	_wear_default.text = "默认红帽"
-	_wear_default.custom_minimum_size = Vector2(180.0, 60.0)
-	_wear_default.pressed.connect(_on_wear.bind(false))
-	UIStyle.style_button(_wear_default)
-	wear.add_child(_wear_default)
-
-	_wear_skin = Button.new()
-	_wear_skin.text = "蓝莓帽"
-	_wear_skin.custom_minimum_size = Vector2(180.0, 60.0)
-	_wear_skin.pressed.connect(_on_wear.bind(true))
-	UIStyle.style_button(_wear_skin)
-	wear.add_child(_wear_skin)
-
 	root.visible = false
 
 
@@ -94,13 +72,8 @@ func _refresh() -> void:
 	var coins := int(data["coins"])
 	_coins.text = "蘑菇币 %d" % coins
 	var owned := bool(data["owned"])
-	var equipped := bool(data["equipped"])
-	_wear_default.visible = owned
-	_wear_skin.visible = owned
-	_wear_default.disabled = owned and not equipped
-	_wear_skin.disabled = owned and equipped
 	if owned:
-		_price.text = "蓝莓帽 · 已购买" + ("（正戴着）" if equipped else "")
+		_price.text = "蓝莓帽 · 已买下 · 到帐篷里换"
 		_buy.visible = false
 	else:
 		_price.text = "蓝莓帽 · %d 币" % Config.SKIN_PRICE
@@ -118,24 +91,8 @@ static func purchase(path: String = Save.PATH) -> bool:
 	return true
 
 
-## 已拥有才能换：蓝莓帽 / 默认红帽来回切。
-static func equip(blueberry: bool, path: String = Save.PATH) -> bool:
-	var data := Save.read(path)
-	if not bool(data["owned"]):
-		return false
-	Save.write(path, {"coins": int(data["coins"]), "owned": true, "equipped": blueberry})
-	return true
-
-
 func _on_buy() -> void:
 	if not purchase():
-		return
-	_apply_skin_to_player()
-	_refresh()
-
-
-func _on_wear(blueberry: bool) -> void:
-	if not equip(blueberry):
 		return
 	_apply_skin_to_player()
 	_refresh()
