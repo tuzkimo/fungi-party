@@ -16,6 +16,7 @@ var _prev_touch_jump := false
 var _was_on_floor := true
 var _land_timer := 0.0
 var _walk_phase := 0.0
+var _chew := -1.0   # >= 0 表示正在吃饭，-1 表示没在咬
 
 
 static func resolve_direction(input: Vector2, camera_yaw: float) -> Vector3:
@@ -95,6 +96,11 @@ func _physics_process(delta: float) -> void:
 	_animate(horizontal.length(), delta)
 
 
+## 咬三口：挤压力和走路的 squash 相乘，别把走路的挤掉。
+func chew() -> void:
+	_chew = 0.0
+
+
 func _turn(dir: Vector3, delta: float) -> void:
 	if dir.length() < 0.1:
 		return
@@ -103,6 +109,11 @@ func _turn(dir: Vector3, delta: float) -> void:
 
 func _animate(speed: float, delta: float) -> void:
 	var squash := Movement.squash_stretch(velocity.y, Config.SQUASH_MAX)
+	if _chew >= 0.0:
+		_chew += delta
+		squash = squash * Movement.chew_scale(_chew)
+		if _chew > Config.MEAL_ANIMATION_SECONDS:
+			_chew = -1.0
 	if _land_timer > 0.0:
 		_land_timer = maxf(0.0, _land_timer - delta)
 		var k := _land_timer / 0.15

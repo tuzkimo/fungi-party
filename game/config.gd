@@ -80,6 +80,7 @@ const MORNING_TIME := 0.28
 const DAYTIME_MAX_T := 0.80
 const NIGHT_TIME := 0.86
 const DAY_SAVE_INTERVAL := 5.0
+const MEAL_ANIMATION_SECONDS := 1.2
 const TENT_POS := Vector3(-8.0, 0.0, 2.0)
 const RESTAURANT_POS := Vector3(8.0, 0.0, 2.0)
 const SUN_DISTANCE := 120.0

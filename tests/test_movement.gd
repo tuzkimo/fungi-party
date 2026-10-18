@@ -27,3 +27,10 @@ func test_squash_stretch() -> void:
 func test_big_delta_does_not_overshoot() -> void:
 	var v := Movement.accelerate(Vector3.ZERO, Vector3(3, 0, 0), 20.0, 25.0, 0.5)
 	check(v.length() <= 3.0001, "大 delta 也不越过目标速度（实得 %.3f）" % v.length())
+
+
+func test_chew_scale_bites_three_times() -> void:
+	check_eq(Movement.chew_scale(-0.1), Vector3.ONE, "没开始不挤压")
+	check(Movement.chew_scale(0.05) != Vector3.ONE, "咬下去的瞬间有挤压")
+	check(Movement.chew_scale(0.6) != Vector3.ONE, "第二口也在挤压")
+	check_eq(Movement.chew_scale(1.4), Vector3.ONE, "咬完回到原样")
