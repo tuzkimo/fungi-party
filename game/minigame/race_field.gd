@@ -63,15 +63,16 @@ static func animal_x(side: int, elapsed: float) -> float:
 func _build_groups(rng: RandomNumberGenerator) -> void:
 	var z := FIRST_GROUP_Z
 	while z < Config.RACE_TRACK_LENGTH - TRACK_END_MARGIN:
-		# 空档槽不消耗纵向距离：记录到的组间距必须留在 12~18m
-		if rng.randf() >= EMPTY_SPACING:
-			var group := Group.new()
-			group.z = z
-			group.kind = TALL if rng.randf() < Config.RACE_TALL_CHANCE else LOW
-			group.gap_width = Config.RACE_TALL_WIDTH if group.kind == TALL else Config.RACE_LOW_WIDTH
-			var limit := Config.RACE_TRACK_HALF_WIDTH - GAP_INSET - group.gap_width * 0.5
-			group.gap_x = clampf(rng.randf_range(-limit, limit), -limit, limit)
-			groups.append(group)
+		# 空档直接重掷，不消耗纵向距离：记录到的组间距必须留在 12~18m
+		if rng.randf() < EMPTY_SPACING:
+			continue
+		var group := Group.new()
+		group.z = z
+		group.kind = TALL if rng.randf() < Config.RACE_TALL_CHANCE else LOW
+		group.gap_width = Config.RACE_TALL_WIDTH if group.kind == TALL else Config.RACE_LOW_WIDTH
+		var limit := Config.RACE_TRACK_HALF_WIDTH - GAP_INSET - group.gap_width * 0.5
+		group.gap_x = clampf(rng.randf_range(-limit, limit), -limit, limit)
+		groups.append(group)
 		z += rng.randf_range(Config.RACE_GROUP_MIN_GAP, Config.RACE_GROUP_MAX_GAP)
 
 
