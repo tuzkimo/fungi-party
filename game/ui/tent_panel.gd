@@ -21,24 +21,18 @@ func _ready() -> void:
 	add_child(root)
 	_root = root
 
-	var dim := ColorRect.new()
-	dim.name = "Dim"
-	dim.color = Color(0.03, 0.03, 0.04, 0.55)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(dim)
-
-	var center := CenterContainer.new()
-	center.name = "Center"
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(center)
-
+	# 靠右上角摆、不压暗场景：吃饭动画和换帽子都在玩家身上，面板挡住就白做了
 	var panel := PanelContainer.new()
 	panel.name = "Panel"
 	panel.custom_minimum_size = Vector2(620.0, 0.0)
+	panel.anchor_left = 1.0
+	panel.anchor_right = 1.0
+	panel.offset_right = -24.0
+	panel.offset_top = 24.0
+	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	panel.grow_vertical = Control.GROW_DIRECTION_END
 	panel.add_theme_stylebox_override("panel", UIStyle.panel())
-	center.add_child(panel)
+	root.add_child(panel)
 
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 14)
