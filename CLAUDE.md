@@ -33,6 +33,7 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
 - 禁止：实时 GI、SSAO、SSR、体积雾、每帧实例化节点。
 - 大件几何一律 MultiMesh；球体分段不要用默认的 64×32。
 - 虚拟摇杆自己用 `Control` + 触摸事件实现，不引第三方插件。
+- 桌面截图验证一律先 `SetProcessDPIAware()` 再抓图：高 DPI 机器上不这么做会拿到放大裁剪图（2560×1600 截成 1707×1067），白白误判 UI 布局；布局对不对先用运行期打印控件矩形确认。
 - 可调数字集中在 `game/config.gd` 的 `const`。
 - 角色逻辑不引用 mesh 节点路径；外观只在 `game/player/mushroom_mesh.gd` 改。
 - 教室是自包含单场景，节点间直接 `$` 引用；森林侧的跨场景引用（摊位/玩家）每帧惰性 `get_first_node_in_group`，别在 `_ready` 里查。
