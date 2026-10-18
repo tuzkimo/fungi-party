@@ -4,7 +4,7 @@ extends CanvasLayer
 ## 走到校门前才出现的浮层：讲清玩法，点「开始上课」才进教室。
 ## 和商店一样每帧惰性找 door：场景往返后旧引用都会失效。
 
-var _panel: Panel
+var _root: Control
 
 
 func _ready() -> void:
@@ -15,31 +15,29 @@ func _ready() -> void:
 	root.theme = UIStyle.theme()
 	add_child(root)
 
-	_panel = Panel.new()
-	_panel.name = "Panel"
-	_panel.anchor_left = 0.5
-	_panel.anchor_right = 0.5
-	_panel.anchor_top = 1.0
-	_panel.anchor_bottom = 1.0
-	_panel.offset_left = -400.0
-	_panel.offset_right = 400.0
-	_panel.offset_top = -360.0
-	_panel.offset_bottom = -60.0
-	_panel.visible = false
-	_panel.add_theme_stylebox_override("panel", UIStyle.panel())
-	root.add_child(_panel)
+	var dim := ColorRect.new()
+	dim.name = "Dim"
+	dim.color = Color(0.03, 0.03, 0.04, 0.55)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(dim)
 
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 32)
-	margin.add_theme_constant_override("margin_right", 32)
-	margin.add_theme_constant_override("margin_top", 22)
-	margin.add_theme_constant_override("margin_bottom", 22)
-	_panel.add_child(margin)
+	var center := CenterContainer.new()
+	center.name = "Center"
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(center)
+
+	var panel := PanelContainer.new()
+	panel.name = "Panel"
+	panel.custom_minimum_size = Vector2(820.0, 0.0)
+	panel.add_theme_stylebox_override("panel", UIStyle.panel())
+	center.add_child(panel)
+	_root = root
 
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 14)
-	margin.add_child(box)
+	panel.add_child(box)
 
 	var title := Label.new()
 	title.text = "上课偷吃大赛"
@@ -60,10 +58,12 @@ func _ready() -> void:
 	UIStyle.style_button(start)
 	box.add_child(start)
 
+	root.visible = false
+
 
 func _process(_delta: float) -> void:
 	var door := get_tree().get_first_node_in_group("door") as ClassroomDoor
-	_panel.visible = door != null and door.player_inside
+	_root.visible = door != null and door.player_inside
 
 
 func _on_start() -> void:

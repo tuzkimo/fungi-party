@@ -11,6 +11,7 @@
 [node name="Forest" parent="." instance=ExtResource("1_forest")]
 
 [node name="DebugHUD" parent="." instance=ExtResource("2_hud")]
+visible = false
 
 [node name="TouchControls" parent="." instance=ExtResource("3_touch")]
 

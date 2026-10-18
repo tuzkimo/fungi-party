@@ -26,6 +26,10 @@ static func panel() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.07, 0.06, 0.08, 0.93)
 	style.set_corner_radius_all(14)
+	style.content_margin_left = 32.0
+	style.content_margin_right = 32.0
+	style.content_margin_top = 22.0
+	style.content_margin_bottom = 22.0
 	return style
 
 
