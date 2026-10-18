@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="PackedScene" path="res://game/world/forest.tscn" id="1_forest"]
 [ext_resource type="PackedScene" path="res://game/ui/debug_hud.tscn" id="2_hud"]
@@ -9,6 +9,7 @@
 [ext_resource type="Script" path="res://game/main.gd" id="7_main"]
 [ext_resource type="Script" path="res://game/ui/bomb_panel.gd" id="8_bomb"]
 [ext_resource type="Script" path="res://game/ui/tent_panel.gd" id="9_tent_panel"]
+[ext_resource type="Script" path="res://game/ui/day_hud.gd" id="10_day_hud"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("7_main")
@@ -34,3 +35,6 @@ script = ExtResource("8_bomb")
 
 [node name="TentPanel" type="CanvasLayer" parent="."]
 script = ExtResource("9_tent_panel")
+
+[node name="DayHUD" type="CanvasLayer" parent="."]
+script = ExtResource("10_day_hud")
