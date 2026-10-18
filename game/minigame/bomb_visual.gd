@@ -15,6 +15,11 @@ const SPARK_COLORS := [
 const SPARK_ENERGY := [1.3, 2.0, 3.2]
 const LIGHT_ENERGY := [0.7, 1.5, 2.6]
 const FUSE_TILT := Vector3(12.0, 0.0, 18.0)
+## 爆炸特效：一团发光的火球涨开、同时点光炸亮再消失。死的是谁就在谁头上炸。
+const FLASH_SECONDS := 0.45
+const FLASH_START := 0.5
+const FLASH_END := 2.6
+const FLASH_LIGHT_ENERGY := 7.0
 
 var _body_mat: StandardMaterial3D
 var _spark_mat: StandardMaterial3D
@@ -29,6 +34,10 @@ var _flight_seconds := 0.0
 var _from := Vector3.ZERO
 var _to := Vector3.ZERO
 var _ctrl := Vector3.ZERO
+var _flash: Node3D
+var _flash_mat: StandardMaterial3D
+var _flash_light: OmniLight3D
+var _flash_t := 0.0
 
 
 func setup() -> void:
@@ -115,6 +124,41 @@ func start_flight(from: Vector3, to: Vector3, seconds: float) -> void:
 	position = from
 
 
+## 在 at 处炸开：炸弹本体消失，火球涨开再散掉。调用后本体要等下一次 hold/start_flight 才回来。
+func explode(at: Vector3) -> void:
+	visible = false
+	_flying = false
+	if _flash != null and is_instance_valid(_flash):
+		_flash.queue_free()
+	_flash = Node3D.new()
+	_flash.name = "Flash"
+	var sphere := SphereMesh.new()
+	sphere.radius = 1.0
+	sphere.height = 2.0
+	sphere.radial_segments = 16
+	sphere.rings = 8
+	var ball := MeshInstance3D.new()
+	ball.mesh = sphere
+	_flash_mat = StandardMaterial3D.new()
+	_flash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_flash_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_flash_mat.albedo_color = Color(1.0, 0.86, 0.55, 1.0)
+	_flash_mat.emission_enabled = true
+	_flash_mat.emission = Color(1.0, 0.62, 0.22)
+	_flash_mat.emission_energy_multiplier = 2.6
+	ball.material_override = _flash_mat
+	ball.scale = Vector3.ONE * FLASH_START
+	_flash.add_child(ball)
+	_flash_light = OmniLight3D.new()
+	_flash_light.light_color = Color(1.0, 0.66, 0.30)
+	_flash_light.light_energy = FLASH_LIGHT_ENERGY
+	_flash_light.omni_range = 9.0
+	_flash.add_child(_flash_light)
+	_flash.position = at
+	_flash_t = 0.0
+	get_parent().add_child(_flash)
+
+
 ## 返回 true 表示飞行刚在这一帧结束。
 func advance(delta: float) -> bool:
 	if not _flying:
@@ -145,15 +189,38 @@ func set_danger(danger: float, tier: int) -> void:
 func hide_bomb() -> void:
 	visible = false
 	_flying = false
+	if _flash != null and is_instance_valid(_flash):
+		_flash.queue_free()
+		_flash = null
 
 
 func _process(delta: float) -> void:
+	_advance_flash(delta)
 	if not visible:
 		return
 	_phase += delta * (5.0 + 7.0 * float(_tier)) * (0.7 + 0.6 * _danger)
 	for i in _sparks.size():
 		var wave := 0.5 + 0.5 * sin(_phase * (1.0 + 0.15 * float(i)) + float(i))
 		_sparks[i].scale = Vector3.ONE * (0.08 + 0.10 * wave * (1.0 + 0.3 * float(_tier)))
+
+
+func _advance_flash(delta: float) -> void:
+	if _flash == null or not is_instance_valid(_flash):
+		_flash = null
+		return
+	_flash_t += delta
+	var k := clampf(_flash_t / FLASH_SECONDS, 0.0, 1.0)
+	var ball := _flash.get_child(0) as MeshInstance3D
+	if ball != null:
+		ball.scale = Vector3.ONE * lerpf(FLASH_START, FLASH_END, sqrt(k))
+	if _flash_mat != null:
+		_flash_mat.albedo_color.a = 1.0 - k * k
+		_flash_mat.emission_energy_multiplier = 2.6 * (1.0 - k)
+	if _flash_light != null:
+		_flash_light.light_energy = FLASH_LIGHT_ENERGY * (1.0 - k) * (1.0 - k)
+	if k >= 1.0:
+		_flash.queue_free()
+		_flash = null
 
 
 func _bezier(k: float) -> Vector3:

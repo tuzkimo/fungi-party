@@ -152,7 +152,8 @@ func _handle_event(event: Dictionary) -> void:
 			var seat: int = event["seat"]
 			print("爆炸：%s（%s）" % [SEAT_NAMES[seat], "空中" if bool(event["in_flight"]) else "手上"])
 			_sfx.play("boom")
-			_bomb.hide_bomb()
+			# 规则上「空中炸算扔的人死」，但视觉上要死得明白：火球在死的那个人头上炸开
+			_bomb.explode(_head_of(seat))
 			_visual_flight = false
 		"over":
 			print("结束：%s 活到最后" % SEAT_NAMES[int(event["winner"])])
