@@ -12,19 +12,21 @@ const ROUNDS := 200
 const STEP := 1.0 / 60.0
 const SEAT_NAMES := ["你", "蓝", "红", "紫"]
 const TIME_LIMIT := 120.0
+## noise：每次接住重掷的「看火花估剩余时间」误差（秒）。完美读秒是神仙打法，真人看火花只能估个大概。
 const STRATEGIES := [
-	{"name": "稳妥（收到就扔）", "throw_at": 99.0},
-	{"name": "读火花（拖到 0.5 秒）", "throw_at": 0.5},
+	{"name": "稳妥（收到就扔）", "throw_at": 99.0, "noise": 0.0},
+	{"name": "读火花（拖到 0.5 秒，完美读秒）", "throw_at": 0.5, "noise": 0.0},
+	{"name": "读火花（拖到 0.5 秒，估计误差 ±0.4 秒）", "throw_at": 0.5, "noise": 0.4},
 ]
 
 
 func _initialize() -> void:
 	for strategy in STRATEGIES:
-		_run(strategy["name"], float(strategy["throw_at"]))
+		_run(strategy["name"], float(strategy["throw_at"]), float(strategy["noise"]))
 	quit()
 
 
-func _run(label: String, player_throw_at: float) -> void:
+func _run(label: String, player_throw_at: float, noise: float) -> void:
 	var first_deaths := [0, 0, 0, 0]
 	var wins := [0, 0, 0, 0]
 	var in_hand := [0, 0, 0, 0]
@@ -35,8 +37,13 @@ func _run(label: String, player_throw_at: float) -> void:
 		var round := BombRound.new(1000 + i)
 		var side := -1
 		var elapsed := 0.0
+		var last_holder := -2
+		var estimate := 0.0
 		while not round.over and elapsed < TIME_LIMIT:
-			if round.holder == BombRound.PLAYER and round.lock <= 0.0 and round.fuse <= player_throw_at:
+			if round.holder != last_holder:
+				last_holder = round.holder
+				estimate = randf_range(-noise, noise)
+			if round.holder == BombRound.PLAYER and round.lock <= 0.0 and round.fuse + estimate <= player_throw_at:
 				round.request_throw(side)
 				side = -side
 			round.tick(STEP)
