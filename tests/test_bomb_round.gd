@@ -52,6 +52,7 @@ func test_throw_needs_lock() -> void:
 
 func test_explosion_in_flight_kills_the_thrower() -> void:
 	var r := BombRound.new(5)
+	r.holder = BombRound.PLAYER
 	r.lock = 0.0
 	r.fuse = 5.0
 	r.request_throw(1)
@@ -134,3 +135,14 @@ func test_npc_cannot_throw_during_lock() -> void:
 	r.tick(0.05)
 	check_eq(r.holder, 1, "硬直期间人机也扔不出去")
 	check_eq(r.flight, 0.0, "没有偷偷起飞")
+
+
+func test_request_throw_when_npc_holds_is_rejected() -> void:
+	# 只有持有炸弹的人能扔：玩家按按钮不能替人机把炸弹甩出去
+	var r := BombRound.new(21)
+	r.holder = 1
+	r.lock = 0.0
+	r.flight = 0.0
+	check(not r.request_throw(1), "炸弹不在自己手上时按不动")
+	check_eq(r.holder, 1, "炸弹留在人机手里")
+	check_eq(r.queued_side, 0, "也不会被记成待扔方向")

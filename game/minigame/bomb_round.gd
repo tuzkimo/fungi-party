@@ -65,10 +65,11 @@ func tick(delta: float) -> void:
 
 
 ## side：-1 左 / +1 右。硬直期间只记方向（回来一结束自动扔），空中或已死直接拒绝。
+## 只有炸弹在自己手上才按得动：玩家按键不能替人机扔。
 func request_throw(side: int) -> bool:
 	if over or not alive.has(PLAYER):
 		return false
-	if holder < 0 or flight > 0.0:
+	if holder != PLAYER or flight > 0.0:
 		return false
 	if lock > 0.0:
 		queued_side = -1 if side < 0 else 1
@@ -149,6 +150,7 @@ func _land() -> void:
 	target = -1
 	thrower = -1
 	lock = Config.BOMB_CATCH_LOCK
+	queued_side = 0
 	_error = _roll_error(holder)
 
 
