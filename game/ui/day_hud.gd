@@ -18,7 +18,8 @@ var _wired := false
 func _ready() -> void:
 	var panel := PanelContainer.new()
 	panel.name = "Root"
-	panel.position = Vector2(20.0, 20.0)
+	# 往下让出 debug HUD 的 FPS/DRAW/TRI 那一行：真机上要用它记帧率
+	panel.position = Vector2(20.0, 64.0)
 	panel.custom_minimum_size = Vector2(320.0, 0.0)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.theme = UIStyle.theme()
