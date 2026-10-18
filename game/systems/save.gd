@@ -49,3 +49,33 @@ static func equip(blueberry: bool, path: String = PATH) -> bool:
 		return false
 	write(path, {"equipped": blueberry})
 	return true
+
+
+## 扣一局体力：够才扣（三款小游戏的 _ready 都走这里）。
+static func spend_stamina(cost: int, path: String = PATH) -> bool:
+	var data := read(path)
+	var r := Day.spend_cost(int(data["stamina"]), cost)
+	if not bool(r["ok"]):
+		return false
+	write(path, {"stamina": int(r["stamina"])})
+	return true
+
+
+static func eat_meal(path: String = PATH) -> bool:
+	var data := read(path)
+	var r := Day.meal(int(data["stamina"]), int(data["meals"]), int(data["coins"]))
+	if not bool(r["ok"]):
+		return false
+	write(path, {
+		"stamina": int(r["stamina"]), "meals": int(r["meals"]), "coins": int(r["coins"])
+	})
+	return true
+
+
+static func rollover(path: String = PATH) -> void:
+	var data := read(path)
+	write(path, Day.rollover(int(data["day"])))
+
+
+static func set_day_time(t: float, path: String = PATH) -> void:
+	write(path, {"day_time": t})
