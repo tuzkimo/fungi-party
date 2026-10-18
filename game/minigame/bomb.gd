@@ -19,6 +19,7 @@ var _round: BombRound
 var _arena: BombArena
 var _bomb: BombVisual
 var _sfx: Sfx
+var _ui: BombUI
 var _seats: Array[BombSeat] = []
 var _countdown := Config.BOMB_COUNTDOWN
 var _countdown_shown := -1
@@ -59,6 +60,12 @@ func _ready() -> void:
 	_sfx.name = "Sfx"
 	add_child(_sfx)
 
+	_ui = $UI
+	_ui.again_pressed.connect(_restart)
+	_ui.forest_pressed.connect(_to_forest)
+	_ui.quit_pressed.connect(_quit)
+	_ui.throw_pressed.connect(func(side: int) -> void: _round.request_throw(side))
+
 	# 开局那颗：模型已经点燃了，视觉上让它从篝火飞过去
 	_round.events.clear()
 	_launch_from_fire(_round.holder)
@@ -71,8 +78,11 @@ func _physics_process(delta: float) -> void:
 		var shown := ceili(maxf(_countdown, 0.0))
 		if shown != _countdown_shown:
 			_countdown_shown = shown
-			print("倒数 %d" % shown)
+			_ui.show_countdown(str(shown))
 		return
+	if _countdown_shown >= 0:
+		_countdown_shown = -1
+		_ui.hide_countdown()
 	if _settled:
 		return
 
@@ -108,6 +118,7 @@ func _update_visuals(delta: float) -> void:
 		_bomb.hold(_head_of(holder))
 
 	_bomb.set_danger(_round.danger(), _round.tier())
+	_ui.set_danger(_round.danger())
 	_sfx.set_danger(_round.danger(), holder == BombRound.PLAYER)
 
 
@@ -159,6 +170,22 @@ func _settle() -> void:
 	var earned := BombScore.coins(rank)
 	Save.add_coins(earned)
 	print("结算：第 %d 名，撑了 %d 秒，+%d 蘑菇币" % [rank + 1, int(_elapsed), earned])
+	_ui.show_result(
+		rank + 1, _elapsed, earned, BombScore.rows(_round.death_order, _round.alive, SEAT_NAMES)
+	)
+
+
+## 返回键：先弹暂停面板（再按一次继续）。暂停时嗤嗤声和滴答停住，模型跟着 get_tree().paused 停。
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_WM_GO_BACK_REQUEST or _settled:
+		return
+	if get_tree().paused:
+		get_tree().paused = false
+		_ui.hide_pause()
+	else:
+		_ui.show_pause()
+		_sfx.stop_fuse()
+		get_tree().paused = true
 
 
 func _restart() -> void:

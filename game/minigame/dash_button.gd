@@ -18,6 +18,9 @@ const ICON_COOL := Color(1, 1, 1, 0.35)
 
 var ratio := 1.0
 var armed := true
+## 传炸弹的两个投掷键用更大的圆、朝左的箭头；赛跑那边什么都不传，行为不变。
+var radius := RADIUS
+var mirror := false
 
 var _finger := -1
 
@@ -45,7 +48,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventScreenTouch:
 		if event.pressed:
-			if _finger < 0 and event.position.distance_to(get_global_rect().get_center()) <= RADIUS * GRAB:
+			if _finger < 0 and event.position.distance_to(get_global_rect().get_center()) <= radius * GRAB:
 				_finger = event.index
 				queue_redraw()
 				pressed.emit()
@@ -56,24 +59,25 @@ func _input(event: InputEvent) -> void:
 
 func _draw() -> void:
 	var center := size * 0.5
-	draw_circle(center, RADIUS, FILL_PRESSED if _finger >= 0 else FILL)
-	draw_circle(center, RADIUS, RING, false, 3.0)
+	draw_circle(center, radius, FILL_PRESSED if _finger >= 0 else FILL)
+	draw_circle(center, radius, RING, false, 3.0)
 	if ratio < 1.0:
-		draw_arc(center, RADIUS - 6.0, -PI * 0.5, -PI * 0.5 + TAU * ratio, 32, COOL_ARC, 7.0)
+		draw_arc(center, radius - 6.0, -PI * 0.5, -PI * 0.5 + TAU * ratio, 32, COOL_ARC, 7.0)
 	else:
-		draw_arc(center, RADIUS + 4.0, 0.0, TAU, 32, READY_RING, 2.0)
+		draw_arc(center, radius + 4.0, 0.0, TAU, 32, READY_RING, 2.0)
 	_draw_icon(center, ICON_READY if ratio >= 1.0 else ICON_COOL)
 
 
 ## 两个箭头（»），全部用多边形画，不依赖字体里的图标字形。
 func _draw_icon(center: Vector2, color: Color) -> void:
+	var dir := -1.0 if mirror else 1.0
 	for i in 2:
-		var x := center.x - 10.0 + float(i) * 12.0
+		var x := center.x + dir * (-10.0 + float(i) * 12.0)
 		draw_colored_polygon(PackedVector2Array([
 			Vector2(x, center.y - 10.0),
-			Vector2(x + 9.0, center.y),
+			Vector2(x + dir * 9.0, center.y),
 			Vector2(x, center.y + 10.0),
-			Vector2(x - 4.0, center.y + 10.0),
-			Vector2(x + 5.0, center.y),
-			Vector2(x - 4.0, center.y - 10.0),
+			Vector2(x - dir * 4.0, center.y + 10.0),
+			Vector2(x + dir * 5.0, center.y),
+			Vector2(x - dir * 4.0, center.y - 10.0),
 		]), color)
