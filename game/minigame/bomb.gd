@@ -99,13 +99,16 @@ func _physics_process(delta: float) -> void:
 func _on_throw_pressed(side: int) -> void:
 	if _countdown > 0.0 or _settled:
 		return
+	print("输入：按钮 %d（倒数 %.2f）" % [side, _countdown])
 	_round.request_throw(side)
 
 
 func _feed() -> void:
 	if Input.is_action_just_pressed("move_left"):
+		print("输入：键盘左")
 		_round.request_throw(-1)
 	if Input.is_action_just_pressed("move_right"):
+		print("输入：键盘右")
 		_round.request_throw(1)
 
 
