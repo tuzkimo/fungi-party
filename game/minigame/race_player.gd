@@ -108,6 +108,9 @@ func _check_hits() -> void:
 		var collision := get_slide_collision(i)
 		var body := collision.get_collider()
 		if body is Node and (body as Node).is_in_group("hazard"):
+			# 踩在障碍顶上不算撞：法线朝上的弹开会把人越弹越高
+			if collision.get_normal().y > 0.7:
+				continue
 			hits += 1
 			global_position += collision.get_normal() * Config.RACE_HIT_PUSH
 			velocity = Vector3.ZERO

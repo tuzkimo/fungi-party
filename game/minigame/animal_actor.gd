@@ -12,6 +12,7 @@ const BELLY_COLOR := Color(0.90, 0.80, 0.66)
 const SHADOW_COLOR := Color(0.05, 0.05, 0.06, 0.45)
 const SHADOW_EDGE := 0.7
 const BLOCK_SIZE := Vector3(1.3, 1.7, 1.2)
+const OFF_STAGE_X := 100.0
 
 var _kind := RaceField.BEETLE
 var _side := 1
@@ -41,6 +42,8 @@ func setup(kind: int, side: int, z: float) -> void:
 	_body = AnimatableBody3D.new()
 	_body.name = "Body"
 	_body.add_to_group("hazard")
+	# 停在赛道外：visible=false 不会关碰撞，留在原点就是一道看不见的墙
+	_body.position.x = OFF_STAGE_X
 	add_child(_body)
 
 	var shape := CollisionShape3D.new()

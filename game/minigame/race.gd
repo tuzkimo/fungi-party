@@ -198,6 +198,7 @@ func _settle_if_over() -> void:
 	if not _player.finished and _elapsed < Config.RACE_TIME_LIMIT:
 		return
 	_settled = true
+	_player.feed(Vector2.ZERO, false, false)
 	var entries: Array = [_player_entry()]
 	for rival in _rivals:
 		entries.append(rival)

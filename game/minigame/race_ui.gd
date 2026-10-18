@@ -170,7 +170,8 @@ func set_time(seconds: float) -> void:
 ## ratio：0 = 刚用掉，1 = 冷却好了。
 func set_dash_ready(ratio: float) -> void:
 	ratio = clampf(ratio, 0.0, 1.0)
-	_mask.offset_top = -_dash.size.y * (1.0 - ratio)
+	# 只留底部一段：ratio=0 盖满（冷却中），ratio=1 露出整个按钮
+	_mask.offset_top = _dash.size.y * ratio
 	_mask.offset_bottom = 0.0
 	_dash.disabled = ratio < 1.0
 	_dash.text = "冲刺" if ratio >= 1.0 else "%d" % ceili((1.0 - ratio) * Config.RACE_DASH_COOLDOWN)
