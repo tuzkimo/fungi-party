@@ -8,6 +8,7 @@ const START_FLASH := 0.5
 const CAMERA_HEIGHT := 3.5
 const CAMERA_BACK := 7.0
 const RIVAL_STYLES := [RaceRacer.Style.STEADY, RaceRacer.Style.HUGGER, RaceRacer.Style.DASHER]
+const RIVAL_NAMES := ["稳中型", "贴边型", "冲动型"]
 const RIVAL_X := [-2.5, 0.0, 2.5]
 const RIVAL_Z_STEP := 0.6
 const PINE_SIZE := 0.6
@@ -50,8 +51,9 @@ func _ready() -> void:
 	_spawn_animals()
 	_follow_player()
 
-	_ui.again_pressed.connect(func() -> void: get_tree().reload_current_scene())
-	_ui.forest_pressed.connect(func() -> void: get_tree().change_scene_to_file(Config.FOREST_PATH))
+	_ui.again_pressed.connect(_restart)
+	_ui.forest_pressed.connect(_to_forest)
+	_ui.quit_pressed.connect(_quit)
 	_ui.dash_pressed.connect(func() -> void: _dash_requested = true)
 
 	var layout := PackedStringArray()
@@ -62,7 +64,8 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if _countdown > 0.0:
-		# 倒数期间不喂输入、不计时，人机也不动
+		# 倒数期间不喂输入、不计时，人机也不动；按下的冲刺作废
+		_dash_requested = false
 		_countdown -= delta
 		if _countdown > 0.0:
 			_ui.show_countdown(str(ceili(_countdown)))
@@ -193,20 +196,65 @@ func _current_rank() -> int:
 	return RaceScore.ranking(entries).find(0) + 1
 
 
-## 玩家冲线或超时立即结算：算名次、入库、弹面板。
+## 玩家冲线、前三名都定了、或超时 → 立即结算（不等最后一名跑完）。
 func _settle_if_over() -> void:
-	if not _player.finished and _elapsed < Config.RACE_TIME_LIMIT:
-		return
-	_settled = true
-	_player.feed(Vector2.ZERO, false, false)
 	var entries: Array = [_player_entry()]
 	for rival in _rivals:
 		entries.append(rival)
-	var rank := RaceScore.ranking(entries).find(0)
+	if not _player.finished and not RaceScore.decided(entries) and _elapsed < Config.RACE_TIME_LIMIT:
+		return
+	_settled = true
+	_player.feed(Vector2.ZERO, false, false)
+	var order := RaceScore.ranking(entries)
+	var rank: int = order.find(0)
 	var earned := RaceScore.coins(rank, _player.hits)
 	Save.add_coins(earned)
 	var seconds := _player.finish_time if _player.finished else _elapsed
-	_ui.show_result(rank + 1, seconds, _player.hits, earned)
+	_ui.show_result(rank + 1, seconds, _player.hits, earned, _standings(entries, order))
+
+
+## 结算面板上的名次表：按名次排好，名字 + 时间（没跑完的写未完赛）。
+func _standings(entries: Array, order: Array) -> Array:
+	var rows := []
+	for index in order:
+		var racer: Variant = entries[index]
+		rows.append({
+			"name": _racer_name(index),
+			"finished": bool(racer["finished"]),
+			"time": float(racer["finish_time"]),
+		})
+	return rows
+
+
+func _racer_name(index: int) -> String:
+	return "你" if index == 0 else RIVAL_NAMES[index - 1]
+
+
+## 返回键：先弹暂停面板（再按一次继续），不直接把整个应用退掉。
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_WM_GO_BACK_REQUEST or _settled:
+		return
+	if get_tree().paused:
+		get_tree().paused = false
+		_ui.hide_pause()
+	else:
+		_ui.show_pause()
+		get_tree().paused = true
+
+
+func _restart() -> void:
+	get_tree().paused = false
+	get_tree().reload_current_scene()
+
+
+func _to_forest() -> void:
+	get_tree().paused = false
+	get_tree().change_scene_to_file(Config.FOREST_PATH)
+
+
+func _quit() -> void:
+	get_tree().paused = false
+	get_tree().quit()
 
 
 ## 镜头锁死朝前：只平移，不转、不抖。

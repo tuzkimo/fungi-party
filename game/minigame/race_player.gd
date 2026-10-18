@@ -73,7 +73,8 @@ func _physics_process(delta: float) -> void:
 		speed = Config.RACE_DASH_SPEED
 		dash_left = maxf(0.0, dash_left - delta)
 
-	var direction := Vector3(_move.x, 0.0, -_move.y)
+	# 镜头朝 +z 时画面右是 -x，所以摇杆的 x 要取反
+	var direction := Vector3(-_move.x, 0.0, -_move.y)
 	var horizontal := Movement.accelerate(
 		Vector3(velocity.x, 0.0, velocity.z), direction * speed, Config.ACCEL, Config.DECEL, delta
 	)

@@ -6,6 +6,7 @@ config_version=5
 
 config/name="菌子派对"
 run/main_scene="res://game/main.tscn"
+config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 

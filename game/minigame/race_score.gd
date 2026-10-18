@@ -28,6 +28,15 @@ static func ranking(racers: Array) -> Array:
 	return order
 
 
+## 四个跑者里已经有三个冲线：名次定死，不用再等最后一名跑完。
+static func decided(racers: Array) -> bool:
+	var unfinished := 0
+	for racer in racers:
+		if not bool(racer["finished"]):
+			unfinished += 1
+	return unfinished <= 1
+
+
 static func coins(rank: int, hits: int) -> int:
 	var base: int = Config.RACE_RANK_COINS[clampi(rank, 0, Config.RACE_RANK_COINS.size() - 1)]
 	return maxi(0, base - Config.RACE_HIT_PENALTY * hits)

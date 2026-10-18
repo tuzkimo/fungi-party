@@ -64,6 +64,9 @@ func _notification(what: int) -> void:
 	# 系统抢走前台时抬手事件可能永远不来，不清掉就会一直「按着」
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		_eat.finger = -1
+	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		# 教室没有暂停面板：返回键还是直接退出，和以前一致
+		get_tree().quit()
 
 
 func _process(delta: float) -> void:

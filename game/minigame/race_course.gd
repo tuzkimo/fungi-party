@@ -20,7 +20,7 @@ const RAIL_WIDTH := 0.3
 const ARCH_HEIGHT := 3.4
 const GROUND_DEPTH := 0.2
 const END_MARGIN := 3.0
-const END_WALL_HEIGHT := 3.0
+const AIR_WALL_HEIGHT := 6.0
 
 
 func build(field: RaceField) -> void:
@@ -32,12 +32,13 @@ func build(field: RaceField) -> void:
 	ground.name = "Ground"
 	add_child(ground)
 	_block(ground, Vector3(half * 2.0, GROUND_DEPTH, length + END_MARGIN * 2.0), Vector3(0.0, -GROUND_DEPTH * 0.5, length * 0.5), _solid(GROUND_COLOR))
-	# 两端封死：裁判区之外没有地面，跑出去会直接掉出世界
+	# 空气墙：左右挡住跳跃（护栏只有 0.9m，跳得过去），两端挡住走出赛道外，
+	# 全部只做碰撞不画面，免得挡视野
+	for side in [-1.0, 1.0]:
+		_barrier(Vector3(0.3, AIR_WALL_HEIGHT, length + END_MARGIN * 2.0),
+			Vector3(side * (half + 0.15), AIR_WALL_HEIGHT * 0.5, length * 0.5))
 	for end_z in [-END_MARGIN + 0.4, length + END_MARGIN - 0.4]:
-		var wall := StaticBody3D.new()
-		wall.name = "EndWall"
-		add_child(wall)
-		_block(wall, Vector3(half * 2.0, END_WALL_HEIGHT, 0.8), Vector3(0.0, END_WALL_HEIGHT * 0.5, end_z), _solid(RAIL_COLOR))
+		_barrier(Vector3(half * 2.0, AIR_WALL_HEIGHT, 0.8), Vector3(0.0, AIR_WALL_HEIGHT * 0.5, end_z))
 	for side in [-1.0, 1.0]:
 		var rail := StaticBody3D.new()
 		rail.name = "Rail"
@@ -103,6 +104,19 @@ func _block(parent: Node3D, size: Vector3, pos: Vector3, material: Material) -> 
 	shape.shape = box
 	shape.position = pos
 	parent.add_child(shape)
+
+
+## 只有碰撞、没有外观的墙。
+func _barrier(size: Vector3, pos: Vector3) -> void:
+	var body := StaticBody3D.new()
+	body.name = "AirWall"
+	add_child(body)
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	shape.shape = box
+	shape.position = pos
+	body.add_child(shape)
 
 
 func _build_environment() -> void:

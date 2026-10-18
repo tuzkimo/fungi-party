@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="PackedScene" path="res://game/world/forest.tscn" id="1_forest"]
 [ext_resource type="PackedScene" path="res://game/ui/debug_hud.tscn" id="2_hud"]
@@ -6,8 +6,10 @@
 [ext_resource type="Script" path="res://game/ui/shop_panel.gd" id="4_shop"]
 [ext_resource type="Script" path="res://game/ui/door_panel.gd" id="5_door"]
 [ext_resource type="Script" path="res://game/ui/race_panel.gd" id="6_race"]
+[ext_resource type="Script" path="res://game/main.gd" id="7_main"]
 
 [node name="Main" type="Node3D"]
+script = ExtResource("7_main")
 
 [node name="Forest" parent="." instance=ExtResource("1_forest")]
 
