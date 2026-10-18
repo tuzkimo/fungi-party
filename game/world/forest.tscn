@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://game/world/terrain.gd" id="1_terrain"]
 [ext_resource type="Script" path="res://game/world/forest_gen.gd" id="2_trees"]
@@ -8,6 +8,7 @@
 [ext_resource type="Script" path="res://game/world/door.gd" id="6_door"]
 [ext_resource type="Script" path="res://game/world/start_gate.gd" id="7_gate"]
 [ext_resource type="Script" path="res://game/world/bomb_ring.gd" id="8_bomb"]
+[ext_resource type="Script" path="res://game/world/tent.gd" id="9_tent"]
 
 [sub_resource type="ProceduralSkyMaterial" id="Sky_1"]
 sky_top_color = Color(0.33, 0.5, 0.78, 1)
@@ -61,6 +62,10 @@ script = ExtResource("7_gate")
 [node name="BombRing" type="Node3D" parent="."]
 position = Vector3(0, 0, 11)
 script = ExtResource("8_bomb")
+
+[node name="Tent" type="Node3D" parent="."]
+position = Vector3(-8, 0, 2)
+script = ExtResource("9_tent")
 
 [node name="DayNight" type="Node" parent="."]
 script = ExtResource("4_day")
