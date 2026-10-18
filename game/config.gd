@@ -67,3 +67,19 @@ const RACE_RANK_COINS := [70, 50, 35, 20]
 const RACE_HIT_PENALTY := 5
 const RACE_TIME_LIMIT := 120.0
 const RACE_PATH := "res://game/minigame/race.tscn"
+
+# v3 传炸弹
+const BOMB_SEAT_RADIUS := 2.2
+const BOMB_FUSE_4 := Vector2(6.0, 11.0)
+const BOMB_FUSE_3 := Vector2(5.0, 9.0)
+const BOMB_FUSE_2 := Vector2(3.0, 6.0)
+const BOMB_FUSE_JITTER := 0.15
+const BOMB_THROW_SECONDS := 0.2
+const BOMB_CATCH_LOCK := 0.3
+const BOMB_COUNTDOWN := 3.0
+const BOMB_TIER_WARN := 2.6
+const BOMB_TIER_HOT := 1.2
+const BOMB_RANK_COINS := [70, 50, 35, 20]
+const BOMB_PATH := "res://game/minigame/bomb.tscn"
+const BOMB_NPC_ERROR := [0.5, 1.2, 0.7]
+const BOMB_NPC_THROW_AT := [1.2, 0.5, 0.9]
