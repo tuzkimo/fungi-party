@@ -47,6 +47,17 @@ func _ready() -> void:
 	sign_bowl.material_override = _solid(BOWL)
 	add_child(sign_bowl)
 
+	# 整栋房子的碰撞：相机射线拦得住，玩家也进不去（本来就不做室内）
+	var shell := StaticBody3D.new()
+	shell.name = "Shell"
+	add_child(shell)
+	var shell_shape := CollisionShape3D.new()
+	var shell_box := BoxShape3D.new()
+	shell_box.size = Vector3(4.4, 2.9, 4.0)
+	shell_shape.shape = shell_box
+	shell_shape.position = Vector3(0.0, 1.45, 0.0)
+	shell.add_child(shell_shape)
+
 	_area = Area3D.new()
 	_area.name = "Trigger"
 	_area.position = Vector3(0.0, 1.0, -3.2)

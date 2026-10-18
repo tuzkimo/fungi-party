@@ -12,6 +12,8 @@ extends Node3D
 
 const PITCH_MIN := -1.2217305   # -70°
 const PITCH_MAX := 0.3839724    # +22°：抬头能看见天
+## 相机离地的最小高度：抬头到顶时相机会被甩到地面以下，靠抬高支点补回来
+const CAM_MIN_HEIGHT := 0.9
 
 var _pitch := -0.3141593        # -18°
 var _yaw := 0.0
@@ -41,6 +43,12 @@ static func clamp_arm_length(length: float, min_length: float) -> float:
 	return maxf(length, min_length)
 
 
+## 支点该抬多高：抬头时相机沿 -Y 甩出去 arm_length * sin(pitch)，
+## 补到相机至少还有 min_height 离地。低头时不动（sin 为负）。
+static func pivot_lift(follow_height: float, pitch: float, arm_length: float, min_height: float) -> float:
+	return maxf(follow_height, sin(pitch) * arm_length + min_height)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.is_action_pressed("orbit"):
 		_apply_drag(event.relative)
@@ -61,7 +69,8 @@ func _apply_drag(drag: Vector2) -> void:
 func _physics_process(_delta: float) -> void:
 	var target := get_node_or_null(target_path) as Node3D
 	if target != null:
-		global_position = target.global_position + Vector3.UP * follow_height
+		var lift := CamRig.pivot_lift(follow_height, _pitch, requested_length, CAM_MIN_HEIGHT)
+		global_position = target.global_position + Vector3.UP * lift
 	rotation = Vector3(_pitch, _yaw, 0.0)
 
 	var distance := requested_length

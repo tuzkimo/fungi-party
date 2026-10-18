@@ -83,6 +83,11 @@ const DAY_SAVE_INTERVAL := 5.0
 const MEAL_ANIMATION_SECONDS := 1.2
 const TENT_POS := Vector3(-8.0, 0.0, 2.0)
 const RESTAURANT_POS := Vector3(8.0, 0.0, 2.0)
+## 六个 POI 的位置（和 forest.tscn 里摆的一致）：树和石头不往它们跟前长
+const POI_SPOTS: Array[Vector3] = [
+	Vector3(0.0, 0.0, -14.0), Vector3(7.0, 0.0, -11.0), Vector3(-7.0, 0.0, -11.0),
+	Vector3(0.0, 0.0, 11.0), TENT_POS, RESTAURANT_POS,
+]
 const SUN_DISTANCE := 120.0
 const SUN_RADIUS := 4.5
 const MOON_RADIUS := 3.2

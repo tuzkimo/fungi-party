@@ -43,6 +43,7 @@ func _ready() -> void:
 	add_child(roll_node)
 
 	_build_bed()
+	_build_shell()
 
 	_area = Area3D.new()
 	_area.name = "Trigger"
@@ -58,6 +59,21 @@ func _ready() -> void:
 ## 床的位置：DayLoop 把玩家插值到这里躺下。
 func bed_global_position() -> Vector3:
 	return $Bed.global_position
+
+
+## 两片斜布的碰撞：相机射线打得到，就不会钻进布里
+func _build_shell() -> void:
+	var shell := StaticBody3D.new()
+	shell.name = "Shell"
+	add_child(shell)
+	for side in [-1.0, 1.0]:
+		var shape := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(3.0, 0.3, 3.4)
+		shape.shape = box
+		shape.position = Vector3(side * 1.3, 1.55, 0.0)
+		shape.rotation = Vector3(0.0, 0.0, -side * ROOF_ANGLE)
+		shell.add_child(shape)
 
 
 func _build_bed() -> void:

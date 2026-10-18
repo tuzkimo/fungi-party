@@ -10,17 +10,33 @@ extends Node3D
 @export var clear_radius := 6.0
 
 const TRUNK_TRIS_SEGMENTS := 6
+## POI 跟前的净空：树长进帐篷/饭店里比空地难看
+const POI_CLEARANCE := 3.5
 
 
-static func scatter_positions(rng: RandomNumberGenerator, count: int, radius: float, clear: float) -> Array[Vector3]:
+static func scatter_positions(
+	rng: RandomNumberGenerator, count: int, radius: float, clear: float,
+	keep_out: Array[Vector3] = []
+) -> Array[Vector3]:
 	var result: Array[Vector3] = []
 	for i in count:
 		var angle := rng.randf() * TAU
 		var distance := sqrt(rng.randf()) * radius
 		if distance < clear:
 			distance = clear + (radius - clear) * rng.randf() * 0.1
-		result.append(Vector3(cos(angle) * distance, 0.0, sin(angle) * distance))
+		result.append(_push_out(Vector3(cos(angle) * distance, 0.0, sin(angle) * distance), keep_out))
 	return result
+
+
+## 只把挡路的推出去，别的树保持原位：整片森林不重排。
+static func _push_out(spot: Vector3, keep_out: Array[Vector3]) -> Vector3:
+	for poi in keep_out:
+		var offset := spot - poi
+		offset.y = 0.0
+		if offset.length() >= POI_CLEARANCE:
+			continue
+		spot = poi + (offset.normalized() if offset.length() > 0.01 else Vector3.RIGHT) * POI_CLEARANCE
+	return spot
 
 
 func _ready() -> void:
@@ -34,7 +50,7 @@ func generate() -> void:
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
-	var spots := ForestGen.scatter_positions(rng, tree_count, radius, clear_radius)
+	var spots := ForestGen.scatter_positions(rng, tree_count, radius, clear_radius, Config.POI_SPOTS)
 
 	var trunk_mesh := CylinderMesh.new()
 	trunk_mesh.top_radius = 0.16
@@ -96,7 +112,7 @@ func _build_rocks(rng: RandomNumberGenerator) -> void:
 	rock_mesh.radial_segments = 8
 	rock_mesh.rings = 4
 
-	var spots := ForestGen.scatter_positions(rng, rock_count, radius, clear_radius)
+	var spots := ForestGen.scatter_positions(rng, rock_count, radius, clear_radius, Config.POI_SPOTS)
 	var rocks := _multimesh("Rocks", rock_mesh, rock_count, rng)
 	for i in spots.size():
 		var scale_factor := rng.randf_range(0.5, 1.6)

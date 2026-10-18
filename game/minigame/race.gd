@@ -37,7 +37,9 @@ func _bail_to_forest() -> void:
 
 func _ready() -> void:
 	if not Save.spend_stamina(Config.STAMINA_COST_RACE):
-		# 体力不够就别开始，直接回森林；_ready 里换场景要延后
+		# 体力不够就别开始，直接回森林；_ready 里换场景要延后，
+		# 这期间 UI 还没建好，别再 tick
+		set_physics_process(false)
 		call_deferred("_bail_to_forest")
 		return
 	Controls.ensure()
