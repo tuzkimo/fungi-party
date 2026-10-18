@@ -18,7 +18,8 @@ const HIT_HALF := 0.9
 const KEEP_TARGET := 0.9
 const PINE_OFFSET := 1.4
 const PINE_HALF := 0.6
-const WOBBLE := 0.35
+## 横向抖动：稳中型离缝心还有 1.3m 余量，贴边型零余量，所以它最容易抖出缝
+const WOBBLE := [0.2, 0.35, 0.3]
 
 var z := 0.0
 var x := 0.0
@@ -90,8 +91,7 @@ func _steer_target(field: RaceField, elapsed: float) -> float:
 		if ahead > -KEEP_TARGET and ahead <= lookahead and ahead < nearest:
 			nearest = ahead
 			target = _side * PINE_OFFSET
-	if _style != Style.HUGGER:
-		target += sin(elapsed * 1.7 + _wobble_phase) * WOBBLE
+	target += sin(elapsed * 1.7 + _wobble_phase) * WOBBLE[_style]
 	return clampf(target, -Config.RACE_TRACK_HALF_WIDTH, Config.RACE_TRACK_HALF_WIDTH)
 
 

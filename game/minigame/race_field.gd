@@ -18,7 +18,6 @@ const ANIMAL_FIRST_TIME := 3.0
 const ANIMAL_TIME_MIN := 4.0
 const ANIMAL_TIME_MAX := 7.0
 const ANIMAL_Z_MARGIN := 20.0
-const ANIMAL_SAMPLES := 200
 const WALK_IN := 1.4
 const WALK_STOP := 1.2
 const WALK_OUT := 1.4
@@ -77,6 +76,8 @@ func _build_groups(rng: RandomNumberGenerator) -> void:
 
 
 func _build_crossings(rng: RandomNumberGenerator) -> void:
+	# 只在两组障碍中间横穿：离两侧各半条间隔，永远落不到缝上
+	var spots := _animal_spots()
 	var time := ANIMAL_FIRST_TIME
 	for i in Config.RACE_ANIMAL_COUNT:
 		var crossing := Crossing.new()
@@ -89,28 +90,19 @@ func _build_crossings(rng: RandomNumberGenerator) -> void:
 			crossing.kind = DUNG
 		else:
 			crossing.kind = SQUIRREL
-		crossing.z = _animal_z(rng)
+		if spots.is_empty():
+			crossing.z = ANIMAL_Z_MARGIN
+		else:
+			crossing.z = spots.pop_at(rng.randi() % spots.size())
 		crossings.append(crossing)
 		time += rng.randf_range(ANIMAL_TIME_MIN, ANIMAL_TIME_MAX)
 
 
-## 横穿处离最近的障碍组至少 RACE_ANIMAL_CLEAR，否则可能正好堵住唯一那条缝。
-func _animal_z(rng: RandomNumberGenerator) -> float:
-	var best := ANIMAL_Z_MARGIN
-	var best_clear := -1.0
-	for i in ANIMAL_SAMPLES:
-		var z := rng.randf_range(ANIMAL_Z_MARGIN, Config.RACE_TRACK_LENGTH - ANIMAL_Z_MARGIN)
-		var clear := _clearance(z)
-		if clear >= Config.RACE_ANIMAL_CLEAR:
-			return z
-		if clear > best_clear:
-			best_clear = clear
-			best = z
-	return best
-
-
-func _clearance(z: float) -> float:
-	var nearest := INF
-	for group in groups:
-		nearest = minf(nearest, absf(z - group.z))
-	return nearest
+## 可横穿的纵向位置：相邻两组的中间点 + 最后一组到终点之间的中间点。
+func _animal_spots() -> Array:
+	var spots: Array = []
+	for i in range(1, groups.size()):
+		spots.append((groups[i - 1].z + groups[i].z) * 0.5)
+	if not groups.is_empty():
+		spots.append((groups[groups.size() - 1].z + Config.RACE_TRACK_LENGTH) * 0.5)
+	return spots
