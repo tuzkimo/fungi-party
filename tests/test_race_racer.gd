@@ -51,6 +51,18 @@ func test_finish_detected() -> void:
 	check(r.finished, "越过终点即完赛")
 	check(r.finish_time > 0.0, "记下完赛时间")
 
+func test_finished_stays_finished() -> void:
+	# 冲线后 race.gd 仍然每帧调 advance，完赛时间不能被后一帧覆盖
+	var r := RaceRacer.new(RaceRacer.Style.STEADY, 3)
+	var f := RaceField.new(3)
+	r.z = Config.RACE_TRACK_LENGTH - 0.05
+	r.advance(1.0 / 60.0, f, 2.0)
+	check(r.finished, "先冲线")
+	var z := r.z
+	r.advance(1.0 / 60.0, f, 9.0)
+	check(absf(r.finish_time - 2.0) < 0.001, "完赛时间不被后续帧改写（实得 %f）" % r.finish_time)
+	check(absf(r.z - z) < 0.001, "冲线后不再前进")
+
 func test_big_delta_clamped() -> void:
 	var r := RaceRacer.new(RaceRacer.Style.STEADY, 3)
 	var f := RaceField.new(3)

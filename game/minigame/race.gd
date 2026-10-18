@@ -34,6 +34,9 @@ func _ready() -> void:
 	Controls.ensure()
 	_camera = $Camera3D
 	_ui = $UI
+	# 镜头在玩家脑后朝前，俯角固定：只定一次朝向，之后每帧只平移
+	_camera.position = Vector3(0.0, CAMERA_HEIGHT, -CAMERA_BACK)
+	_camera.look_at(Vector3(0.0, 0.8, 10.0))
 
 	var course := RaceCourse.new()
 	course.name = "Course"
@@ -207,4 +210,4 @@ func _settle_if_over() -> void:
 
 ## 镜头锁死朝前：只平移，不转、不抖。
 func _follow_player() -> void:
-	_camera.position = Vector3(_player.position.x, CAMERA_HEIGHT, _player.position.z + CAMERA_BACK)
+	_camera.position = Vector3(_player.position.x, CAMERA_HEIGHT, _player.position.z - CAMERA_BACK)

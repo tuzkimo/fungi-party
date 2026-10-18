@@ -12,6 +12,8 @@ const HUGGER_LOOKAHEAD := 8.0
 const SIDE_SPEED := 7.0
 const HUGGER_SIDE_SPEED := 5.0
 const DASH_CLEAR := 8.0
+## 人机的冲刺冷却比玩家长：Config 那个值是玩家的手感值，同款冷却的人机玩家追不上
+const DASHER_COOLDOWN := 4.5
 const HIT_BACK := 0.5
 const HIT_FRONT := 0.9
 const HIT_HALF := 0.9
@@ -42,6 +44,8 @@ func _init(style: int = Style.STEADY, seed_value: int = 1) -> void:
 
 
 func advance(delta: float, field: RaceField, elapsed: float) -> void:
+	if finished:
+		return
 	var d := minf(delta, MAX_DELTA)
 	if freeze > 0.0:
 		# 硬直期间不前进、不攒速度；x 也不动，否则会被拽回中线卡在障碍里
@@ -65,7 +69,7 @@ func advance(delta: float, field: RaceField, elapsed: float) -> void:
 
 	if _style == Style.DASHER and dash_left <= 0.0 and dash_cd <= 0.0 and not _blocked(field):
 		dash_left = Config.RACE_DASH_SECONDS
-		dash_cd = Config.RACE_DASH_COOLDOWN
+		dash_cd = DASHER_COOLDOWN
 
 	_check_hits(field, elapsed)
 

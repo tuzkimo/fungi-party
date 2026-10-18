@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="PackedScene" path="res://game/world/forest.tscn" id="1_forest"]
 [ext_resource type="PackedScene" path="res://game/ui/debug_hud.tscn" id="2_hud"]
 [ext_resource type="PackedScene" path="res://game/ui/touch_controls.tscn" id="3_touch"]
 [ext_resource type="Script" path="res://game/ui/shop_panel.gd" id="4_shop"]
 [ext_resource type="Script" path="res://game/ui/door_panel.gd" id="5_door"]
+[ext_resource type="Script" path="res://game/ui/race_panel.gd" id="6_race"]
 
 [node name="Main" type="Node3D"]
 
@@ -20,3 +21,6 @@ script = ExtResource("4_shop")
 
 [node name="DoorPanel" type="CanvasLayer" parent="."]
 script = ExtResource("5_door")
+
+[node name="RacePanel" type="CanvasLayer" parent="."]
+script = ExtResource("6_race")

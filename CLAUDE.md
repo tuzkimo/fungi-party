@@ -6,8 +6,8 @@
 - 引擎：Godot 4.7.2，Mobile 渲染器（真机 Redmi 24122RKC7C / Vulkan 1.3 已验证）
 - 语言：GDScript；美术全部程序化生成（内置 mesh + MultiMesh），不依赖外部模型
 - 平台：Android，单机离线，不上架商店
-- v2：森林里两个 POI —— 校门（站 1 秒进教室）、摊位（走近开商店买皮肤）；教室是自包含单场景小游戏，赢了给蘑菇币
-- 场景：`game/world/` 森林、`game/minigame/` 教室小游戏、`game/skins/` 皮肤数据（`.tres`）、`game/ui/` HUD 与商店浮层
+- v3：森林里三个 POI —— 校门（进教室偷吃）、摊位（开商店买皮肤）、起跑线（进 220m 障碍赛跑）；两款小游戏都是自包含单场景，名次/口数换蘑菇币
+- 场景：`game/world/` 森林与 POI、`game/minigame/` 教室与赛跑、`game/skins/` 皮肤数据（`.tres`）、`game/ui/` HUD 与浮层
 
 ## 开发命令
 

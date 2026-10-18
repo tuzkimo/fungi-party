@@ -1,7 +1,7 @@
 # 障碍赛跑（第二款小游戏）设计文档
 
 日期：2026-10-17
-状态：待确认
+状态：已实现（2026-10-18，见 docs/perf-log.md 的 v3 一节）
 父文档：`docs/superpowers/specs/2026-10-17-fungi-party-design.md`（v3 的第一款新小游戏）
 
 ## 1. 这是什么
