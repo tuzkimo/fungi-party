@@ -7,3 +7,4 @@ skins/local/
 export_credentials.cfg
 shots/
 refs/
+docs/screenshots/*.import
