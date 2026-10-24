@@ -7,7 +7,7 @@ extends Node3D
 
 const CANDY_COLOR := Color(0.96, 0.45, 0.62)
 const WRAPPER_COLOR := Color(0.98, 0.84, 0.35)
-const POOP_COLOR := Color(0.42, 0.28, 0.16)
+const POOP_COLOR := Color(0.54, 0.37, 0.19)
 const RADIUS := 0.19
 
 var _candy: Node3D
@@ -55,7 +55,7 @@ func setup() -> void:
 	tip.bottom_radius = 0.09
 	tip.height = 0.16
 	tip.radial_segments = 8
-	_attach(_poop, "Tip", tip, Vector3(0.0, RADIUS * 0.8, 0.0), _solid(POOP_COLOR))
+	_attach(_poop, "Tip", tip, Vector3(0.0, RADIUS * 0.8, 0.0), _solid(Color(0.62, 0.45, 0.24)))
 
 
 func set_kind(poop: bool) -> void:

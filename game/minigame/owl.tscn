@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://game/minigame/owl.gd" id="1_script"]
+[ext_resource type="Script" path="res://game/minigame/owl_ui.gd" id="2_ui"]
+
+[node name="Owl" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+
+[node name="UI" type="CanvasLayer" parent="."]
+script = ExtResource("2_ui")

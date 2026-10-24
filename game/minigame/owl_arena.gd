@@ -5,16 +5,19 @@ extends Node3D
 
 const GROUND_RADIUS := 9.0
 const GROUND_COLOR := Color(0.34, 0.50, 0.28)
-const TRUNK_COLOR := Color(0.33, 0.23, 0.15)
+## 树干压暗：屎是棕的，两者撞色的话飞到树前那半秒就看不清
+const TRUNK_COLOR := Color(0.26, 0.18, 0.11)
 const CANOPY_COLOR := Color(0.19, 0.40, 0.23)
 const BODY_COLOR := Color(0.55, 0.47, 0.40)
 const BEAK_COLOR := Color(0.96, 0.62, 0.22)
 const SKY_COLOR := Color(0.52, 0.68, 0.80)
-const TREE_POS := Vector3(0.0, 0.0, -6.0)
-const OWL_Y := 3.55
-const OWL_Z := -5.0
+const TREE_POS := Vector3(0.0, 0.0, -5.6)
+const OWL_Y := 3.30
+const OWL_Z := -4.60
+## 猫头鹰放大一点：手机上它得看清是只鸟，不然只是一团灰
+const OWL_SCALE := 1.35
 ## 下落物的起点：猫头鹰喙前面一点
-const BEAK_POINT := Vector3(0.0, 3.35, -4.72)
+const BEAK_POINT := Vector3(0.0, 3.12, -4.28)
 
 
 func build() -> void:
@@ -97,6 +100,7 @@ func _build_owl() -> void:
 	var owl := Node3D.new()
 	owl.name = "Owl"
 	owl.position = Vector3(0.0, OWL_Y, OWL_Z)
+	owl.scale = Vector3.ONE * OWL_SCALE
 	add_child(owl)
 
 	var body := SphereMesh.new()

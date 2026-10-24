@@ -136,7 +136,7 @@ const OWL_RANK_COINS := [70, 50, 35, 20]
 const OWL_FAST_FORWARD := 2.5
 const OWL_BREAK_SECONDS := 1.6
 const OWL_COUNTDOWN := 3.0
-const OWL_SEAT_X := [-3.6, -1.2, 1.2, 3.6]
+const OWL_SEAT_X := [-2.4, -0.8, 0.8, 2.4]
 ## 三个 NPC：敢吃糖的概率 / 会误吞屎的概率 / 张嘴提前量（下落时长的倍数）
 const OWL_NPC_EAT := [0.9, 0.97, 0.75]
 const OWL_NPC_GREED := [0.05, 0.28, 0.02]

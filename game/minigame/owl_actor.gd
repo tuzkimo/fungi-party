@@ -8,8 +8,8 @@ const STEM_COLOR := Color(0.92, 0.87, 0.78)
 const MOUTH_CLOSED_COLOR := Color(0.25, 0.15, 0.15)
 const MOUTH_OPEN_COLOR := Color(0.95, 0.52, 0.58)
 const DOT_COLOR := Color(0.98, 0.96, 0.90)
-## 下落物的落点：菌盖前沿、嘴的高度
-const MOUTH_POINT := Vector3(0.0, 0.55, 0.36)
+## 脸都贴在菌盖前面：出局时整只蘑菇前倾，五官再往里缩就会被菌盖吞掉
+const MOUTH_POINT := Vector3(0.0, 0.55, 0.66)
 const LEAN_OPEN := -0.16
 const LEAN_OUT := 0.30
 const LEAN_SPEED := 12.0
@@ -69,22 +69,22 @@ func setup(cap_color: Color, is_player: bool) -> void:
 	var white := _solid(Color.WHITE, 0.6)
 	var black := _solid(Color(0.08, 0.06, 0.06), 0.5)
 	for side in [-1.0, 1.0]:
-		_place("Eye", eye_mesh, Vector3(0.17 * side, 0.62, 0.50), white)
-		_place("Pupil", pupil_mesh, Vector3(0.17 * side, 0.62, 0.57), black)
+		_place("Eye", eye_mesh, Vector3(0.17 * side, 0.62, 0.60), white)
+		_place("Pupil", pupil_mesh, Vector3(0.17 * side, 0.62, 0.67), black)
 
 	# 嘴：闭嘴是一条缝，张嘴是露出来的粉色口腔。两张都常驻，切 visible，
 	# 手机小屏上「自己现在张没张嘴」必须一眼看得出。
 	var closed_mesh := BoxMesh.new()
-	closed_mesh.size = Vector3(0.28, 0.06, 0.04)
-	_closed_mesh = _place("MouthClosed", closed_mesh, Vector3(0.0, 0.52, 0.53), _solid(MOUTH_CLOSED_COLOR, 0.9))
+	closed_mesh.size = Vector3(0.44, 0.10, 0.10)
+	_closed_mesh = _place("MouthClosed", closed_mesh, Vector3(0.0, 0.55, 0.60), _solid(MOUTH_CLOSED_COLOR, 0.9))
 
 	var open_mesh := SphereMesh.new()
 	open_mesh.radius = 1.0
 	open_mesh.height = 2.0
 	open_mesh.radial_segments = 10
 	open_mesh.rings = 5
-	_open_mesh = _place("MouthOpen", open_mesh, Vector3(0.0, 0.52, 0.52), _solid(MOUTH_OPEN_COLOR, 0.8))
-	_open_mesh.scale = Vector3(0.16, 0.14, 0.10)
+	_open_mesh = _place("MouthOpen", open_mesh, Vector3(0.0, 0.55, 0.62), _solid(MOUTH_OPEN_COLOR, 0.8))
+	_open_mesh.scale = Vector3(0.23, 0.20, 0.13)
 	_open_mesh.visible = false
 
 	if is_player:
