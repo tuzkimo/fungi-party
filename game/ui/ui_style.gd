@@ -33,7 +33,8 @@ static func panel() -> StyleBoxFlat:
 	return style
 
 
-static func style_button(button: Button) -> void:
+## border 给档位描边用：不传就是原来那样没有边框。
+static func style_button(button: Button, border := Color(0.0, 0.0, 0.0, 0.0)) -> void:
 	for state in BUTTON_COLORS:
 		var style := StyleBoxFlat.new()
 		style.bg_color = BUTTON_COLORS[state]
@@ -42,5 +43,8 @@ static func style_button(button: Button) -> void:
 		style.content_margin_right = 20.0
 		style.content_margin_top = 8.0
 		style.content_margin_bottom = 8.0
+		if border.a > 0.0:
+			style.border_color = border
+			style.set_border_width_all(3)
 		button.add_theme_stylebox_override(state, style)
 	button.add_theme_color_override("font_disabled_color", Color(0.55, 0.53, 0.57))

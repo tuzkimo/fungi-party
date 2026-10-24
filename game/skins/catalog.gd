@@ -58,5 +58,20 @@ static func by_rarity(rarity: int) -> Array[MushroomSkin]:
 	return result
 
 
+## 衣柜用：按档位从夯往下分组，空档不出现，不认识的 id 直接跳过。
+## 返回 [{rarity: int, skins: Array[MushroomSkin]}]。
+static func group_by_rarity(owned: PackedStringArray) -> Array[Dictionary]:
+	var groups: Array[Dictionary] = []
+	for rarity in range(Config.RARITY_NAMES.size() - 1, -1, -1):
+		var skins: Array[MushroomSkin] = []
+		for skin_id in owned:
+			var skin := by_id(skin_id)
+			if skin != null and skin.rarity == rarity:
+				skins.append(skin)
+		if not skins.is_empty():
+			groups.append({"rarity": rarity, "skins": skins})
+	return groups
+
+
 static func count() -> int:
 	return PATHS.size()

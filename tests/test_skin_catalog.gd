@@ -50,3 +50,30 @@ func test_blueberry_upgraded() -> void:
 	check_eq(skin.rarity, 3, "蓝莓帽升为顶级")
 	check_eq(skin.spot_count, 9, "还是 9 个斑点")
 	check(skin.tint_cap.b > skin.tint_cap.r, "帽子偏蓝")
+
+
+func test_group_by_rarity_empty() -> void:
+	check_eq(SkinCatalog.group_by_rarity(PackedStringArray()).size(), 0, "一顶都没有就没有分组")
+
+
+func test_group_by_rarity_orders_high_to_low() -> void:
+	var groups := SkinCatalog.group_by_rarity(PackedStringArray(["poop", "hero", "star"]))
+	check_eq(groups.size(), 2, "只出现有皮肤的两档（star 是不存在的 id）")
+	if groups.size() != 2:
+		return
+	check_eq(groups[0].rarity, 4, "夯在最前面")
+	check_eq(groups[0].skins.size(), 1, "夯这一档只有菇勇者")
+	check_eq(groups[0].skins[0].id, "hero", "拿到的就是菇勇者")
+	check_eq(groups[1].rarity, 0, "拉完了排在后面")
+	check_eq(groups[1].skins[0].id, "poop", "拉完了是屎菇")
+
+
+func test_group_by_rarity_keeps_same_tier_together() -> void:
+	var groups := SkinCatalog.group_by_rarity(
+		PackedStringArray(["ghost", "king", "hero", "glow"]),
+	)
+	check_eq(groups.size(), 1, "三顶夯归成一组，未知 id 丢掉")
+	if groups.is_empty():
+		return
+	check_eq(groups[0].rarity, 4, "就是夯这一档")
+	check_eq(groups[0].skins.size(), 3, "三顶都在")

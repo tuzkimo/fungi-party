@@ -7,7 +7,7 @@ var _root: Control
 var _stamina: Label
 var _sleep: Button
 var _clothes: Button
-var _skins: GridContainer
+var _skins: VBoxContainer
 var _built_key := ""
 
 
@@ -63,10 +63,10 @@ func _ready() -> void:
 	UIStyle.style_button(_clothes)
 	box.add_child(_clothes)
 
-	_skins = GridContainer.new()
-	_skins.columns = 4
-	_skins.add_theme_constant_override("h_separation", 12)
-	_skins.add_theme_constant_override("v_separation", 12)
+	# 一行一个档位：档位名在行首，后面跟这一档已拥有的皮肤。
+	# 不用「标题 + 一行按钮」那种分组，720 高的屏幕放不下六组。
+	_skins = VBoxContainer.new()
+	_skins.add_theme_constant_override("separation", 8)
 	_skins.visible = false
 	box.add_child(_skins)
 
@@ -92,31 +92,48 @@ func _refresh() -> void:
 		_build_skin_buttons(data)
 
 
-## 已拥有的按档位从高到低排，最前面一个「默认红帽」。
+## 一行一档，档位名在行首，按钮带档位描边色。
 func _build_skin_buttons(data: Dictionary) -> void:
 	for child in _skins.get_children():
 		child.queue_free()
 
 	var equipped := str(data["equipped"])
-	_add_skin_button("默认红帽", "", equipped == "")
-	var skins: Array[MushroomSkin] = []
-	for skin_id in data["owned"] as PackedStringArray:
-		var skin := SkinCatalog.by_id(skin_id)
-		if skin != null:
-			skins.append(skin)
-	skins.sort_custom(func(a, b): return a.rarity > b.rarity)
-	for skin in skins:
-		_add_skin_button(skin.display_name, skin.id, equipped == skin.id)
+	_add_skin_button(_skin_row("默认", Color(0.62, 0.60, 0.64)), "红帽", "", equipped == "")
+	for group in SkinCatalog.group_by_rarity(data["owned"] as PackedStringArray):
+		var rarity := int(group["rarity"])
+		var row := _skin_row(Config.RARITY_NAMES[rarity], Config.RARITY_COLORS[rarity])
+		for skin in group["skins"] as Array:
+			_add_skin_button(row, skin.display_name, skin.id, equipped == skin.id)
 
 
-func _add_skin_button(text: String, skin_id: String, worn: bool) -> void:
+## 一行 = 档位名 + 这一档的按钮。
+func _skin_row(title: String, color: Color) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	_skins.add_child(row)
+	var label := Label.new()
+	label.text = title
+	label.custom_minimum_size = Vector2(72.0, 0.0)
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 22)
+	label.add_theme_color_override("font_color", color)
+	row.add_child(label)
+	return row
+
+
+func _add_skin_button(row: HBoxContainer, text: String, skin_id: String, worn: bool) -> void:
 	var button := Button.new()
 	button.text = text
-	button.custom_minimum_size = Vector2(140.0, 52.0)
+	button.custom_minimum_size = Vector2(132.0, 48.0)
 	button.disabled = worn
 	button.pressed.connect(_on_wear.bind(skin_id))
-	UIStyle.style_button(button)
-	_skins.add_child(button)
+	UIStyle.style_button(button, Color(0.0, 0.0, 0.0, 0.0) if skin_id == "" else _rarity_color(skin_id))
+	row.add_child(button)
+
+
+func _rarity_color(skin_id: String) -> Color:
+	var skin := SkinCatalog.by_id(skin_id)
+	return Config.RARITY_COLORS[skin.rarity] if skin != null else Color(0.0, 0.0, 0.0, 0.0)
 
 
 func _on_sleep() -> void:
