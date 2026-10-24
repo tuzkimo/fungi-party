@@ -39,6 +39,20 @@ const COIN_BASE := 10
 const COIN_PER_BITE := 3
 const COIN_WIN_BONUS := 40
 const COIN_PER_CATCH := 5
+# v4 皮肤抽卡（下标 = 档位：0 拉完了 / 1 NPC / 2 人上人 / 3 顶级 / 4 夯）
+const GACHA_PRICE_ONE := 50
+const GACHA_PRICE_TEN := 450
+const GACHA_PITY := 50
+const GACHA_WEIGHTS: Array[int] = [30, 30, 23, 12, 5]
+const GACHA_REFUND: Array[int] = [10, 20, 40, 80, 150]
+const RARITY_NAMES: Array[String] = ["拉完了", "NPC", "人上人", "顶级", "夯"]
+const RARITY_COLORS: Array[Color] = [
+	Color(0.55, 0.55, 0.58),
+	Color(0.62, 0.72, 0.60),
+	Color(0.42, 0.66, 0.88),
+	Color(0.78, 0.45, 0.88),
+	Color(0.98, 0.78, 0.26),
+]
 const CLASSROOM_PATH := "res://game/minigame/classroom.tscn"
 const FOREST_PATH := "res://game/main.tscn"
 
