@@ -1,5 +1,9 @@
 extends "res://tests/test_base.gd"
 
+## 帽子上的一切现在挂在 CapPivot 下，按名字递归找，别写死路径。
+func _node(m: MushroomMesh, part_name: String) -> Node:
+	return m.find_child(part_name, true, false)
+
 
 func test_build_creates_parts() -> void:
 	var m := MushroomMesh.new()
@@ -70,7 +74,7 @@ func test_sword_clear_of_cap() -> void:
 	var m := MushroomMesh.new()
 	m.use_skin(SkinCatalog.by_id("hero"))
 	m.build()
-	var blade := m.get_node_or_null("SwordBlade") as MeshInstance3D
+	var blade := _node(m, "SwordBlade") as MeshInstance3D
 	check(blade != null, "菇勇者拿着剑")
 	if blade == null:
 		m.free()
@@ -109,7 +113,7 @@ func test_cap_is_rounded_triangle() -> void:
 func test_cap_normals_point_out() -> void:
 	var m := MushroomMesh.new()
 	m.build()
-	var mesh := m.get_node("Cap").mesh as ArrayMesh
+	var mesh := _node(m, "Cap").mesh as ArrayMesh
 	var arrays := mesh.surface_get_arrays(0)
 	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 	var norms: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
@@ -132,13 +136,13 @@ func test_face_sits_on_cap() -> void:
 	var m := MushroomMesh.new()
 	m.build()
 	for part_name in ["EyeL", "EyeR", "Mouth0", "Mouth2", "Mouth4"]:
-		var node := m.get_node_or_null(part_name) as MeshInstance3D
+		var node := _node(m, part_name) as MeshInstance3D
 		check(node != null, "%s 在" % part_name)
 		if node == null:
 			continue
 		var p := node.position
 		var radial := sqrt(p.x * p.x + p.z * p.z)
-		var surface := m.cap_radius_at((p.y - m.cap_base()) / (m.cap_height * 2.0))
+		var surface := m.cap_radius_at(p.y / (m.cap_height * 2.0))
 		check(absf(radial - surface) < 0.08, "%s 贴着帽面（离面 %.3f）" % [part_name, radial - surface])
 	m.free()
 
@@ -153,7 +157,7 @@ func test_spots_avoid_the_face() -> void:
 			continue
 		var node := child as MeshInstance3D
 		var p := node.position
-		var y_norm := (p.y - m.cap_base()) / (m.cap_height * 2.0)
+		var y_norm := p.y / (m.cap_height * 2.0)
 		var facing := absf(wrapf(atan2(p.z, p.x) - PI * 0.5, -PI, PI))
 		if facing < 0.6 and y_norm > 0.15 and y_norm < 0.50:
 			blocked += 1
@@ -166,10 +170,10 @@ func test_head_parts_follow_cap_top() -> void:
 	var m := MushroomMesh.new()
 	m.use_skin(SkinCatalog.by_id("king"))
 	m.build()
-	var band := m.get_node_or_null("CrownBand") as MeshInstance3D
+	var band := _node(m, "CrownBand") as MeshInstance3D
 	check(band != null, "菌王戴着皇冠")
 	if band != null:
-		var gap := band.position.y - m.cap_top()
+		var gap := band.position.y - m.cap_height * 2.0
 		check(gap > -0.20 and gap < 0.10, "皇冠套在帽尖上（差 %.3f）" % gap)
 	m.free()
 
@@ -179,8 +183,8 @@ func test_sword_guard_clears_the_hand() -> void:
 	var m := MushroomMesh.new()
 	m.use_skin(SkinCatalog.by_id("hero"))
 	m.build()
-	var guard := m.get_node_or_null("SwordGuard") as MeshInstance3D
-	var hand := m.get_node_or_null("HandR") as MeshInstance3D
+	var guard := _node(m, "SwordGuard") as MeshInstance3D
+	var hand := _node(m, "HandR") as MeshInstance3D
 	check(guard != null and hand != null, "有右手也有护手")
 	if guard == null or hand == null:
 		m.free()
@@ -197,7 +201,7 @@ func test_cape_covers_only_the_back() -> void:
 	var m := MushroomMesh.new()
 	m.use_skin(SkinCatalog.by_id("hero"))
 	m.build()
-	var cape := m.get_node_or_null("Cape") as MeshInstance3D
+	var cape := _node(m, "Cape") as MeshInstance3D
 	check(cape != null, "菇勇者有披风")
 	if cape == null:
 		m.free()
@@ -210,4 +214,27 @@ func test_cape_covers_only_the_back() -> void:
 			front += 1
 	check_eq(front, 0, "披风不绕到胸前（正面有 %d 个顶点）" % front)
 	check(verts.size() > 0, "披风有面")
+	m.free()
+
+
+## 倾斜和压扁只能作用在「帽子 + 长在帽子上的一切」共用的那个 pivot 上。
+## 各自变换的话，蔫菇（22° + 压扁 0.45）的眼珠和斑点会飘到空气里。
+func test_cap_contents_share_one_pivot() -> void:
+	var m := MushroomMesh.new()
+	m.use_skin(SkinCatalog.by_id("wilt"))
+	m.build()
+	var pivot := m.get_node_or_null("CapPivot") as Node3D
+	check(pivot != null, "有 CapPivot")
+	if pivot == null:
+		m.free()
+		return
+	check(absf(pivot.rotation_degrees.z - m.cap_tilt) < 0.01, "pivot 承担帽倾斜")
+	check(absf(pivot.scale.y - (1.0 - m.cap_squash)) < 0.001, "pivot 承担帽压扁")
+	for part_name in ["Cap", "CapOutline", "EyeL", "EyeR", "Mouth0", "Mouth2", "Mouth4"]:
+		var node := _node(m, part_name)
+		check(node != null and node.get_parent() == pivot, "%s 挂在 pivot 下" % part_name)
+	for child in m.get_children():
+		if child.name.begins_with("Spot"):
+			check(child.get_parent() == pivot, "%s 挂在 pivot 下" % child.name)
+			break
 	m.free()

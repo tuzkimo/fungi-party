@@ -73,3 +73,22 @@ func test_group_by_rarity_keeps_same_tier_together() -> void:
 	for skin in groups[0].skins as Array:
 		ids.append(skin.id)
 	check_eq(ids, ["hero", "king", "glow"], "夯这一档按总表顺序排好")
+
+
+## 新加一个 .tres 却忘了登记 PATHS，那顶皮肤永远抽不到，而所有测试还是绿的。
+func test_no_unregistered_skin_files() -> void:
+	var dir := DirAccess.open("res://game/skins")
+	check(dir != null, "皮肤目录能打开")
+	if dir == null:
+		return
+	var files := 0
+	for f in dir.get_files():
+		if not f.ends_with(".tres"):
+			continue
+		files += 1
+		check(
+			SkinCatalog.PATHS.has("res://game/skins/%s" % f),
+			"%s 登记在 PATHS 里（否则永远抽不到）" % f,
+		)
+	check_eq(files, SkinCatalog.PATHS.size(), "目录里的 .tres 和 PATHS 条数一致")
+	check_eq(SkinCatalog.count(), SkinCatalog.all().size(), "count() 数的是加载得出来的")

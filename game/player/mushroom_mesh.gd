@@ -67,11 +67,6 @@ func cap_base() -> float:
 	return body_height - 0.05 - cap_height
 
 
-## 帽子顶尖的世界高度。头上的零件（冠、角盔、花）都按它定位，别再写死数值。
-func cap_top() -> float:
-	return cap_base() + cap_height * 2.0
-
-
 ## y_norm 0 是帽子底、1 是顶尖。返回该高度处帽子的水平半径。
 func cap_radius_at(y_norm: float) -> float:
 	var y := clampf(y_norm, 0.0, 1.0)
@@ -104,13 +99,18 @@ func build() -> void:
 	body_mesh.rings = 8
 	_add_part("Body", body_mesh, mat_body, Vector3(0.0, body_y, 0.0), Vector3.ONE)
 
+	# 帽子和长在帽子上的一切（脸、斑点、头顶零件）挂在同一个 pivot 下。
+	# 倾斜和压扁只动 pivot —— 各自变换的话，蔫菇的眼珠和斑点会飘到空气里。
+	var cap_pivot := Node3D.new()
+	cap_pivot.name = "CapPivot"
+	cap_pivot.position = Vector3(0.0, cap_base(), 0.0)
+	cap_pivot.rotation_degrees.z = cap_tilt
+	cap_pivot.scale = Vector3(1.0, 1.0 - cap_squash, 1.0)
+	add_child(cap_pivot)
+
 	var cap_mesh := _revolve_cap()
-	var cap_scale := Vector3(1.0, 1.0 - cap_squash, 1.0)
-	var cap_pos := Vector3(0.0, cap_base(), 0.0)
-	var cap_node := _add_part("Cap", cap_mesh, mat_cap, cap_pos, cap_scale)
-	cap_node.rotation_degrees.z = cap_tilt
-	var cap_outline := _add_part("CapOutline", cap_mesh, mat_outline, cap_pos, cap_scale)
-	cap_outline.rotation_degrees.z = cap_tilt
+	_add_part("Cap", cap_mesh, mat_cap, Vector3.ZERO, Vector3.ONE, cap_pivot)
+	_add_part("CapOutline", cap_mesh, mat_outline, Vector3.ZERO, Vector3.ONE, cap_pivot)
 	_add_part("BodyOutline", body_mesh, mat_outline, Vector3(0.0, body_y, 0.0), Vector3.ONE)
 
 	var hand_mesh := SphereMesh.new()
@@ -125,7 +125,7 @@ func build() -> void:
 		_add_part(label, hand_mesh, mat_body, hand_pos, hand_scale)
 		_add_part(label + "Outline", hand_mesh, mat_outline, hand_pos, hand_scale)
 
-	_build_spots()
+	_build_spots(cap_pivot)
 
 	var dot_mesh := SphereMesh.new()
 	dot_mesh.radius = 1.0
@@ -133,6 +133,7 @@ func build() -> void:
 	dot_mesh.radial_segments = 12
 	dot_mesh.rings = 6
 	# 脸贴在帽子正面上：z 由那个高度上的帽子半径反算，帽子轮廓改了这个跟着走
+	# 坐标都在 pivot 本地系里：y=0 是帽底，y=cap_height*2 是帽尖
 	for side in [-1.0, 1.0]:
 		var eye_x: float = 0.14 * float(side)
 		var eye_y_norm := 0.41
@@ -143,14 +144,15 @@ func build() -> void:
 			mat_dark,
 			Vector3(
 				eye_x,
-				cap_base() + eye_y_norm * cap_height * 2.0,
+				eye_y_norm * cap_height * 2.0,
 				sqrt(maxf(0.0, eye_ring * eye_ring - eye_x * eye_x)) * 0.97,
 			),
 			Vector3(0.055, 0.055, 0.03),
+			cap_pivot,
 		)
 	# 嘴是帽面上的一段线。单个扁球放在曲面上会被切成两截，所以沿 x 排一串重叠的小球
 	var mouth_y_norm := 0.23
-	var mouth_y := cap_base() + mouth_y_norm * cap_height * 2.0
+	var mouth_y := mouth_y_norm * cap_height * 2.0
 	var mouth_ring := cap_radius_at(mouth_y_norm)
 	for i in MOUTH_DOTS:
 		var mx := MOUTH_HALF_WIDTH * (-1.0 + 2.0 * float(i) / float(MOUTH_DOTS - 1))
@@ -158,6 +160,7 @@ func build() -> void:
 			"Mouth%d" % i, dot_mesh, mat_dark,
 			Vector3(mx, mouth_y, sqrt(maxf(0.0, mouth_ring * mouth_ring - mx * mx)) * 0.97),
 			Vector3(0.05, 0.018, 0.02),
+			cap_pivot,
 		)
 
 	_add_part("Belly", dot_mesh, mat_white, Vector3(0.0, 0.62, 0.41), Vector3(0.16, 0.24, 0.06))
@@ -169,7 +172,7 @@ func build() -> void:
 		mark.rotation_degrees.z = 45.0 * side
 
 	for part in parts:
-		_add_accessory(part)
+		_add_accessory(part, cap_pivot)
 
 
 ## 帽子是绕 Y 轴转一圈的旋转体，剖面用超椭圆：尖度 1 是圆锥、2 是球。
@@ -212,7 +215,7 @@ static func _quad(st: SurfaceTool, v00: Vector3, v01: Vector3, v11: Vector3, v10
 	st.add_vertex(v10)
 
 
-func _build_spots() -> void:
+func _build_spots(cap_pivot: Node3D) -> void:
 	if spot_count <= 0:
 		return
 	var mat_spot := _solid_glow(spot_color, spot_glow)
@@ -237,7 +240,7 @@ func _build_spots() -> void:
 		var ring := cap_radius_at(y_norm) * 0.93
 		var spot_pos := Vector3(
 			cos(angle) * ring,
-			cap_base() + y_norm * cap_height * 2.0,
+			y_norm * cap_height * 2.0,
 			sin(angle) * ring,
 		)
 		var spot_scale := Vector3.ONE * (0.10 + 0.03 * float(i % 3))
@@ -246,12 +249,12 @@ func _build_spots() -> void:
 			MushroomSkin.SpotShape.STAR:
 				# 两道交叉的短棒凑成星，比球便宜也更像星星
 				for quarter in [0.0, 90.0]:
-					var bar := _add_part("Spot%d" % i, star_mesh, mat_spot, spot_pos, Vector3.ONE)
+					var bar := _add_part("Spot%d" % i, star_mesh, mat_spot, spot_pos, Vector3.ONE, cap_pivot)
 					bar.rotation_degrees = Vector3(0.0, rad_to_deg(angle) + quarter, 0.0)
 			MushroomSkin.SpotShape.BLOB:
-				_add_part("Spot%d" % i, round_mesh, mat_spot, spot_pos, spot_scale * Vector3(1.6, 0.5, 1.0))
+				_add_part("Spot%d" % i, round_mesh, mat_spot, spot_pos, spot_scale * Vector3(1.6, 0.5, 1.0), cap_pivot)
 			_:
-				_add_part("Spot%d" % i, round_mesh, mat_spot, spot_pos, spot_scale)
+				_add_part("Spot%d" % i, round_mesh, mat_spot, spot_pos, spot_scale, cap_pivot)
 
 
 ## 背后一片弧面：从肩下挂到腰，只在背面 ±CAPE_ARC 范围内。
@@ -272,7 +275,7 @@ func _cape_mesh() -> ArrayMesh:
 
 
 ## 零件白名单。名字不在表里只告警，不崩 —— 存档里的旧皮肤可能带已经删掉的名字。
-func _add_accessory(part: String) -> void:
+func _add_accessory(part: String, cap_pivot: Node3D) -> void:
 	var mat_dark := _solid(Color(0.10, 0.07, 0.07))
 	var mat_steel := _solid(Color(0.88, 0.90, 0.96))
 	var outline := _outline()
@@ -342,8 +345,8 @@ func _add_accessory(part: String) -> void:
 			dome.radius = 0.34
 			dome.radial_segments = 20
 			dome.rings = 10
-			var dome_pos := Vector3(0.0, cap_top() - cap_height * 0.30, 0.0)
-			_add_part("HelmetDome", dome, mat_dark, dome_pos, Vector3(1.0, 0.55, 1.0))
+			var dome_pos := Vector3(0.0, cap_height * 2.0 - cap_height * 0.30, 0.0)
+			_add_part("HelmetDome", dome, mat_dark, dome_pos, Vector3(1.0, 0.55, 1.0), cap_pivot)
 			var horn := CylinderMesh.new()
 			horn.top_radius = 0.02
 			horn.bottom_radius = 0.09
@@ -352,7 +355,8 @@ func _add_accessory(part: String) -> void:
 			for side in [-1.0, 1.0]:
 				var node := _add_part(
 					"HelmetHorn", horn, mat_steel,
-					Vector3(0.24 * side, cap_top() - cap_height * 0.10, 0.0), Vector3.ONE,
+					Vector3(0.24 * side, cap_height * 2.0 - cap_height * 0.10, 0.0), Vector3.ONE,
+					cap_pivot,
 				)
 				node.rotation_degrees.z = -35.0 * side
 		"crown":
@@ -362,8 +366,8 @@ func _add_accessory(part: String) -> void:
 			band.bottom_radius = 0.22
 			band.height = 0.12
 			band.radial_segments = 16
-			var band_y := cap_top() - 0.03
-			_add_part("CrownBand", band, gold, Vector3(0.0, band_y, 0.0), Vector3.ONE)
+			var band_y := cap_height * 2.0 - 0.03
+			_add_part("CrownBand", band, gold, Vector3(0.0, band_y, 0.0), Vector3.ONE, cap_pivot)
 			var tooth := BoxMesh.new()
 			tooth.size = Vector3(0.07, 0.13, 0.06)
 			for i in 5:
@@ -371,6 +375,7 @@ func _add_accessory(part: String) -> void:
 				var node := _add_part(
 					"CrownTooth%d" % i, tooth, gold,
 					Vector3(cos(a) * 0.23, band_y + 0.11, sin(a) * 0.23), Vector3.ONE,
+					cap_pivot,
 				)
 				node.rotation_degrees.y = rad_to_deg(a)
 		"bloom":
@@ -378,30 +383,37 @@ func _add_accessory(part: String) -> void:
 			petal.radius = 1.0
 			petal.radial_segments = 12
 			petal.rings = 6
-			var tip := Vector3(0.0, cap_top() + 0.02, 0.0)
-			_add_part("BloomPetal", petal, _solid(Color(0.99, 0.72, 0.80)), tip, Vector3(0.16, 0.06, 0.16))
-			_add_part("BloomCore", petal, _solid(Color(0.98, 0.86, 0.36)), tip, Vector3(0.06, 0.05, 0.06))
+			var tip := Vector3(0.0, cap_height * 2.0 + 0.02, 0.0)
+			_add_part("BloomPetal", petal, _solid(Color(0.99, 0.72, 0.80)), tip, Vector3(0.16, 0.06, 0.16), cap_pivot)
+			_add_part("BloomCore", petal, _solid(Color(0.98, 0.86, 0.36)), tip, Vector3(0.06, 0.05, 0.06), cap_pivot)
 		"wide_brim":
 			var brim := SphereMesh.new()
 			brim.radius = 1.0
 			brim.radial_segments = 24
 			brim.rings = 12
 			var brim_scale := Vector3(cap_radius * 1.18, 0.06, cap_radius * 1.18)
-			var brim_pos := Vector3(0.0, cap_base() + 0.06, 0.0)
-			_add_part("Brim", brim, _solid(tint_cap.darkened(0.1)), brim_pos, brim_scale)
-			_add_part("BrimOutline", brim, outline, brim_pos, brim_scale)
+			var brim_pos := Vector3(0.0, 0.06, 0.0)
+			_add_part("Brim", brim, _solid(tint_cap.darkened(0.1)), brim_pos, brim_scale, cap_pivot)
+			_add_part("BrimOutline", brim, outline, brim_pos, brim_scale, cap_pivot)
 		_:
 			push_warning("未知零件：%s" % part)
 
 
-func _add_part(part_name: String, mesh: Mesh, material: Material, pos: Vector3, scl: Vector3) -> MeshInstance3D:
+func _add_part(
+	part_name: String,
+	mesh: Mesh,
+	material: Material,
+	pos: Vector3,
+	scl: Vector3,
+	parent: Node3D = null,
+) -> MeshInstance3D:
 	var node := MeshInstance3D.new()
 	node.name = part_name
 	node.mesh = mesh
 	node.material_override = material
 	node.position = pos
 	node.scale = scl
-	add_child(node)
+	(parent if parent != null else self).add_child(node)
 	return node
 
 

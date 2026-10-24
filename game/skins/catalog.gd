@@ -67,5 +67,7 @@ static func group_by_rarity() -> Array[Dictionary]:
 	return groups
 
 
+## 数「真正加载得出来的」，不是 PATHS 条数：少一个 .tres 时集齐判定要跟着降，
+## 否则 size() >= count() 永远不成立，抽卡按钮一直亮着、币可以无限白花。
 static func count() -> int:
-	return PATHS.size()
+	return all().size()

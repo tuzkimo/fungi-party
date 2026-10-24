@@ -46,7 +46,9 @@ static func pull(path: String = Save.PATH, generator: RandomNumberGenerator = nu
 	var data := Save.read(path)
 	if not can_pull_one(data):
 		return {"ok": false, "coins": int(data["coins"])}
-	return _roll(path, Config.GACHA_PRICE_ONE, generator)
+	var result := _roll(data, Config.GACHA_PRICE_ONE, generator)
+	Save.write(path, data)
+	return result
 
 
 static func pull_ten(path: String = Save.PATH, generator: RandomNumberGenerator = null) -> Array[Dictionary]:
@@ -54,9 +56,11 @@ static func pull_ten(path: String = Save.PATH, generator: RandomNumberGenerator 
 	var data := Save.read(path)
 	if not can_pull_ten(data):
 		return results
-	# 十连的首次一抽把 450 一次扣清，剩下九抽不再计费
+	# 十连的首次一抽把 450 一次扣清，剩下九抽不再计费。
+	# 十抽都在内存里结算、末尾写一次盘：60 秒一局的手游不该为一次十连做 20 次文件 I/O
 	for i in 10:
-		results.append(_roll(path, Config.GACHA_PRICE_TEN if i == 0 else 0, generator))
+		results.append(_roll(data, Config.GACHA_PRICE_TEN if i == 0 else 0, generator))
+	Save.write(path, data)
 	return results
 
 
@@ -64,8 +68,8 @@ static func _collected(data: Dictionary) -> bool:
 	return (data["owned"] as PackedStringArray).size() >= SkinCatalog.count()
 
 
-static func _roll(path: String, charge: int, generator: RandomNumberGenerator) -> Dictionary:
-	var data := Save.read(path)
+## 在一份已读出的存档上原地结算一抽，不碰磁盘；写盘由调用方决定。
+static func _roll(data: Dictionary, charge: int, generator: RandomNumberGenerator) -> Dictionary:
 	var owned := data["owned"] as PackedStringArray
 	var pity := int(data["pity"])
 	var g := generator if generator != null else rng()
@@ -81,8 +85,11 @@ static func _roll(path: String, charge: int, generator: RandomNumberGenerator) -
 		# 手上还没有皮肤时顺手穿上，有了就不抢玩家挑好的那顶
 		if equipped == "":
 			equipped = skin.id
-	var coins := int(data["coins"]) - charge + refund
-	Save.write(path, {"coins": coins, "owned": owned, "equipped": equipped, "pity": pity})
+	var coins := maxi(0, int(data["coins"]) - charge + refund)
+	data["coins"] = coins
+	data["owned"] = owned
+	data["equipped"] = equipped
+	data["pity"] = pity
 	return {
 		"ok": true,
 		"id": skin.id,
