@@ -98,12 +98,20 @@ func _build_skin_buttons(data: Dictionary) -> void:
 		child.queue_free()
 
 	var equipped := str(data["equipped"])
-	_add_skin_button(_skin_row("默认", Color(0.62, 0.60, 0.64)), "红帽", "", equipped == "")
-	for group in SkinCatalog.group_by_rarity(data["owned"] as PackedStringArray):
+	var owned := data["owned"] as PackedStringArray
+	_add_skin_button(_skin_row("默认", Color(0.62, 0.60, 0.64)), "红帽", "", true, equipped == "")
+	for group in SkinCatalog.group_by_rarity():
 		var rarity := int(group["rarity"])
 		var row := _skin_row(Config.RARITY_NAMES[rarity], Config.RARITY_COLORS[rarity])
 		for skin in group["skins"] as Array:
-			_add_skin_button(row, skin.display_name, skin.id, equipped == skin.id)
+			var has := owned.has(skin.id)
+			_add_skin_button(
+				row,
+				skin.display_name if has else "？？？",
+				skin.id,
+				has,
+				equipped == skin.id,
+			)
 
 
 ## 一行 = 档位名 + 这一档的按钮。
@@ -121,13 +129,18 @@ func _skin_row(title: String, color: Color) -> HBoxContainer:
 	return row
 
 
-func _add_skin_button(row: HBoxContainer, text: String, skin_id: String, worn: bool) -> void:
+## owned 为假的就是还没抽到：显示「？？？」，点不动，描边减淡。
+func _add_skin_button(row: HBoxContainer, text: String, skin_id: String, has: bool, worn: bool) -> void:
 	var button := Button.new()
 	button.text = text
 	button.custom_minimum_size = Vector2(132.0, 48.0)
-	button.disabled = worn
+	button.disabled = worn or not has
 	button.pressed.connect(_on_wear.bind(skin_id))
-	UIStyle.style_button(button, Color(0.0, 0.0, 0.0, 0.0) if skin_id == "" else _rarity_color(skin_id))
+	var border := Color(0.0, 0.0, 0.0, 0.0)
+	if has and skin_id != "":
+		var color := _rarity_color(skin_id)
+		border = color
+	UIStyle.style_button(button, border)
 	row.add_child(button)
 
 

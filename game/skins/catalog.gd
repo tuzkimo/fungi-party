@@ -58,18 +58,12 @@ static func by_rarity(rarity: int) -> Array[MushroomSkin]:
 	return result
 
 
-## 衣柜用：按档位从夯往下分组，空档不出现，不认识的 id 直接跳过。
-## 返回 [{rarity: int, skins: Array[MushroomSkin]}]。
-static func group_by_rarity(owned: PackedStringArray) -> Array[Dictionary]:
+## 衣柜用：五档全列出来、从夯往下，空档也出现（衣柜兼收集册）。
+## 返回 [{rarity: int, skins: Array[MushroomSkin]}]，套没套在身上由调用方自己看 owned。
+static func group_by_rarity() -> Array[Dictionary]:
 	var groups: Array[Dictionary] = []
 	for rarity in range(Config.RARITY_NAMES.size() - 1, -1, -1):
-		var skins: Array[MushroomSkin] = []
-		for skin_id in owned:
-			var skin := by_id(skin_id)
-			if skin != null and skin.rarity == rarity:
-				skins.append(skin)
-		if not skins.is_empty():
-			groups.append({"rarity": rarity, "skins": skins})
+		groups.append({"rarity": rarity, "skins": by_rarity(rarity)})
 	return groups
 
 
