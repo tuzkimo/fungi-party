@@ -63,3 +63,25 @@ func test_unknown_part_only_warns() -> void:
 	m.build()
 	check(m.get_child_count() >= 6, "未知零件只告警，基础部件照建")
 	m.free()
+
+
+## 零件不能埋进帽子里：帽子是个椭球，剑身每个采样点都必须在椭球外。
+func test_sword_clear_of_cap() -> void:
+	var m := MushroomMesh.new()
+	m.use_skin(SkinCatalog.by_id("hero"))
+	m.build()
+	var blade := m.get_node_or_null("SwordBlade") as MeshInstance3D
+	check(blade != null, "菇勇者拿着剑")
+	if blade == null:
+		m.free()
+		return
+	var cap_y := m.body_height - 0.05
+	var half := (blade.mesh as BoxMesh).size.y * 0.5
+	var worst := 99.0
+	for i in 21:
+		var p: Vector3 = blade.transform * Vector3(0.0, (-1.0 + 0.1 * float(i)) * half, 0.0)
+		var v := (p.x * p.x + p.z * p.z) / (m.cap_radius * m.cap_radius) \
+			+ pow(p.y - cap_y, 2.0) / (m.cap_height * m.cap_height)
+		worst = minf(worst, v)
+	check(worst >= 1.0, "剑身整段在帽子外面（最深处椭球值 %.3f，<1 就是埋进去了）" % worst)
+	m.free()

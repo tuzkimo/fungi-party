@@ -166,21 +166,21 @@ func _add_accessory(part: String, cap_y: float) -> void:
 	var outline := _outline()
 	match part:
 		"sword":
-			# 拎在右手边，剑尖朝上
+			# 拎在右手边、往外套一点。帽子半径 0.9，剑必须整根在外面才看得见
 			var blade := BoxMesh.new()
 			blade.size = Vector3(0.05, 0.85, 0.11)
-			var blade_node := _add_part("SwordBlade", blade, mat_light, Vector3(0.68, 1.15, 0.06), Vector3.ONE)
-			blade_node.rotation_degrees.z = -12.0
-			var blade_outline := _add_part("SwordBladeOutline", blade, outline, Vector3(0.68, 1.15, 0.06), Vector3.ONE)
-			blade_outline.rotation_degrees.z = -12.0
+			var blade_node := _add_part("SwordBlade", blade, mat_light, Vector3(0.93, 1.02, 0.06), Vector3.ONE)
+			blade_node.rotation_degrees.z = -28.0
+			var blade_outline := _add_part("SwordBladeOutline", blade, outline, Vector3(0.93, 1.02, 0.06), Vector3.ONE)
+			blade_outline.rotation_degrees.z = -28.0
 			var guard := BoxMesh.new()
 			guard.size = Vector3(0.30, 0.05, 0.07)
-			var guard_node := _add_part("SwordGuard", guard, mat_light, Vector3(0.72, 0.72, 0.06), Vector3.ONE)
-			guard_node.rotation_degrees.z = -12.0
+			var guard_node := _add_part("SwordGuard", guard, mat_light, Vector3(0.735, 0.635, 0.06), Vector3.ONE)
+			guard_node.rotation_degrees.z = -28.0
 			var hilt := BoxMesh.new()
 			hilt.size = Vector3(0.06, 0.22, 0.06)
-			var hilt_node := _add_part("SwordHilt", hilt, mat_dark, Vector3(0.75, 0.58, 0.06), Vector3.ONE)
-			hilt_node.rotation_degrees.z = -12.0
+			var hilt_node := _add_part("SwordHilt", hilt, mat_dark, Vector3(0.70, 0.52, 0.06), Vector3.ONE)
+			hilt_node.rotation_degrees.z = -28.0
 		"cape":
 			var cape := CylinderMesh.new()
 			cape.top_radius = 0.40
