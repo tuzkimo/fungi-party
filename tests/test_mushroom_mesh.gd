@@ -172,3 +172,42 @@ func test_head_parts_follow_cap_top() -> void:
 		var gap := band.position.y - m.cap_top()
 		check(gap > -0.20 and gap < 0.10, "皇冠套在帽尖上（差 %.3f）" % gap)
 	m.free()
+
+
+## 剑不能整根埋在拳头里，否则看起来像手里伸出一根刺。
+func test_sword_guard_clears_the_hand() -> void:
+	var m := MushroomMesh.new()
+	m.use_skin(SkinCatalog.by_id("hero"))
+	m.build()
+	var guard := m.get_node_or_null("SwordGuard") as MeshInstance3D
+	var hand := m.get_node_or_null("HandR") as MeshInstance3D
+	check(guard != null and hand != null, "有右手也有护手")
+	if guard == null or hand == null:
+		m.free()
+		return
+	# 手是半径 1 的球缩放出来的，所以 scale.y 就是半高
+	var hand_top := hand.position.y + hand.scale.y
+	check(guard.position.y > hand_top, "护手露在拳头上方（%.2f > %.2f）" % [guard.position.y, hand_top])
+	check(guard.position.x < hand.position.x + hand.scale.x, "护手还在手这一侧，没飘出去")
+	m.free()
+
+
+## 披风是背后一片弧面，绕成整圈从后面看就像裙子。
+func test_cape_covers_only_the_back() -> void:
+	var m := MushroomMesh.new()
+	m.use_skin(SkinCatalog.by_id("hero"))
+	m.build()
+	var cape := m.get_node_or_null("Cape") as MeshInstance3D
+	check(cape != null, "菇勇者有披风")
+	if cape == null:
+		m.free()
+		return
+	var arrays := (cape.mesh as ArrayMesh).surface_get_arrays(0)
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var front := 0
+	for v in verts:
+		if v.z > 0.1:
+			front += 1
+	check_eq(front, 0, "披风不绕到胸前（正面有 %d 个顶点）" % front)
+	check(verts.size() > 0, "披风有面")
+	m.free()

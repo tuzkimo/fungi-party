@@ -16,6 +16,12 @@ const MOUTH_DOTS := 5
 const MOUTH_HALF_WIDTH := 0.10
 ## 脸占的扇形：这个角度范围内的正面不摆斑点，否则会盖住眼睛。
 const FACE_HALF_ANGLE := 0.75
+## 披风：背后一片弧面，不是整圈。
+const CAPE_ARC := 1.15
+const CAPE_TOP_R := 0.50
+const CAPE_TOP_Y := 1.30
+const CAPE_BOTTOM_R := 0.68
+const CAPE_BOTTOM_Y := 0.34
 
 @export var cap_radius := 0.70
 @export var cap_height := 0.46
@@ -248,18 +254,34 @@ func _build_spots() -> void:
 				_add_part("Spot%d" % i, round_mesh, mat_spot, spot_pos, spot_scale)
 
 
+## 背后一片弧面：从肩下挂到腰，只在背面 ±CAPE_ARC 范围内。
+func _cape_mesh() -> ArrayMesh:
+	const STEPS := 12
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in STEPS:
+		var a0 := -PI * 0.5 - CAPE_ARC + 2.0 * CAPE_ARC * float(i) / float(STEPS)
+		var a1 := -PI * 0.5 - CAPE_ARC + 2.0 * CAPE_ARC * float(i + 1) / float(STEPS)
+		_quad(st,
+			Vector3(cos(a0) * CAPE_BOTTOM_R, CAPE_BOTTOM_Y, sin(a0) * CAPE_BOTTOM_R),
+			Vector3(cos(a0) * CAPE_TOP_R, CAPE_TOP_Y, sin(a0) * CAPE_TOP_R),
+			Vector3(cos(a1) * CAPE_TOP_R, CAPE_TOP_Y, sin(a1) * CAPE_TOP_R),
+			Vector3(cos(a1) * CAPE_BOTTOM_R, CAPE_BOTTOM_Y, sin(a1) * CAPE_BOTTOM_R))
+	st.generate_normals()
+	return st.commit()
+
+
 ## 零件白名单。名字不在表里只告警，不崩 —— 存档里的旧皮肤可能带已经删掉的名字。
 func _add_accessory(part: String) -> void:
 	var mat_dark := _solid(Color(0.10, 0.07, 0.07))
 	var mat_steel := _solid(Color(0.88, 0.90, 0.96))
-	var mat_hide := _solid(tint_cap.darkened(0.2))
 	var outline := _outline()
 	match part:
 		"sword":
 			# 剑搁在右手边往斜上方挑：帽子底下半径 0.9，竖直放会整根埋进去
 			var tilt := Vector3(0.0, 0.0, SWORD_TILT)
 			var axis := Vector2(sin(deg_to_rad(-SWORD_TILT)), cos(deg_to_rad(-SWORD_TILT)))
-			var guard_pos := Vector2(0.70, 0.62)
+			var guard_pos := Vector2(0.76, 0.82)
 
 			# 剑身：四棱锥，底宽顶尖收成一点；压扁 z 做出刃口
 			var blade := CylinderMesh.new()
@@ -267,7 +289,7 @@ func _add_accessory(part: String) -> void:
 			blade.bottom_radius = 0.085
 			blade.height = 0.60
 			blade.radial_segments = 4
-			var blade_pos := guard_pos + axis * (0.05 + 0.30)
+			var blade_pos := guard_pos + axis * (0.04 + 0.30)
 			for mat in [mat_steel, outline]:
 				var node := _add_part(
 					"SwordBlade" if mat == mat_steel else "SwordBladeOutline",
@@ -292,7 +314,7 @@ func _add_accessory(part: String) -> void:
 			grip.bottom_radius = 0.032
 			grip.height = 0.18
 			grip.radial_segments = 8
-			var grip_pos := guard_pos - axis * 0.12
+			var grip_pos := guard_pos - axis * 0.10
 			var grip_node := _add_part(
 				"SwordGrip", grip, mat_dark,
 				Vector3(grip_pos.x, grip_pos.y, 0.06), Vector3.ONE,
@@ -303,20 +325,18 @@ func _add_accessory(part: String) -> void:
 			pommel.radius = 1.0
 			pommel.radial_segments = 10
 			pommel.rings = 6
-			var pommel_pos := guard_pos - axis * 0.23
+			var pommel_pos := guard_pos - axis * 0.19
 			_add_part(
 				"SwordPommel", pommel, mat_steel,
 				Vector3(pommel_pos.x, pommel_pos.y, 0.06),
 				Vector3.ONE * 0.055,
 			)
 		"cape":
-			var cape := CylinderMesh.new()
-			cape.top_radius = 0.40
-			cape.bottom_radius = 0.66
-			cape.height = 1.05
-			cape.radial_segments = 16
-			_add_part("Cape", cape, mat_hide, Vector3(0.0, 1.0, -0.18), Vector3.ONE)
-			_add_part("CapeOutline", cape, outline, Vector3(0.0, 1.0, -0.18), Vector3.ONE)
+			# 披风只是背后一片弧面。绕成整圈就从后面看像条裙子
+			var cape := _cape_mesh()
+			var mat_cape := _solid(tint_cap.darkened(0.25))
+			mat_cape.cull_mode = BaseMaterial3D.CULL_DISABLED
+			_add_part("Cape", cape, mat_cape, Vector3.ZERO, Vector3.ONE)
 		"horned_helmet":
 			var dome := SphereMesh.new()
 			dome.radius = 0.34
