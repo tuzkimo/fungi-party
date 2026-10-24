@@ -131,7 +131,7 @@ func test_cap_normals_point_out() -> void:
 func test_face_sits_on_cap() -> void:
 	var m := MushroomMesh.new()
 	m.build()
-	for part_name in ["EyeL", "EyeR", "Mouth"]:
+	for part_name in ["EyeL", "EyeR", "Mouth0", "Mouth2", "Mouth4"]:
 		var node := m.get_node_or_null(part_name) as MeshInstance3D
 		check(node != null, "%s 在" % part_name)
 		if node == null:
@@ -140,4 +140,35 @@ func test_face_sits_on_cap() -> void:
 		var radial := sqrt(p.x * p.x + p.z * p.z)
 		var surface := m.cap_radius_at((p.y - m.cap_base()) / (m.cap_height * 2.0))
 		check(absf(radial - surface) < 0.08, "%s 贴着帽面（离面 %.3f）" % [part_name, radial - surface])
+	m.free()
+
+
+## 斑点是均匀绕一圈撒的，正脸那块必须留白，否则会盖住眼睛。
+func test_spots_avoid_the_face() -> void:
+	var m := MushroomMesh.new()
+	m.build()
+	var blocked := 0
+	for child in m.get_children():
+		if not child.name.begins_with("Spot"):
+			continue
+		var node := child as MeshInstance3D
+		var p := node.position
+		var y_norm := (p.y - m.cap_base()) / (m.cap_height * 2.0)
+		var facing := absf(wrapf(atan2(p.z, p.x) - PI * 0.5, -PI, PI))
+		if facing < 0.6 and y_norm > 0.15 and y_norm < 0.50:
+			blocked += 1
+	check_eq(blocked, 0, "正脸没有斑点（有 %d 个）" % blocked)
+	m.free()
+
+
+## 头顶的零件（冠、角盔、花）要跟着帽尖走，帽子大小一改不能飘在空中。
+func test_head_parts_follow_cap_top() -> void:
+	var m := MushroomMesh.new()
+	m.use_skin(SkinCatalog.by_id("king"))
+	m.build()
+	var band := m.get_node_or_null("CrownBand") as MeshInstance3D
+	check(band != null, "菌王戴着皇冠")
+	if band != null:
+		var gap := band.position.y - m.cap_top()
+		check(gap > -0.20 and gap < 0.10, "皇冠套在帽尖上（差 %.3f）" % gap)
 	m.free()

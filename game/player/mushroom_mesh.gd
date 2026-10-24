@@ -11,9 +11,14 @@ const CAP_SEGMENTS := 28
 const CAP_PROFILE_STEPS := 24
 ## 零件转向：剑是往外斜挑的，正竖直会整根埋进帽子。
 const SWORD_TILT := -45.0
+## 嘴由多少个重叠小球拼成一条线，以及半宽。
+const MOUTH_DOTS := 5
+const MOUTH_HALF_WIDTH := 0.10
+## 脸占的扇形：这个角度范围内的正面不摆斑点，否则会盖住眼睛。
+const FACE_HALF_ANGLE := 0.75
 
-@export var cap_radius := 0.9
-@export var cap_height := 0.55
+@export var cap_radius := 0.70
+@export var cap_height := 0.46
 @export var spot_count := 7
 @export var body_height := 1.4
 @export var tint_cap := Color(0.90, 0.22, 0.20)
@@ -54,6 +59,11 @@ func use_skin(skin: MushroomSkin) -> void:
 ## 帽子底面（y=0 那个平面的世界高度）。
 func cap_base() -> float:
 	return body_height - 0.05 - cap_height
+
+
+## 帽子顶尖的世界高度。头上的零件（冠、角盔、花）都按它定位，别再写死数值。
+func cap_top() -> float:
+	return cap_base() + cap_height * 2.0
 
 
 ## y_norm 0 是帽子底、1 是顶尖。返回该高度处帽子的水平半径。
@@ -132,12 +142,17 @@ func build() -> void:
 			),
 			Vector3(0.055, 0.055, 0.03),
 		)
+	# 嘴是帽面上的一段线。单个扁球放在曲面上会被切成两截，所以沿 x 排一串重叠的小球
 	var mouth_y_norm := 0.23
-	_add_part(
-		"Mouth", dot_mesh, mat_dark,
-		Vector3(0.0, cap_base() + mouth_y_norm * cap_height * 2.0, cap_radius_at(mouth_y_norm) * 0.97),
-		Vector3(0.13, 0.022, 0.02),
-	)
+	var mouth_y := cap_base() + mouth_y_norm * cap_height * 2.0
+	var mouth_ring := cap_radius_at(mouth_y_norm)
+	for i in MOUTH_DOTS:
+		var mx := MOUTH_HALF_WIDTH * (-1.0 + 2.0 * float(i) / float(MOUTH_DOTS - 1))
+		_add_part(
+			"Mouth%d" % i, dot_mesh, mat_dark,
+			Vector3(mx, mouth_y, sqrt(maxf(0.0, mouth_ring * mouth_ring - mx * mx)) * 0.97),
+			Vector3(0.05, 0.018, 0.02),
+		)
 
 	_add_part("Belly", dot_mesh, mat_white, Vector3(0.0, 0.62, 0.41), Vector3(0.16, 0.24, 0.06))
 
@@ -207,7 +222,11 @@ func _build_spots() -> void:
 
 	for i in spot_count:
 		var angle := TAU * float(i) / float(spot_count) + 0.4
+		# 正脸那块留白：转到后脑勺去，斑点总数不变
+		var facing := wrapf(angle - PI * 0.5, -PI, PI)
 		var y_norm := 0.18 + 0.7 * float((i * 37) % 100) / 100.0
+		if absf(facing) < FACE_HALF_ANGLE and y_norm > 0.12 and y_norm < 0.52:
+			angle += PI
 		# 贴着帽子表面放：半径取那个高度上的帽子半径，稍微往里坐一点
 		var ring := cap_radius_at(y_norm) * 0.93
 		var spot_pos := Vector3(
@@ -240,7 +259,7 @@ func _add_accessory(part: String) -> void:
 			# 剑搁在右手边往斜上方挑：帽子底下半径 0.9，竖直放会整根埋进去
 			var tilt := Vector3(0.0, 0.0, SWORD_TILT)
 			var axis := Vector2(sin(deg_to_rad(-SWORD_TILT)), cos(deg_to_rad(-SWORD_TILT)))
-			var guard_pos := Vector2(0.87, 0.60)
+			var guard_pos := Vector2(0.70, 0.62)
 
 			# 剑身：四棱锥，底宽顶尖收成一点；压扁 z 做出刃口
 			var blade := CylinderMesh.new()
@@ -303,7 +322,7 @@ func _add_accessory(part: String) -> void:
 			dome.radius = 0.34
 			dome.radial_segments = 20
 			dome.rings = 10
-			var dome_pos := Vector3(0.0, body_height - 0.05 + cap_height * 0.7, 0.0)
+			var dome_pos := Vector3(0.0, cap_top() - cap_height * 0.30, 0.0)
 			_add_part("HelmetDome", dome, mat_dark, dome_pos, Vector3(1.0, 0.55, 1.0))
 			var horn := CylinderMesh.new()
 			horn.top_radius = 0.02
@@ -313,7 +332,7 @@ func _add_accessory(part: String) -> void:
 			for side in [-1.0, 1.0]:
 				var node := _add_part(
 					"HelmetHorn", horn, mat_steel,
-					Vector3(0.22 * side, body_height + 0.30, 0.0), Vector3.ONE,
+					Vector3(0.24 * side, cap_top() - cap_height * 0.10, 0.0), Vector3.ONE,
 				)
 				node.rotation_degrees.z = -35.0 * side
 		"crown":
@@ -323,7 +342,7 @@ func _add_accessory(part: String) -> void:
 			band.bottom_radius = 0.22
 			band.height = 0.12
 			band.radial_segments = 16
-			var band_y := body_height + 0.42
+			var band_y := cap_top() - 0.03
 			_add_part("CrownBand", band, gold, Vector3(0.0, band_y, 0.0), Vector3.ONE)
 			var tooth := BoxMesh.new()
 			tooth.size = Vector3(0.07, 0.13, 0.06)
@@ -339,7 +358,7 @@ func _add_accessory(part: String) -> void:
 			petal.radius = 1.0
 			petal.radial_segments = 12
 			petal.rings = 6
-			var tip := Vector3(0.0, body_height + 0.48, 0.0)
+			var tip := Vector3(0.0, cap_top() + 0.02, 0.0)
 			_add_part("BloomPetal", petal, _solid(Color(0.99, 0.72, 0.80)), tip, Vector3(0.16, 0.06, 0.16))
 			_add_part("BloomCore", petal, _solid(Color(0.98, 0.86, 0.36)), tip, Vector3(0.06, 0.05, 0.06))
 		"wide_brim":
