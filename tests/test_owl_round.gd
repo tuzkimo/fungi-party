@@ -195,6 +195,30 @@ func test_npcs_score_over_a_level() -> void:
 	check(npc > 0, "人机会自己吃到糖")
 
 
+## 一条线一关投喂多少次：加长关卡 + 加密节奏后，第一关就该有 15 次以上。
+func test_density_rises_with_levels() -> void:
+	var per_lane := []
+	for lv in Config.OWL_SECONDS.size():
+		var r := _round(11 + lv)
+		r.start_level(lv)
+		r.events.clear()
+		_run(r, Config.OWL_SECONDS[lv])
+		var mine := 0
+		for e in r.events:
+			if int(e["seat"]) == SEAT:
+				mine += 1
+		per_lane.append(mine)
+	check(per_lane[0] >= 14, "第一关一条线至少投喂 14 次（加长前只有 10 次左右）")
+	check(per_lane[2] > per_lane[0] * 1.3, "第三关明显比第一关密")
+
+
+## 节奏要有快慢：连珠的每一段都必须严格短于平时的间隔，否则玩家数得出拍子。
+func test_burst_is_faster_than_normal() -> void:
+	for i in Config.OWL_GAP.size():
+		check(Config.OWL_BURST_GAP[i].y < Config.OWL_GAP[i].x, "连珠比平时短")
+		check(Config.OWL_BURST_CHANCE[i] > 0.0 and Config.OWL_BURST_CHANCE[i] < 1.0, "连珠是随机出现的")
+
+
 func test_seed_reproduces_schedule() -> void:
 	var a := _round(42)
 	var b := _round(42)
