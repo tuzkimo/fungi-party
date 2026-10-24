@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="MushroomSkin" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/skins/mushroom_skin.gd" id="1_skin"]
+
+[resource]
+script = ExtResource("1_skin")
+id = "stardust"
+display_name = "星尘菇"
+rarity = 3
+tint_cap = Color(0.14,0.20,0.48, 1)
+tint_body = Color(0.72,0.78,0.94, 1)
+spot_count = 8
+spot_shape = 1
+spot_color = Color(0.98,0.82,0.42, 1)

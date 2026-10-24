@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="MushroomSkin" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/skins/mushroom_skin.gd" id="1_skin"]
+
+[resource]
+script = ExtResource("1_skin")
+id = "canned"
+display_name = "罐头菇"
+rarity = 1
+tint_cap = Color(0.70,0.68,0.48, 1)
+tint_body = Color(0.86,0.84,0.66, 1)
+spot_count = 2
+spot_shape = 0
