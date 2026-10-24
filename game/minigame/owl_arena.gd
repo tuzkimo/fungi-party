@@ -12,12 +12,13 @@ const BODY_COLOR := Color(0.55, 0.47, 0.40)
 const BEAK_COLOR := Color(0.96, 0.62, 0.22)
 const SKY_COLOR := Color(0.52, 0.68, 0.80)
 const TREE_POS := Vector3(0.0, 0.0, -5.6)
-const OWL_Y := 3.30
-const OWL_Z := -4.60
+## 猫头鹰蹲在一根伸出来的横枝上：要在四朵蘑菇的正上方，才像是「它扔给你们吃」
+const OWL_Y := 3.60
+const OWL_Z := -2.90
 ## 猫头鹰放大一点：手机上它得看清是只鸟，不然只是一团灰
 const OWL_SCALE := 1.35
 ## 下落物的起点：猫头鹰喙前面一点
-const BEAK_POINT := Vector3(0.0, 3.12, -4.28)
+const BEAK_POINT := Vector3(0.0, 3.34, -2.58)
 
 
 func build() -> void:
@@ -85,14 +86,14 @@ func _build_tree() -> void:
 	_place("CanopyLeft", canopy, TREE_POS + Vector3(-1.1, 4.6, 0.2), canopy_mat, 1.2)
 	_place("CanopyRight", canopy, TREE_POS + Vector3(1.1, 4.7, -0.2), canopy_mat, 1.25)
 
+	# 从树干伸到画面中间的长横枝，猫头鹰蹲在枝头
 	var branch_mesh := CylinderMesh.new()
-	branch_mesh.top_radius = 0.08
-	branch_mesh.bottom_radius = 0.09
-	branch_mesh.height = 1.8
+	branch_mesh.top_radius = 0.09
+	branch_mesh.bottom_radius = 0.12
+	branch_mesh.height = 3.6
 	branch_mesh.radial_segments = 8
-	var branch := _place("Branch", branch_mesh, Vector3(0.0, OWL_Y - 0.22, OWL_Z), _solid(TRUNK_COLOR, 0.95))
-	branch.rotation_degrees = Vector3(0.0, 0.0, 90.0)
-	branch.position = Vector3(0.0, OWL_Y - 0.22, OWL_Z + 0.2)
+	var branch := _place("Branch", branch_mesh, Vector3(0.0, OWL_Y - 0.26, -4.2), _solid(TRUNK_COLOR, 0.95))
+	branch.rotation_degrees = Vector3(90.0, 0.0, 0.0)
 
 
 ## 猫头鹰朝 +Z（正对镜头），玩家看得见它的脸。

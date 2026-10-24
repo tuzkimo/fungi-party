@@ -127,8 +127,11 @@ const BOMB_NPC_HOLD := [Vector2(0.6, 1.3), Vector2(1.2, 2.6), Vector2(0.8, 1.8)]
 
 # v4 猫头鹰喂食
 ## 三关：越长、越快、屎越多。下落时长是主难度旋钮——它就是你认出来再松手的反应窗口。
-const OWL_SECONDS := [30.0, 35.0, 40.0]
-const OWL_GAP := [Vector2(1.6, 2.4), Vector2(1.3, 1.9), Vector2(1.0, 1.5)]
+const OWL_SECONDS := [45.0, 50.0, 55.0]
+## 投喂节奏：平时隔得开，时不时来一串「连珠」——两秒一串三颗 = 心跳
+const OWL_GAP := [Vector2(0.9, 1.6), Vector2(0.7, 1.3), Vector2(0.5, 1.0)]
+const OWL_BURST_CHANCE := [0.3, 0.4, 0.5]
+const OWL_BURST_GAP := [Vector2(0.25, 0.45), Vector2(0.22, 0.40), Vector2(0.20, 0.35)]
 const OWL_FALL := [1.1, 0.9, 0.7]
 const OWL_POOP := [0.25, 0.33, 0.40]
 const OWL_RANK_COINS := [70, 50, 35, 20]
@@ -136,7 +139,7 @@ const OWL_RANK_COINS := [70, 50, 35, 20]
 const OWL_FAST_FORWARD := 2.5
 const OWL_BREAK_SECONDS := 1.6
 const OWL_COUNTDOWN := 3.0
-const OWL_SEAT_X := [-2.4, -0.8, 0.8, 2.4]
+const OWL_SEAT_X := [-2.7, -0.9, 0.9, 2.7]
 ## 三个 NPC：敢吃糖的概率 / 会误吞屎的概率 / 张嘴提前量（下落时长的倍数）
 const OWL_NPC_EAT := [0.9, 0.97, 0.75]
 const OWL_NPC_GREED := [0.05, 0.28, 0.02]

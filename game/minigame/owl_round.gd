@@ -156,8 +156,9 @@ func _spawn(seat: int) -> void:
 	mouth.lead = _rng.randf_range(span.x, span.y) * mouth.fall
 
 
+## 平时的间隔，偶尔来一串短的：投喂节奏有快有慢，玩家不能靠数秒过关。
 func _gap() -> float:
-	var span: Vector2 = Config.OWL_GAP[level]
+	var span: Vector2 = Config.OWL_BURST_GAP[level] if _rng.randf() < Config.OWL_BURST_CHANCE[level] else Config.OWL_GAP[level]
 	return _rng.randf_range(span.x, span.y)
 
 

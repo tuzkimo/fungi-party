@@ -1,100 +1,86 @@
 class_name OwlActor
 extends Node3D
 
-## 座位上的一个蘑菇：会开合的嘴、张嘴时头后仰、吃到糖弹一下、出局后低头变灰。
-## 只管画，状态由外部每帧喂（mouths[i] 的 score / open / out）。
+## 座位上的一个蘑菇：外形直接复用玩家那套 MushroomMesh（和角色一致、能穿皮肤），
+## 额外挂一张会张大的嘴。状态由外部每帧喂（score / open / out）。
+## 常态就微微仰头（看树上的猫头鹰），张嘴时头往后一扬、嘴撑成一个大粉洞。
 
-const STEM_COLOR := Color(0.92, 0.87, 0.78)
-const MOUTH_CLOSED_COLOR := Color(0.25, 0.15, 0.15)
-const MOUTH_OPEN_COLOR := Color(0.95, 0.52, 0.58)
-const DOT_COLOR := Color(0.98, 0.96, 0.90)
-## 脸都贴在菌盖前面：出局时整只蘑菇前倾，五官再往里缩就会被菌盖吞掉
-const MOUTH_POINT := Vector3(0.0, 0.55, 0.66)
-const LEAN_OPEN := -0.16
-const LEAN_OUT := 0.30
-const LEAN_SPEED := 12.0
+const BODY_SCALE := 0.8
+## 嘴在 MushroomMesh 里的位置（未缩放）：跟角色自带的嘴线同一个高度
+const MOUTH_LOCAL := Vector3(0.0, 1.05, 0.80)
+## 张嘴 = 一圈浅粉的嘴唇 + 中间深红的口腔：只有粉色会看成「嘴巴凸出来」，得看见洞
+const LIP_COLOR := Color(0.97, 0.62, 0.67)
+const INNER_COLOR := Color(0.42, 0.12, 0.16)
+## 常态仰头：0 是平视，负数让菌盖往后仰
+const LEAN_LOOK := -0.12
+const LEAN_OPEN := -0.34
+const LEAN_OUT := 0.34
+const LEAN_SPEED := 14.0
+const MOUTH_GROW := 10.0
 const POP_SECONDS := 0.18
-const POP_SCALE := 0.18
+const POP_SCALE := 0.16
 const OUT_FADE := 0.45
 
-var _cap_mat: StandardMaterial3D
+var _pivot: Node3D
+var _body: MushroomMesh
+var _lip: MeshInstance3D
+var _inner: MeshInstance3D
 var _cap_color := Color.WHITE
-var _closed_mesh: MeshInstance3D
-var _open_mesh: MeshInstance3D
 var _out := false
 var _score := -1
 var _pop := 0.0
+var _mouth := 0.0
 
 
-func setup(cap_color: Color, is_player: bool) -> void:
+## yaw：朝猫头鹰转一点（转满就会背对镜头，所以由外部夹好再传进来）。
+func setup(cap_color: Color, is_player: bool, yaw: float) -> void:
 	_cap_color = cap_color
 
-	var stem_mesh := CylinderMesh.new()
-	stem_mesh.top_radius = 0.26
-	stem_mesh.bottom_radius = 0.32
-	stem_mesh.height = 0.55
-	stem_mesh.radial_segments = 12
-	var stem := _solid(STEM_COLOR, 0.9)
-	_place("Stem", stem_mesh, Vector3(0.0, 0.275, 0.0), stem)
+	# 头这一层：菌盖和嘴一起转、一起仰，MushroomMesh 自己重建时不会连嘴一起清掉
+	_pivot = Node3D.new()
+	_pivot.name = "Head"
+	_pivot.rotation.y = yaw
+	add_child(_pivot)
 
-	var cap_mesh := SphereMesh.new()
-	cap_mesh.radius = 1.0
-	cap_mesh.height = 2.0
-	cap_mesh.radial_segments = 14
-	cap_mesh.rings = 7
-	_cap_mat = _solid(cap_color, 0.85)
-	var cap := _place("Cap", cap_mesh, Vector3(0.0, 0.72, 0.0), _cap_mat)
-	cap.scale = Vector3(0.66, 0.42, 0.66)
+	_body = MushroomMesh.new()
+	_body.name = "Body"
+	_body.tint_cap = cap_color
+	_body.scale = Vector3.ONE * BODY_SCALE
+	_pivot.add_child(_body)
 
-	var dot_mesh := SphereMesh.new()
-	dot_mesh.radius = 0.09
-	dot_mesh.height = 0.18
-	dot_mesh.radial_segments = 8
-	dot_mesh.rings = 4
-	var dot := _solid(DOT_COLOR, 0.8)
-	_place("Dot0", dot_mesh, Vector3(-0.24, 0.92, 0.22), dot)
-	_place("Dot1", dot_mesh, Vector3(0.26, 0.95, 0.10), dot)
-	_place("Dot2", dot_mesh, Vector3(0.02, 0.88, -0.26), dot)
-
-	var eye_mesh := SphereMesh.new()
-	eye_mesh.radius = 0.10
-	eye_mesh.height = 0.20
-	eye_mesh.radial_segments = 8
-	eye_mesh.rings = 4
-	var pupil_mesh := SphereMesh.new()
-	pupil_mesh.radius = 0.05
-	pupil_mesh.height = 0.10
-	pupil_mesh.radial_segments = 8
-	pupil_mesh.rings = 4
-	var white := _solid(Color.WHITE, 0.6)
-	var black := _solid(Color(0.08, 0.06, 0.06), 0.5)
-	for side in [-1.0, 1.0]:
-		_place("Eye", eye_mesh, Vector3(0.17 * side, 0.62, 0.60), white)
-		_place("Pupil", pupil_mesh, Vector3(0.17 * side, 0.62, 0.67), black)
-
-	# 嘴：闭嘴是一条缝，张嘴是露出来的粉色口腔。两张都常驻，切 visible，
-	# 手机小屏上「自己现在张没张嘴」必须一眼看得出。
-	var closed_mesh := BoxMesh.new()
-	closed_mesh.size = Vector3(0.44, 0.10, 0.10)
-	_closed_mesh = _place("MouthClosed", closed_mesh, Vector3(0.0, 0.55, 0.60), _solid(MOUTH_CLOSED_COLOR, 0.9))
-
-	var open_mesh := SphereMesh.new()
-	open_mesh.radius = 1.0
-	open_mesh.height = 2.0
-	open_mesh.radial_segments = 10
-	open_mesh.rings = 5
-	_open_mesh = _place("MouthOpen", open_mesh, Vector3(0.0, 0.55, 0.62), _solid(MOUTH_OPEN_COLOR, 0.8))
-	_open_mesh.scale = Vector3(0.23, 0.20, 0.13)
-	_open_mesh.visible = false
+	var sphere := SphereMesh.new()
+	sphere.radius = 1.0
+	sphere.height = 2.0
+	sphere.radial_segments = 14
+	sphere.rings = 7
+	_lip = _part("Lip", sphere, _solid(LIP_COLOR), 0.0)
+	# 口腔要比嘴唇往前探一点，否则小一码的暗红球整颗躲在粉色球里面，看不见
+	_inner = _part("Inner", sphere, _solid(INNER_COLOR), 0.05)
+	_lip.visible = false
+	_inner.visible = false
 
 	if is_player:
-		# 玩家那一朵多一圈地面光圈，四个人里一眼找到自己
-		var ring_mesh := CylinderMesh.new()
-		ring_mesh.top_radius = 0.52
-		ring_mesh.bottom_radius = 0.52
-		ring_mesh.height = 0.02
-		ring_mesh.radial_segments = 20
-		_place("Ring", ring_mesh, Vector3(0.0, 0.011, 0.0), _solid(Color(0.98, 0.92, 0.55), 0.7))
+		# 玩家那一朵脚下多一圈浅黄光圈，四个人里一眼找到自己
+		var ring := CylinderMesh.new()
+		ring.top_radius = 0.72
+		ring.bottom_radius = 0.72
+		ring.height = 0.02
+		ring.radial_segments = 20
+		var node := MeshInstance3D.new()
+		node.name = "Ring"
+		node.mesh = ring
+		node.position = Vector3(0.0, 0.011, 0.0)
+		node.material_override = _solid(Color(0.98, 0.92, 0.55))
+		add_child(node)
+
+
+## 穿戴了皮肤时，座位上的自己也换色换斑点（教室那套做法）。
+func apply_skin(skin: MushroomSkin) -> void:
+	_cap_color = skin.tint_cap
+	_body.tint_cap = skin.tint_cap
+	_body.tint_body = skin.tint_body
+	_body.spot_count = skin.spot_count
+	_body.build()
 
 
 func apply(score: int, open: bool, out: bool, delta: float) -> void:
@@ -102,35 +88,45 @@ func apply(score: int, open: bool, out: bool, delta: float) -> void:
 		_pop = POP_SECONDS
 	_score = score
 
-	_open_mesh.visible = open and not out
-	_closed_mesh.visible = not _open_mesh.visible
-
 	if out != _out:
 		_out = out
-		_cap_mat.albedo_color = _cap_color.darkened(OUT_FADE) if out else _cap_color
+		_body.tint_cap = _cap_color.darkened(OUT_FADE) if out else _cap_color
+		_body.build()
 
-	var target := LEAN_OUT if out else (LEAN_OPEN if open else 0.0)
-	rotation.x = lerpf(rotation.x, target, minf(1.0, delta * LEAN_SPEED))
+	_mouth = move_toward(_mouth, 1.0 if open and not out else 0.0, delta * MOUTH_GROW)
+	var shown := _mouth > 0.05
+	_lip.visible = shown
+	_inner.visible = shown
+	if shown:
+		# 张嘴是两段式的：嘴唇先撑开，口腔跟着；0.65~1.05 之间弹一下，夸张但不到撕裂
+		var grow := 0.55 + 0.5 * _mouth
+		_lip.scale = Vector3(0.26, 0.25, 0.10) * grow
+		_inner.scale = Vector3(0.20, 0.20, 0.09) * grow
+
+	var lean := LEAN_OUT if out else (LEAN_OPEN if open else LEAN_LOOK)
+	rotation.x = lerpf(rotation.x, lean, minf(1.0, delta * LEAN_SPEED))
+
 	_pop = maxf(0.0, _pop - delta)
-	scale = Vector3.ONE * (1.0 + POP_SCALE * _pop / POP_SECONDS)
+	_body.scale = Vector3.ONE * BODY_SCALE * (1.0 + POP_SCALE * _pop / POP_SECONDS + 0.05 * _mouth)
 
 
+## 落点：张嘴时口腔正前方一点（每帧问，跟着仰头动）。
 func mouth_point() -> Vector3:
-	return to_global(MOUTH_POINT)
+	return _pivot.to_global(MOUTH_LOCAL * BODY_SCALE + Vector3(0.0, 0.0, 0.06))
 
 
-func _place(node_name: String, mesh: Mesh, pos: Vector3, mat: Material) -> MeshInstance3D:
+func _part(node_name: String, mesh: Mesh, mat: Material, forward: float) -> MeshInstance3D:
 	var node := MeshInstance3D.new()
 	node.name = node_name
 	node.mesh = mesh
-	node.position = pos
 	node.material_override = mat
-	add_child(node)
+	node.position = MOUTH_LOCAL * BODY_SCALE + Vector3(0.0, 0.0, 0.02 + forward)
+	_pivot.add_child(node)
 	return node
 
 
-func _solid(color: Color, roughness: float) -> StandardMaterial3D:
+func _solid(color: Color) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = color
-	mat.roughness = roughness
+	mat.roughness = 0.8
 	return mat

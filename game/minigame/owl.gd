@@ -7,8 +7,13 @@ const SEAT_NAMES := ["你", "稳", "贪", "胆小"]
 const SEAT_COLORS := [
 	Color(0.92, 0.25, 0.22), Color(0.32, 0.55, 0.88), Color(0.95, 0.58, 0.25), Color(0.66, 0.40, 0.86)
 ]
-const CAMERA_POSITION := Vector3(0.0, 2.1, 6.2)
-const CAMERA_TARGET := Vector3(0.0, 1.5, -1.2)
+const CAMERA_POSITION := Vector3(0.0, 2.35, 6.3)
+const CAMERA_TARGET := Vector3(0.0, 1.55, -1.5)
+## 默认 75 度太广，画面上下全是空天；收到 62 度四朵蘑菇和猫头鹰才占满
+const CAMERA_FOV := 62.0
+## 蘑菇朝猫头鹰转多少（转满会背对镜头，脸就看不见了）
+const TURN_TO_OWL := 0.35
+const TURN_LIMIT := 0.45
 
 enum Phase { COUNTDOWN, PLAY, BREAK, DONE }
 
@@ -37,6 +42,7 @@ func _ready() -> void:
 	Controls.ensure()
 	var camera: Camera3D = $Camera3D
 	camera.position = CAMERA_POSITION
+	camera.fov = CAMERA_FOV
 	camera.look_at(CAMERA_TARGET)
 
 	var seed_value := randi()
@@ -53,7 +59,8 @@ func _ready() -> void:
 		actor.name = "Actor%d" % i
 		actor.position = Vector3(Config.OWL_SEAT_X[i], 0.0, 0.0)
 		add_child(actor)
-		actor.setup(SEAT_COLORS[i], i == OwlRound.PLAYER)
+		var turn := Gaze.yaw_to(actor.position, _arena.owl_point()) * TURN_TO_OWL
+		actor.setup(SEAT_COLORS[i], i == OwlRound.PLAYER, clampf(turn, -TURN_LIMIT, TURN_LIMIT))
 		_actors.append(actor)
 
 		var item := OwlItem.new()
@@ -62,6 +69,12 @@ func _ready() -> void:
 		item.setup()
 		item.visible = false
 		_items.append(item)
+
+	# 穿了皮肤的话，玩家那一朵跟角色一致（教室同款做法）
+	if bool(Save.read()["equipped"]):
+		var skin := load(Config.SKIN_PATH) as MushroomSkin
+		if skin != null:
+			_actors[OwlRound.PLAYER].apply_skin(skin)
 
 	_ui = $UI
 	_ui.set_names(SEAT_NAMES)
