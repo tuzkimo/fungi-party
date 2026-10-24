@@ -65,7 +65,7 @@ func test_unknown_part_only_warns() -> void:
 	m.free()
 
 
-## 零件不能埋进帽子里：帽子是个椭球，剑身每个采样点都必须在椭球外。
+## 零件不能埋进帽子里：剑身每个采样点都必须离中轴比帽子那一圈更远。
 func test_sword_clear_of_cap() -> void:
 	var m := MushroomMesh.new()
 	m.use_skin(SkinCatalog.by_id("hero"))
@@ -75,13 +75,69 @@ func test_sword_clear_of_cap() -> void:
 	if blade == null:
 		m.free()
 		return
-	var cap_y := m.body_height - 0.05
-	var half := (blade.mesh as BoxMesh).size.y * 0.5
+	var aabb := blade.mesh.get_aabb()
+	var cap_base := m.body_height - 0.05 - m.cap_height
 	var worst := 99.0
 	for i in 21:
-		var p: Vector3 = blade.transform * Vector3(0.0, (-1.0 + 0.1 * float(i)) * half, 0.0)
-		var v := (p.x * p.x + p.z * p.z) / (m.cap_radius * m.cap_radius) \
-			+ pow(p.y - cap_y, 2.0) / (m.cap_height * m.cap_height)
-		worst = minf(worst, v)
-	check(worst >= 1.0, "剑身整段在帽子外面（最深处椭球值 %.3f，<1 就是埋进去了）" % worst)
+		var t := -0.5 + float(i) / 20.0
+		for side in [-0.5, 0.0, 0.5]:
+			var local := Vector3(aabb.size.x * side, t * aabb.size.y, aabb.size.z * side)
+			var p: Vector3 = blade.transform * local
+			var y_norm := (p.y - cap_base) / (m.cap_height * 2.0)
+			if y_norm < 0.0 or y_norm > 1.0:
+				continue
+			var radial := sqrt(p.x * p.x + p.z * p.z)
+			worst = minf(worst, radial - m.cap_radius_at(y_norm))
+	check(worst > 0.0, "剑身整段在帽子外面（最贴近处差 %.3f）" % worst)
+	m.free()
+
+
+## 帽子是圆角三角，不是圆顶：往上收得比球快，最宽落在底部。
+func test_cap_is_rounded_triangle() -> void:
+	var m := MushroomMesh.new()
+	m.build()
+	var low := m.cap_radius_at(0.25)
+	check(m.cap_radius_at(0.02) > 0.98 * m.cap_radius, "最宽在帽子底部")
+	check(m.cap_radius_at(0.90) < 0.30 * m.cap_radius, "接近顶尖时已经很窄（三角，不是圆顶）")
+	check(m.cap_radius_at(0.75) < 0.60 * low, "侧边收得快，不是球面鼓出来")
+	check(m.cap_radius_at(0.98) > 0.0, "顶尖是圆角不是尖刺")
+	check(m.cap_radius_at(0.75) < m.cap_radius_at(0.50), "往上单调收窄")
+	m.free()
+
+
+## 旋转体的绕序写反了就会整颗里朝外：法线全部指向中轴、帽子从外面看不见。
+func test_cap_normals_point_out() -> void:
+	var m := MushroomMesh.new()
+	m.build()
+	var mesh := m.get_node("Cap").mesh as ArrayMesh
+	var arrays := mesh.surface_get_arrays(0)
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var norms: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+	var inward := 0
+	var zero := 0
+	for i in verts.size():
+		if norms[i].length() < 0.01:
+			zero += 1
+			continue
+		var radial := Vector3(verts[i].x, 0.0, verts[i].z)
+		if radial.length() > 0.01 and norms[i].dot(radial.normalized()) < 0.0:
+			inward += 1
+	check_eq(zero, 0, "没有零长度法线")
+	check(inward == 0, "法线全部朝外（朝内的有 %d 个）" % inward)
+	m.free()
+
+
+## 脸要贴在帽面上：帽子轮廓一改，写死的坐标就会浮空或者陷进去。
+func test_face_sits_on_cap() -> void:
+	var m := MushroomMesh.new()
+	m.build()
+	for part_name in ["EyeL", "EyeR", "Mouth"]:
+		var node := m.get_node_or_null(part_name) as MeshInstance3D
+		check(node != null, "%s 在" % part_name)
+		if node == null:
+			continue
+		var p := node.position
+		var radial := sqrt(p.x * p.x + p.z * p.z)
+		var surface := m.cap_radius_at((p.y - m.cap_base()) / (m.cap_height * 2.0))
+		check(absf(radial - surface) < 0.08, "%s 贴着帽面（离面 %.3f）" % [part_name, radial - surface])
 	m.free()
