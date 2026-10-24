@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://game/world/terrain.gd" id="1_terrain"]
 [ext_resource type="Script" path="res://game/world/forest_gen.gd" id="2_trees"]
@@ -14,6 +14,7 @@
 [ext_resource type="Script" path="res://game/world/sky_bodies.gd" id="12_sky"]
 [ext_resource type="Script" path="res://game/world/clouds.gd" id="13_clouds"]
 [ext_resource type="Script" path="res://game/world/stars.gd" id="14_stars"]
+[ext_resource type="Script" path="res://game/world/owl_tree.gd" id="15_owl_tree"]
 
 [sub_resource type="ProceduralSkyMaterial" id="Sky_mat"]
 sky_top_color = Color(0.33, 0.5, 0.78, 1)
@@ -80,6 +81,10 @@ script = ExtResource("9_tent")
 [node name="Restaurant" type="Node3D" parent="."]
 position = Vector3(8, 0, 2)
 script = ExtResource("11_restaurant")
+
+[node name="OwlTree" type="Node3D" parent="."]
+position = Vector3(-8, 0, 10)
+script = ExtResource("15_owl_tree")
 
 [node name="SkyBodies" type="Node3D" parent="."]
 script = ExtResource("12_sky")
