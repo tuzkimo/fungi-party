@@ -11,9 +11,7 @@ const CAMERA_POSITION := Vector3(0.0, 2.35, 6.3)
 const CAMERA_TARGET := Vector3(0.0, 1.55, -1.5)
 ## 默认 75 度太广，画面上下全是空天；收到 62 度四朵蘑菇和猫头鹰才占满
 const CAMERA_FOV := 62.0
-## 蘑菇朝猫头鹰转多少（转满会背对镜头，脸就看不见了）
-const TURN_TO_OWL := 0.35
-const TURN_LIMIT := 0.45
+
 
 enum Phase { COUNTDOWN, PLAY, BREAK, DONE }
 
@@ -59,8 +57,8 @@ func _ready() -> void:
 		actor.name = "Actor%d" % i
 		actor.position = Vector3(Config.OWL_SEAT_X[i], 0.0, 0.0)
 		add_child(actor)
-		var turn := Gaze.yaw_to(actor.position, _arena.owl_point()) * TURN_TO_OWL
-		actor.setup(SEAT_COLORS[i], i == OwlRound.PLAYER, clampf(turn, -TURN_LIMIT, TURN_LIMIT))
+		# 四朵都背对镜头、正面朝着猫头鹰（嘴开在头顶，从背后看就是仰头张嘴）
+		actor.setup(SEAT_COLORS[i], Gaze.yaw_to(actor.position, _arena.owl_point()))
 		_actors.append(actor)
 
 		var item := OwlItem.new()
