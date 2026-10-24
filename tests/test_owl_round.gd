@@ -137,7 +137,21 @@ func test_level_advance_keeps_scores() -> void:
 	check_eq(r.level, 1, "关卡号推进")
 	check_eq(r.mouths[SEAT].score, 1, "分数跨关保留")
 	check(not r.level_over, "新一关重新开始")
-	check(not r.mouths[SEAT].out, "新一关没人出局")
+
+
+## 出局只在本关有效：下一关四个人都得回来，而且还能继续得分。
+func test_out_resets_next_level() -> void:
+	var r := _round()
+	_freeze(r)
+	_drop(r, SEAT, true, 0.2)
+	_run(r, 0.2, true)
+	check(r.mouths[SEAT].out, "第一关吃屎出局")
+	r.start_level(1)
+	check(not r.mouths[SEAT].out, "新一关复活")
+	_freeze(r)
+	_drop(r, SEAT, false, 0.2)
+	_run(r, 0.2, true)
+	check_eq(r.mouths[SEAT].score, 1, "复活后还能接着吃糖")
 
 
 func test_level_over_stops_tick() -> void:
@@ -197,9 +211,11 @@ func test_ranking_by_score_ties_by_seat() -> void:
 
 
 func test_coins_by_rank() -> void:
-	check_eq(OwlRound.coins(0), Config.OWL_RANK_COINS[0], "第一名")
-	check_eq(OwlRound.coins(3), Config.OWL_RANK_COINS[3], "最后一名")
-	check_eq(OwlRound.coins(9), Config.OWL_RANK_COINS[3], "名次越界夹到最后")
+	check_eq(OwlRound.coins(0), 70, "第一名 70 币")
+	check_eq(OwlRound.coins(1), 50, "第二名 50 币")
+	check_eq(OwlRound.coins(2), 35, "第三名 35 币")
+	check_eq(OwlRound.coins(3), 20, "最后一名 20 币")
+	check_eq(OwlRound.coins(9), 20, "名次越界夹到最后")
 
 
 func test_levels_get_harder() -> void:

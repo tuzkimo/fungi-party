@@ -177,18 +177,17 @@ func hide_countdown() -> void:
 
 
 ## 两行：关卡与剩余时间 / 四个人的分数（出局的标出来）。
-func set_hud(level: int, time_left: float, scores: Array, player_out: bool) -> void:
+func set_hud(level: int, time_left: float, scores: Array, outs: Array) -> void:
 	var head := "第 %d/%d 关 · 剩 %d 秒" % [level, Config.OWL_SECONDS.size(), ceili(time_left)]
-	if player_out:
-		head += " · 你已出局"
 	var parts := PackedStringArray()
 	for i in scores.size():
 		var name := String(_names[i]) if i < _names.size() else str(i)
-		parts.append("%s %d" % [name, int(scores[i])])
+		var out := bool(outs[i]) if i < outs.size() else false
+		parts.append("%s %d%s" % [name, int(scores[i]), "（出局）" if out else ""])
 	_hud.text = "%s\n%s" % [head, " · ".join(parts)]
 
 
-## rows：按名次排好的 [{"name": String, "score": int}]。
+## rows：按名次排好的 [{"name": String, "score": int, "out": bool}]。
 func show_result(rank: int, earned: int, rows: Array) -> void:
 	_result.visible = true
 	_countdown.visible = false
@@ -197,7 +196,8 @@ func show_result(rank: int, earned: int, rows: Array) -> void:
 	var lines := PackedStringArray()
 	for row in rows:
 		var mark := "▶ " if String(row["name"]) == "你" else "　"
-		lines.append("%s%s　%d 分" % [mark, String(row["name"]), int(row["score"])])
+		var out := "（出局）" if bool(row.get("out", false)) else ""
+		lines.append("%s%s　%d 分%s" % [mark, String(row["name"]), int(row["score"]), out])
 	_rows.text = "\n".join(lines)
 
 

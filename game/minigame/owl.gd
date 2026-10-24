@@ -84,6 +84,8 @@ func _notification(what: int) -> void:
 		# 返回键：先弹暂停面板（再按一次继续）
 		if get_tree().paused:
 			get_tree().paused = false
+			# 暂停期间收不到抬手事件，恢复时把手指状态丢掉，免得嘴一直张着
+			_eat.finger = -1
 			_ui.hide_pause()
 		else:
 			_ui.show_pause()
@@ -109,7 +111,7 @@ func _tick_countdown(delta: float) -> void:
 	if _timer <= 0.0:
 		_countdown_shown = -1
 		_ui.hide_countdown()
-		_phase = Phase.PLAY
+		_enter_play()
 
 
 func _play(delta: float) -> void:
@@ -118,7 +120,7 @@ func _play(delta: float) -> void:
 	_round.tick(delta * speed, _presses())
 	_drain_events()
 	_update_visuals(delta)
-	_ui.set_hud(_round.level + 1, _round.time_left, _scores(), _round.player_out())
+	_ui.set_hud(_round.level + 1, _round.time_left, _scores(), _outs())
 	if not _round.level_over:
 		return
 	_round.mouths[OwlRound.PLAYER].open = false
@@ -139,10 +141,18 @@ func _tick_break(delta: float) -> void:
 		return
 	_ui.hide_countdown()
 	_round.start_level(_round.level + 1)
+	_enter_play()
+
+
+## 进对战那一刻把输入清零：倒数时拇指搭在屏幕上、暂停时松手（暂停期间收不到抬手事件），
+## 不清就会带着一张「自己张开的嘴」进场，第一颗正好是屎时玩家完全解释不了。
+func _enter_play() -> void:
+	_eat.finger = -1
 	_phase = Phase.PLAY
+	_ui.set_hud(_round.level + 1, _round.time_left, _scores(), _outs())
 
 
-## 只有对战阶段才喂输入：倒数、关间停顿、结算时的残留手指一律不算。
+## 只有对战阶段才喂输入。
 func _presses() -> Array:
 	if _phase != Phase.PLAY:
 		return [false, false, false, false]
@@ -155,6 +165,13 @@ func _scores() -> Array:
 	for mouth in _round.mouths:
 		scores.append(mouth.score)
 	return scores
+
+
+func _outs() -> Array:
+	var outs := []
+	for mouth in _round.mouths:
+		outs.append(mouth.out)
+	return outs
 
 
 func _drain_events() -> void:
@@ -183,7 +200,8 @@ func _update_visuals(delta: float) -> void:
 func _rows(order: Array) -> Array:
 	var rows := []
 	for index in order:
-		rows.append({"name": SEAT_NAMES[index], "score": _round.mouths[index].score})
+		var mouth: OwlRound.Mouth = _round.mouths[index]
+		rows.append({"name": SEAT_NAMES[index], "score": mouth.score, "out": mouth.out})
 	return rows
 
 

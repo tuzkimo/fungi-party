@@ -64,17 +64,10 @@ func player_out() -> bool:
 	return mouths[PLAYER].out
 
 
-func tick(delta: float, presses: Array) -> Dictionary:
-	var eaten: Array[bool] = []
-	var pooped: Array[bool] = []
-	var missed: Array[bool] = []
-	for i in SEATS:
-		eaten.append(false)
-		pooped.append(false)
-		missed.append(false)
-	var result := {"eaten": eaten, "pooped": pooped, "missed": missed, "level_over": level_over}
+## 结果只有两条通道：座位的状态（score/open/out）和 events。没有第二份返回值。
+func tick(delta: float, presses: Array) -> void:
 	if level_over:
-		return result
+		return
 
 	mouths[PLAYER].open = bool(presses[PLAYER]) and not mouths[PLAYER].out
 
@@ -97,7 +90,7 @@ func tick(delta: float, presses: Array) -> Dictionary:
 				mouth.flying -= step
 				if mouth.flying <= 0.0:
 					arrived = true
-					_arrive(i, open_now, eaten, pooped, missed)
+					_arrive(i, open_now)
 			if not arrived and mouth.wait > 0.0:
 				mouth.wait = maxf(0.0, mouth.wait - step)
 				if mouth.wait <= 0.0:
@@ -107,10 +100,14 @@ func tick(delta: float, presses: Array) -> Dictionary:
 			level_over = true
 			break
 
-	if not level_over:
-		_refresh_open()
-	result["level_over"] = level_over
-	return result
+	if left > 0.0:
+		# shortcut: 一帧要超过 MAX_STEPS 个子步（极端掉帧 + 快进）时，多余的模拟时间直接丢掉。
+		# 后果只是这一关的钟走慢一点，不会错判、不会重复计分；真出现再补。
+		time_left = maxf(0.0, time_left - left)
+		if time_left <= 0.0:
+			level_over = true
+			return
+	_refresh_open()
 
 
 func _is_open(seat: int) -> bool:
@@ -122,7 +119,7 @@ func _is_open(seat: int) -> bool:
 	return mouth.lead >= 0.0 and mouth.flying > 0.0 and mouth.flying <= mouth.lead
 
 
-func _arrive(seat: int, open_now: bool, eaten: Array, pooped: Array, missed: Array) -> void:
+func _arrive(seat: int, open_now: bool) -> void:
 	var mouth: Mouth = mouths[seat]
 	mouth.flying = 0.0
 	if mouth.out:
@@ -131,14 +128,11 @@ func _arrive(seat: int, open_now: bool, eaten: Array, pooped: Array, missed: Arr
 	if open_now and mouth.poop:
 		mouth.out = true
 		mouth.open = false
-		pooped[seat] = true
 		events.append({"kind": "poop", "seat": seat})
 	elif open_now:
 		mouth.score += 1
-		eaten[seat] = true
 		events.append({"kind": "eat", "seat": seat})
 	else:
-		missed[seat] = true
 		events.append({"kind": "miss", "seat": seat})
 	mouth.poop = false
 	mouth.lead = -1.0
