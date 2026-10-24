@@ -73,6 +73,7 @@ const STAMINA_MIN_COST := 12
 const STAMINA_COST_CLASSROOM := 12
 const STAMINA_COST_RACE := 20
 const STAMINA_COST_BOMB := 25
+const STAMINA_COST_OWL := 30
 const MEAL_COINS := 20
 const MEAL_STAMINA := 25
 const MEALS_PER_DAY := 3
@@ -83,10 +84,11 @@ const DAY_SAVE_INTERVAL := 5.0
 const MEAL_ANIMATION_SECONDS := 1.2
 const TENT_POS := Vector3(-8.0, 0.0, 2.0)
 const RESTAURANT_POS := Vector3(8.0, 0.0, 2.0)
+const OWL_TREE_POS := Vector3(-8.0, 0.0, 10.0)
 ## 六个 POI 的位置（和 forest.tscn 里摆的一致）：树和石头不往它们跟前长
 const POI_SPOTS: Array[Vector3] = [
 	Vector3(0.0, 0.0, -14.0), Vector3(7.0, 0.0, -11.0), Vector3(-7.0, 0.0, -11.0),
-	Vector3(0.0, 0.0, 11.0), TENT_POS, RESTAURANT_POS,
+	Vector3(0.0, 0.0, 11.0), TENT_POS, RESTAURANT_POS, OWL_TREE_POS,
 ]
 const SUN_DISTANCE := 120.0
 const SUN_RADIUS := 4.5
@@ -122,3 +124,21 @@ const BOMB_NPC_THROW_AT := [1.2, 0.5, 0.9]
 # 人机每次接住打算抱多久（蓝 / 红 / 紫）：引信还长的时候也照这个节奏往外扔，
 # 不然炸弹会一直在一个人手里，玩家没得玩
 const BOMB_NPC_HOLD := [Vector2(0.6, 1.3), Vector2(1.2, 2.6), Vector2(0.8, 1.8)]
+
+# v4 猫头鹰喂食
+## 三关：越长、越快、屎越多。下落时长是主难度旋钮——它就是你认出来再松手的反应窗口。
+const OWL_SECONDS := [30.0, 35.0, 40.0]
+const OWL_GAP := [Vector2(1.6, 2.4), Vector2(1.3, 1.9), Vector2(1.0, 1.5)]
+const OWL_FALL := [1.1, 0.9, 0.7]
+const OWL_POOP := [0.25, 0.33, 0.40]
+const OWL_RANK_COINS := [70, 50, 35, 20]
+## 玩家出局后本关剩下一段：快进跑完，人机分数照实累加
+const OWL_FAST_FORWARD := 2.5
+const OWL_BREAK_SECONDS := 1.6
+const OWL_COUNTDOWN := 3.0
+const OWL_SEAT_X := [-3.6, -1.2, 1.2, 3.6]
+## 三个 NPC：敢吃糖的概率 / 会误吞屎的概率 / 张嘴提前量（下落时长的倍数）
+const OWL_NPC_EAT := [0.9, 0.97, 0.75]
+const OWL_NPC_GREED := [0.05, 0.28, 0.02]
+const OWL_NPC_LEAD := [Vector2(0.15, 0.8), Vector2(0.15, 0.8), Vector2(0.35, 1.0)]
+const OWL_PATH := "res://game/minigame/owl.tscn"
