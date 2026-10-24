@@ -22,8 +22,8 @@ func test_old_save_gets_defaults() -> void:
 func test_partial_write_keeps_other_fields() -> void:
 	_clean()
 	Save.write(P, {"coins": 250, "stamina": 40, "day_time": 0.6})
-	# 买皮肤只写三个键：不能把体力、天色抹回缺省
-	Save.write(P, {"coins": 50, "owned": true, "equipped": true})
+	# 抽卡只写四个键：不能把体力、天色抹回缺省
+	Save.write(P, {"coins": 50, "owned": PackedStringArray(["blueberry"]), "equipped": "blueberry"})
 	var d := Save.read(P)
 	check_eq(d.coins, 50, "币按新的写")
 	check_eq(d.stamina, 40, "体力不被别的写入抹掉")
@@ -51,12 +51,61 @@ func test_corrupt_save_falls_back_to_defaults() -> void:
 	_clean()
 
 
-func test_equip_moved_to_save() -> void:
+func test_legacy_bool_owned_migrates() -> void:
 	_clean()
-	Save.write(P, {"owned": false})
-	check(not Save.equip(true, P), "没买不能穿")
+	# v3 存档的样子：只写了布尔键
+	Save.write(P, {"coins": 0, "owned": true, "equipped": true})
+	var d := Save.read(P)
+	check_eq(d.owned, PackedStringArray(["blueberry"]), "老存档的蓝莓帽补进已拥有")
+	check_eq(d.equipped, "blueberry", "老存档继续穿着蓝莓帽")
+	_clean()
+
+
+func test_legacy_bool_not_equipped_migrates() -> void:
+	_clean()
 	Save.write(P, {"owned": true, "equipped": false})
-	check(Save.equip(true, P), "买了能穿")
-	check(Save.read(P).equipped, "穿上入库")
+	var d := Save.read(P)
+	check_eq(d.owned, PackedStringArray(["blueberry"]), "买了没穿的也有皮肤")
+	check_eq(d.equipped, "", "没穿就是默认红帽")
+	_clean()
+
+
+func test_fresh_save_has_no_skin() -> void:
+	_clean()
+	var d := Save.read(P)
+	check_eq(d.owned.size(), 0, "新存档一顶都没有")
+	check_eq(d.equipped, "", "新存档穿默认")
+	check_eq(d.pity, 0, "新存档保底计数为 0")
+
+
+func test_owned_roundtrip() -> void:
+	_clean()
+	Save.write(P, {"owned": PackedStringArray(["hero", "poop"]), "equipped": "hero", "pity": 7})
+	var d := Save.read(P)
+	check_eq(d.owned, PackedStringArray(["hero", "poop"]), "已拥有列表存得住")
+	check_eq(d.equipped, "hero", "穿戴 id 存得住")
+	check_eq(d.pity, 7, "保底计数存得住")
+	_clean()
+
+
+func test_equip_requires_owned_id() -> void:
+	_clean()
+	Save.write(P, {"owned": PackedStringArray(["hero"])})
+	check(not Save.equip("poop", P), "没拥有的穿不上")
+	check_eq(Save.read(P).equipped, "", "穿不上就不写盘")
+	check(Save.equip("hero", P), "拥有的能穿")
+	check_eq(Save.read(P).equipped, "hero", "穿上入库")
+	check(Save.equip("", P), "能换回默认")
+	check_eq(Save.read(P).equipped, "", "换回默认后为空")
 	check_eq(Save.read(P).coins, 0, "换衣服不动钱")
+	_clean()
+
+
+func test_equip_gone_id_is_ignored() -> void:
+	_clean()
+	# 皮肤 id 从总表里消失后，存档里还留着：不能崩，也不能穿
+	Save.write(P, {"owned": PackedStringArray(["ghost"]), "equipped": "ghost"})
+	var d := Save.read(P)
+	check_eq(d.equipped, "ghost", "存档层不做白名单判断（读出来就是原样）")
+	check(SkinCatalog.by_id(d.equipped) == null, "上层拿到 null 会回落默认外观")
 	_clean()

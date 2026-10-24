@@ -65,9 +65,7 @@ func setup(cap_color: Color, yaw: float) -> void:
 ## 穿戴了皮肤时，座位上的自己也换色换斑点（教室那套做法）。
 func apply_skin(skin: MushroomSkin) -> void:
 	_cap_color = skin.tint_cap
-	_body.tint_cap = skin.tint_cap
-	_body.tint_body = skin.tint_body
-	_body.spot_count = skin.spot_count
+	_body.use_skin(skin)
 	_body.build()
 
 

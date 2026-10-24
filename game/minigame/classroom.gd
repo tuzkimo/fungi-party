@@ -54,11 +54,10 @@ func _ready() -> void:
 	for i in Config.NPC_GUTS.size():
 		_npcs.append(NpcSeat.new(Config.NPC_GUTS[i], randi()))
 
-	# 玩家穿上买了的皮肤，教室里的自己也换色（换场景后 Player 不在，座位 0 才是「我」）
-	if bool(Save.read()["equipped"]):
-		var skin := load(Config.SKIN_PATH) as MushroomSkin
-		if skin != null:
-			_seats[0].apply_skin(skin)
+	# 玩家穿着的那顶，教室里的自己也长一样（换场景后 Player 不在，座位 0 才是「我」）
+	var skin := SkinCatalog.by_id(str(Save.read()["equipped"]))
+	if skin != null:
+		_seats[0].apply_skin(skin)
 
 	_ui.again_pressed.connect(func() -> void: get_tree().reload_current_scene())
 	_ui.forest_pressed.connect(func() -> void: get_tree().change_scene_to_file(Config.FOREST_PATH))

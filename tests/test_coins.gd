@@ -9,19 +9,21 @@ func test_missing_file_defaults() -> void:
 	_clean()
 	var d := Save.read(P)
 	check_eq(d.coins, 0, "没有存档时币为 0")
-	check(not d.owned and not d.equipped, "没有存档时没皮肤")
+	check_eq(d.owned.size(), 0, "没有存档时没皮肤")
+	check_eq(d.equipped, "", "没有存档时穿默认")
 
 func test_roundtrip() -> void:
 	_clean()
-	Save.write(P, {"coins": 120, "owned": true, "equipped": true})
+	Save.write(P, {"coins": 120, "owned": PackedStringArray(["blueberry"]), "equipped": "blueberry"})
 	var d := Save.read(P)
 	check_eq(d.coins, 120, "币存得住")
-	check(d.owned and d.equipped, "皮肤状态存得住")
+	check_eq(d.owned, PackedStringArray(["blueberry"]), "皮肤状态存得住")
+	check_eq(d.equipped, "blueberry", "穿戴状态存得住")
 	_clean()
 
 func test_add_coins_clamps_at_zero() -> void:
 	_clean()
-	Save.write(P, {"coins": 5, "owned": false, "equipped": false})
+	Save.write(P, {"coins": 5})
 	check_eq(Save.add_coins(-200, P), 0, "买不起时不会变成负数")
 	_clean()
 

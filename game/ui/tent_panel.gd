@@ -7,9 +7,8 @@ var _root: Control
 var _stamina: Label
 var _sleep: Button
 var _clothes: Button
-var _skins: HBoxContainer
-var _wear_default: Button
-var _wear_skin: Button
+var _skins: GridContainer
+var _built_key := ""
 
 
 func _ready() -> void:
@@ -64,26 +63,14 @@ func _ready() -> void:
 	UIStyle.style_button(_clothes)
 	box.add_child(_clothes)
 
-	_skins = HBoxContainer.new()
-	_skins.alignment = BoxContainer.ALIGNMENT_CENTER
-	_skins.add_theme_constant_override("separation", 20)
+	_skins = GridContainer.new()
+	_skins.columns = 4
+	_skins.add_theme_constant_override("h_separation", 12)
+	_skins.add_theme_constant_override("v_separation", 12)
 	_skins.visible = false
 	box.add_child(_skins)
 
-	_wear_default = _skin_button("默认红帽", false)
-	_wear_skin = _skin_button("蓝莓帽", true)
-
 	root.visible = false
-
-
-func _skin_button(text: String, blueberry: bool) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.custom_minimum_size = Vector2(180.0, 60.0)
-	button.pressed.connect(_on_wear.bind(blueberry))
-	UIStyle.style_button(button)
-	_skins.add_child(button)
-	return button
 
 
 func _process(_delta: float) -> void:
@@ -98,11 +85,38 @@ func _process(_delta: float) -> void:
 func _refresh() -> void:
 	var data := Save.read()
 	_stamina.text = "体力 %d/%d" % [int(data["stamina"]), Config.STAMINA_MAX]
-	var owned := bool(data["owned"])
-	var equipped := bool(data["equipped"])
-	_wear_skin.visible = owned
-	_wear_default.disabled = not equipped
-	_wear_skin.disabled = equipped
+	# _process 每帧都调这里，按钮只在已拥有/穿戴变了时才重建
+	var key := "%s|%s" % [str(data["owned"]), str(data["equipped"])]
+	if _skins.visible and key != _built_key:
+		_built_key = key
+		_build_skin_buttons(data)
+
+
+## 已拥有的按档位从高到低排，最前面一个「默认红帽」。
+func _build_skin_buttons(data: Dictionary) -> void:
+	for child in _skins.get_children():
+		child.queue_free()
+
+	var equipped := str(data["equipped"])
+	_add_skin_button("默认红帽", "", equipped == "")
+	var skins: Array[MushroomSkin] = []
+	for skin_id in data["owned"] as PackedStringArray:
+		var skin := SkinCatalog.by_id(skin_id)
+		if skin != null:
+			skins.append(skin)
+	skins.sort_custom(func(a, b): return a.rarity > b.rarity)
+	for skin in skins:
+		_add_skin_button(skin.display_name, skin.id, equipped == skin.id)
+
+
+func _add_skin_button(text: String, skin_id: String, worn: bool) -> void:
+	var button := Button.new()
+	button.text = text
+	button.custom_minimum_size = Vector2(140.0, 52.0)
+	button.disabled = worn
+	button.pressed.connect(_on_wear.bind(skin_id))
+	UIStyle.style_button(button)
+	_skins.add_child(button)
 
 
 func _on_sleep() -> void:
@@ -113,12 +127,15 @@ func _on_sleep() -> void:
 
 func _on_clothes() -> void:
 	_skins.visible = not _skins.visible
+	_built_key = ""
+	_refresh()
 
 
-func _on_wear(blueberry: bool) -> void:
-	if not Save.equip(blueberry):
+func _on_wear(skin_id: String) -> void:
+	if not Save.equip(skin_id):
 		return
 	var player := get_tree().get_first_node_in_group("player") as Player
 	if player != null:
 		player.apply_skin()
+	_built_key = ""
 	_refresh()

@@ -39,8 +39,6 @@ const COIN_BASE := 10
 const COIN_PER_BITE := 3
 const COIN_WIN_BONUS := 40
 const COIN_PER_CATCH := 5
-const SKIN_PRICE := 200
-const SKIN_PATH := "res://game/skins/blueberry.tres"
 const CLASSROOM_PATH := "res://game/minigame/classroom.tscn"
 const FOREST_PATH := "res://game/main.tscn"
 

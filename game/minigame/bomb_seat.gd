@@ -28,19 +28,16 @@ func _ready() -> void:
 		rotation.y = atan2(towards.x, towards.z)
 
 
-## use_saved_skin 只有玩家座位传 true：读了皮肤就照存档换配色。
+## use_saved_skin 只有玩家座位传 true：读了皮肤就照存档换配色。（use_skin 不 build，等别处 build）
 func setup(color: Color, use_saved_skin: bool) -> void:
 	var skin: MushroomSkin = null
-	if use_saved_skin and bool(Save.read()["equipped"]):
-		skin = load(Config.SKIN_PATH) as MushroomSkin
+	if use_saved_skin:
+		skin = SkinCatalog.by_id(str(Save.read()["equipped"]))
 
 	_mesh = MushroomMesh.new()
 	_mesh.name = "Body"
-	if skin != null:
-		_mesh.tint_cap = skin.tint_cap
-		_mesh.tint_body = skin.tint_body
-		_mesh.spot_count = skin.spot_count
-	else:
+	_mesh.use_skin(skin)
+	if skin == null:
 		_mesh.tint_cap = color
 	add_child(_mesh)
 

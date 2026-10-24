@@ -1,6 +1,7 @@
 class_name Save
 
-## 本地存档：币、皮肤、体力、今天的份数与天数、天色水位。user://save.cfg 一个 [game] 段。
+## 本地存档：币、已拥有的皮肤、穿着的皮肤、保底计数、体力、今天的份数与天数、天色水位。
+## user://save.cfg 一个 [game] 段。
 
 const PATH := "user://save.cfg"
 const SECTION := "game"
@@ -9,10 +10,25 @@ const SECTION := "game"
 static func read(path: String = PATH) -> Dictionary:
 	var cfg := ConfigFile.new()
 	cfg.load(path)
+	# v3 存档里 owned/equipped 是布尔键：直接赋给 PackedStringArray 会报错，
+	# str(true) 又得到 "true" 而不是 "blueberry"，所以按类型分支
+	var owned := PackedStringArray()
+	var raw_owned = cfg.get_value(SECTION, "owned", PackedStringArray())
+	if typeof(raw_owned) == TYPE_PACKED_STRING_ARRAY:
+		owned = raw_owned
+	elif typeof(raw_owned) == TYPE_BOOL and bool(raw_owned):
+		owned = PackedStringArray(["blueberry"])
+	var equipped := ""
+	var raw_equipped = cfg.get_value(SECTION, "equipped", "")
+	if typeof(raw_equipped) == TYPE_STRING:
+		equipped = raw_equipped
+	elif typeof(raw_equipped) == TYPE_BOOL and bool(raw_equipped):
+		equipped = "blueberry"
 	return {
 		"coins": int(cfg.get_value(SECTION, "coins", 0)),
-		"owned": bool(cfg.get_value(SECTION, "owned", false)),
-		"equipped": bool(cfg.get_value(SECTION, "equipped", false)),
+		"owned": owned,
+		"equipped": equipped,
+		"pity": int(cfg.get_value(SECTION, "pity", 0)),
 		"stamina": int(cfg.get_value(SECTION, "stamina", Config.STAMINA_MAX)),
 		"meals": int(cfg.get_value(SECTION, "meals", 0)),
 		"day": int(cfg.get_value(SECTION, "day", 1)),
@@ -42,12 +58,12 @@ static func apply_round(bites: int, is_winner: bool, caught: int, path: String =
 	return {"earned": earned, "coins": add_coins(earned, path)}
 
 
-## 穿戴状态：已拥有才能换。摊位和帐篷都走这里，不各写一遍。
-static func equip(blueberry: bool, path: String = PATH) -> bool:
+## 穿戴状态：`""` 是默认红帽，非空必须是已拥有的 id。摊位和帐篷都走这里，不各写一遍。
+static func equip(skin_id: String, path: String = PATH) -> bool:
 	var data := read(path)
-	if not bool(data["owned"]):
+	if skin_id != "" and not (data["owned"] as PackedStringArray).has(skin_id):
 		return false
-	write(path, {"equipped": blueberry})
+	write(path, {"equipped": skin_id})
 	return true
 
 

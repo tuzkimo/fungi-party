@@ -69,10 +69,9 @@ func _ready() -> void:
 		_items.append(item)
 
 	# 穿了皮肤的话，玩家那一朵跟角色一致（教室同款做法）
-	if bool(Save.read()["equipped"]):
-		var skin := load(Config.SKIN_PATH) as MushroomSkin
-		if skin != null:
-			_actors[OwlRound.PLAYER].apply_skin(skin)
+	var skin := SkinCatalog.by_id(str(Save.read()["equipped"]))
+	if skin != null:
+		_actors[OwlRound.PLAYER].apply_skin(skin)
 
 	_ui = $UI
 	_ui.set_names(SEAT_NAMES)
