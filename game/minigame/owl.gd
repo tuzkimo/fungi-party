@@ -125,6 +125,8 @@ func _play(delta: float) -> void:
 	if _round.level >= Config.OWL_SECONDS.size() - 1:
 		_settle()
 		return
+	# 关间停顿里模型不 tick，画面也不能留着半空的东西和半张的嘴
+	_freeze_visuals()
 	_phase = Phase.BREAK
 	_timer = Config.OWL_BREAK_SECONDS
 	_countdown_shown = -1
@@ -185,13 +187,18 @@ func _rows(order: Array) -> Array:
 	return rows
 
 
-func _settle() -> void:
-	_settled = true
-	_phase = Phase.DONE
+## 嘴全部闭上、线上东西全部收掉：关间停顿和结算都用这一下。
+func _freeze_visuals() -> void:
 	for i in OwlRound.SEATS:
 		var mouth: OwlRound.Mouth = _round.mouths[i]
 		_actors[i].apply(mouth.score, false, mouth.out, 1.0)
 		_items[i].visible = false
+
+
+func _settle() -> void:
+	_settled = true
+	_phase = Phase.DONE
+	_freeze_visuals()
 	var scores := _scores()
 	var order := OwlRound.ranking(scores)
 	var rank: int = order.find(OwlRound.PLAYER)
