@@ -29,38 +29,47 @@ func test_every_skin_builds_on_every_body() -> void:
 			m.free()
 
 
-## 零件尺寸跟着帽子走：剑的护手横向偏移、角盔、花在两个体型上
-## 除以 cap_radius 之后必须是同一个数。写死绝对值的那次改动会让这条红。
-func test_part_geometry_scales_with_cap_radius() -> void:
-	var samples := {}
+## 角盔、花这类「长在帽子上的零件」尺寸跟着帽子走：除以 cap_radius 之后两头是同一个数。
+func test_head_part_sizes_scale_with_cap_radius() -> void:
+	var ratios := {}
 	for body_id in BODIES:
 		var m := _build(body_id, "hero")
-		var k := m.cap_radius
-		var guard := _node(m, "SwordGuard") as MeshInstance3D
 		var dome := _node(m, "HelmetDome") as MeshInstance3D
-		var pommel := _node(m, "SwordPommel") as MeshInstance3D
-		check(guard != null and dome != null and pommel != null, "%s 有剑和角盔" % body_id)
-		if guard == null or dome == null or pommel == null:
+		check(dome != null, "%s 有角盔" % body_id)
+		if dome == null:
 			m.free()
 			return
-		samples[body_id] = [
-			guard.position.x / k,
-			dome.scale.x / k,
-			pommel.position.x / k,
-			# 剑护手在帽底下方多少（按 k 缩）
-			(m.cap_base() - guard.position.y) / k,
-		]
+		ratios[body_id] = [dome.scale.x / m.cap_radius, dome.scale.y / m.cap_radius]
 		m.free()
-	var red: Array = samples["red"]
-	var seafood: Array = samples["seafood"]
-	var labels := ["护手横向", "角盔半径", "剑首横向", "护手高度"]
-	for i in red.size():
-		if labels[i] == "护手高度":
-			# 纵向是相对帽底的偏移，符号相反但绝对值要一致
-			check(absf(absf(red[i]) - absf(seafood[i])) < 0.001, "%s 两头一致" % labels[i])
-		else:
-			check(absf(float(red[i]) - float(seafood[i])) < 0.001,
-				"%s 按 cap_radius 等比（红 %.3f / 海鲜 %.3f）" % [labels[i], red[i], seafood[i]])
+	check(absf(float(ratios["red"][0]) - float(ratios["seafood"][0])) < 0.001, "角盔横向按 cap_radius 等比")
+	check(absf(float(ratios["red"][1]) - float(ratios["seafood"][1])) < 0.001, "角盔纵向按 cap_radius 等比")
+
+
+## 手在哪儿：红蘑菇是一坨扁手，海鲜菇是一根棍子，棍子的末端得自己算。
+func _hand_point(m: MushroomMesh) -> Vector3:
+	var hand := _node(m, "HandR") as MeshInstance3D
+	if hand != null:
+		return hand.position
+	var arm := _node(m, "ArmR") as MeshInstance3D
+	if arm == null:
+		return Vector3.INF
+	var capsule := arm.mesh as CapsuleMesh
+	return arm.position + arm.transform.basis.y * (capsule.height * 0.5)
+
+
+## 剑必须握在手上。海鲜菇报过这个 bug：剑挂在帽沿下面，正好落在手臂中间。
+func test_sword_sits_in_the_hand() -> void:
+	for body_id in BODIES:
+		var m := _build(body_id, "hero")
+		var guard := _node(m, "SwordGuard") as MeshInstance3D
+		var hand := _hand_point(m)
+		check(guard != null and hand != Vector3.INF, "%s 有护手也有右手" % body_id)
+		if guard != null and hand != Vector3.INF:
+			var gap := Vector2(guard.position.x - hand.x, guard.position.y - hand.y).length()
+			# 红蘑菇的剑本来就搁在手的上外侧，允许到 0.3；棍子手必须贴住末端
+			var limit: float = 0.12 if body_id == "seafood" else 0.30
+			check(gap < limit, "%s 的剑握在手上（离手 %.3f）" % [body_id, gap])
+		m.free()
 
 
 ## 剑不能埋进帽子：剑身每个采样点都必须离中轴比帽子那一圈更远。

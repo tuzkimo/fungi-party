@@ -238,3 +238,19 @@ func test_cap_contents_share_one_pivot() -> void:
 			check(child.get_parent() == pivot, "%s 挂在 pivot 下" % child.name)
 			break
 	m.free()
+
+
+## NPC（教室座位、赛跑人机、摊位老板、传炸弹的对手）都是「先 tint_cap = 颜色 再 add_child」，
+## 而 add_child 会走到 build() 里第一次 use_body()。那条路不能把预置的颜色抹成默认红。
+func test_preset_tint_survives_first_build() -> void:
+	var m := MushroomMesh.new()
+	m.tint_cap = Color(0.35, 0.78, 0.80)
+	m.tint_body = Color(0.95, 0.80, 0.30)
+	m.build()
+	check_eq(m.tint_cap, Color(0.35, 0.78, 0.80), "预置的帽色不被 build 抹掉")
+	check_eq(m.tint_body, Color(0.95, 0.80, 0.30), "预置的身色也不被抹掉")
+	var body := _node(m, "Body") as MeshInstance3D
+	check(body != null, "有身体")
+	if body != null:
+		check_eq(body.material_override.albedo_color, Color(0.95, 0.80, 0.30), "身体真的用上了预置的颜色")
+	m.free()

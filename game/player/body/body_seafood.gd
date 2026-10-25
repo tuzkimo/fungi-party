@@ -16,15 +16,23 @@ const RINGS := [0.70, 1.20]
 
 
 func apply_defaults(to: MushroomMesh) -> void:
-	super.apply_defaults(to)
 	to.body_height = 1.90     # 脚底到帽底；帽尖 = 1.90 - 0.05 + 0.25 = 2.10
 	to.cap_radius = 0.44
 	to.cap_height = 0.25
 	to.cap_sharpness = 1.75   # 比红帽更扁的圆顶
-	# 设计图上的颜色：浅棕帽、更浅的杆，帽上本来没斑点
+
+
+## 设计图上的颜色：浅棕帽、更浅的杆，帽上本来没斑点。
+func apply_look_defaults(to: MushroomMesh) -> void:
+	super.apply_look_defaults(to)
 	to.tint_cap = Color(0.855, 0.675, 0.549)
 	to.tint_body = Color(0.945, 0.878, 0.831)
 	to.spot_count = 0
+
+
+## 剑握在右手那根棍子的末端，不是帽沿下面。
+func _sword_anchor() -> Vector3:
+	return Vector3(0.55, 1.30, 0.06)
 
 
 ## 小帽子上脸要挤紧一点，不然两只眼就到帽沿外面去了。

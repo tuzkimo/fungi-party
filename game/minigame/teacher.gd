@@ -1,11 +1,15 @@
 class_name Teacher
 extends Node3D
 
-## 老师：一朵放大 1.5 倍的蘑菇 + 地面扇形视线锥。
+## 老师：一只站在讲台墩子上的猫头鹰 + 地面扇形视线锥。
 ## 只读 Gaze 的 phase/target/alpha，转头在预警那 0.3 秒内转到位。
 
 const YAW_SPEED := 12.0
-const BODY_SCALE := 1.5
+## 猫头鹰本体只有 0.62 高，放大到比坐着的学生高一点才像个老师
+const OWL_SCALE := 2.2
+const PERCH_SIZE := Vector3(1.1, 0.45, 1.1)
+const FEATHER_COLOR := Color(0.34, 0.32, 0.36)
+const PERCH_COLOR := Color(0.45, 0.31, 0.19)
 const WARN_COLOR := Color(1.0, 0.85, 0.3)
 const WATCH_COLOR := Color(1.0, 0.25, 0.2)
 
@@ -14,12 +18,26 @@ var _cone: MeshInstance3D
 
 
 func _ready() -> void:
-	var body := MushroomMesh.new()
-	body.name = "TeacherBody"
-	body.tint_cap = Color(0.34, 0.32, 0.36)
-	body.tint_body = Color(0.58, 0.55, 0.52)
-	body.scale = Vector3.ONE * BODY_SCALE
-	add_child(body)
+	var perch := MeshInstance3D.new()
+	perch.name = "Perch"
+	var block := BoxMesh.new()
+	block.size = PERCH_SIZE
+	perch.mesh = block
+	var wood := StandardMaterial3D.new()
+	wood.albedo_color = PERCH_COLOR
+	wood.roughness = 0.95
+	perch.material_override = wood
+	perch.position.y = PERCH_SIZE.y * 0.5
+	add_child(perch)
+
+	var owl := OwlModel.new()
+	owl.name = "TeacherOwl"
+	owl.body_color = FEATHER_COLOR
+	owl.belly_color = FEATHER_COLOR.lightened(0.22)
+	owl.scale = Vector3.ONE * OWL_SCALE
+	owl.position.y = PERCH_SIZE.y - owl.bottom() * OWL_SCALE
+	add_child(owl)
+	owl.build()
 	_build_cone()
 
 

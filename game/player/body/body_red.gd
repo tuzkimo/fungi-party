@@ -14,7 +14,6 @@ const HAND_SCALE := Vector3(0.30, 0.13, 0.42)
 
 
 func apply_defaults(to: MushroomMesh) -> void:
-	super.apply_defaults(to)
 	to.body_height = 1.40
 	to.cap_radius = 0.70
 	to.cap_height = 0.46

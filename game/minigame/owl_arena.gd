@@ -96,49 +96,15 @@ func _build_tree() -> void:
 	branch.rotation_degrees = Vector3(90.0, 0.0, 0.0)
 
 
-## 猫头鹰朝 +Z（正对镜头），玩家看得见它的脸。
+## 猫头鹰朝 +Z（正对镜头），玩家看得见它的脸。模型在 owl_model.gd，教室的老师也用它。
 func _build_owl() -> void:
-	var owl := Node3D.new()
+	var owl := OwlModel.new()
 	owl.name = "Owl"
 	owl.position = Vector3(0.0, OWL_Y, OWL_Z)
 	owl.scale = Vector3.ONE * OWL_SCALE
+	owl.body_color = BODY_COLOR
 	add_child(owl)
-
-	var body := SphereMesh.new()
-	body.radius = 0.34
-	body.height = 0.62
-	body.radial_segments = 14
-	body.rings = 7
-	_attach(owl, "Body", body, Vector3.ZERO, _solid(BODY_COLOR, 0.9))
-
-	var eye := SphereMesh.new()
-	eye.radius = 0.13
-	eye.height = 0.26
-	eye.radial_segments = 10
-	eye.rings = 5
-	var pupil := SphereMesh.new()
-	pupil.radius = 0.07
-	pupil.height = 0.14
-	pupil.radial_segments = 8
-	pupil.rings = 4
-	var white := _solid(Color.WHITE, 0.6)
-	var black := _solid(Color(0.08, 0.06, 0.06), 0.5)
-	for side in [-1.0, 1.0]:
-		_attach(owl, "Eye", eye, Vector3(0.15 * side, 0.10, 0.27), white)
-		_attach(owl, "Pupil", pupil, Vector3(0.15 * side, 0.10, 0.36), black)
-
-	var beak := CylinderMesh.new()
-	beak.top_radius = 0.0
-	beak.bottom_radius = 0.07
-	beak.height = 0.16
-	beak.radial_segments = 8
-	var beak_mat := _solid(BEAK_COLOR, 0.7)
-	var beak_node := _attach(owl, "Beak", beak, Vector3(0.0, -0.02, 0.34), beak_mat)
-	beak_node.rotation_degrees = Vector3(90.0, 0.0, 0.0)
-
-	for side in [-1.0, 1.0]:
-		var ear := _attach(owl, "Ear", beak, Vector3(0.19 * side, 0.30, 0.02), _solid(BODY_COLOR, 0.9))
-		ear.rotation_degrees = Vector3(0.0, 0.0, -22.0 * side)
+	owl.build()
 
 
 func _place(

@@ -28,9 +28,14 @@ const CAPE_ARC := 1.15
 var host: MushroomMesh
 
 
-## 体型的默认外观。调用 use_body() 时先全部回到「没穿皮肤」的样子，子类只改自己那部分。
-## 注意：use_body() 会调这个，所以它会把之前 use_skin() 的覆盖抹掉。
-func apply_defaults(to: MushroomMesh) -> void:
+## 体型的默认尺寸。use_body() 调它：换体型时身高帽径要跟着换，但配色不动——
+## NPC 都是「先 tint_cap = 颜色 再 add_child」，在这里抹一次就全变红蘑菇了。
+func apply_defaults(_to: MushroomMesh) -> void:
+	pass
+
+
+## 体型的默认配色/斑点/零件（= 没穿皮肤时长什么样）。只有 use_skin(null) 调它。
+func apply_look_defaults(to: MushroomMesh) -> void:
 	var s := MushroomMesh.default_skin()
 	to.tint_cap = s.tint_cap
 	to.tint_body = s.tint_body
@@ -244,10 +249,11 @@ func _add_accessory(part: String, cap_pivot: Node3D) -> void:
 	var offset := _accessory_offset()
 	match part:
 		"sword":
-			# 剑搁在右手边往斜上方挑：帽子底下半径 0.9，竖直放会整根埋进去
+			# 剑握在右手上往斜上方挑：锚点由体型给（红蘑菇是手边、海鲜菇是棍子的末端）
 			var tilt := Vector3(0.0, 0.0, SWORD_TILT)
 			var axis := Vector2(sin(deg_to_rad(-SWORD_TILT)), cos(deg_to_rad(-SWORD_TILT)))
-			var guard_pos := Vector2(0.76, 0.82)
+			var anchor := _sword_anchor()
+			var guard_pos := Vector2(anchor.x, anchor.y)
 
 			# 剑身：四棱锥，底宽顶尖收成一点；压扁 z 做出刃口
 			var blade := CylinderMesh.new()
@@ -255,11 +261,11 @@ func _add_accessory(part: String, cap_pivot: Node3D) -> void:
 			blade.bottom_radius = 0.085 * k
 			blade.height = 0.60 * k
 			blade.radial_segments = 4
-			var blade_pos := guard_pos + axis * (0.04 + 0.30)
+			var blade_pos := guard_pos + axis * (0.04 + 0.30) * k
 			for mat in [mat_steel, _outline()]:
 				var node := _add_part(
 					"SwordBlade" if mat == mat_steel else "SwordBladeOutline",
-					blade, mat, _sword_pos(blade_pos) + offset,
+					blade, mat, _sword(blade_pos, anchor) + offset,
 					Vector3(1.0, 1.0, 0.45),
 				)
 				node.rotation_degrees = tilt
@@ -268,7 +274,7 @@ func _add_accessory(part: String, cap_pivot: Node3D) -> void:
 			var guard := BoxMesh.new()
 			guard.size = Vector3(0.34, 0.055, 0.085) * k
 			var guard_node := _add_part(
-				"SwordGuard", guard, mat_steel, _sword_pos(guard_pos) + offset, Vector3.ONE,
+				"SwordGuard", guard, mat_steel, _sword(guard_pos, anchor) + offset, Vector3.ONE,
 			)
 			guard_node.rotation_degrees = tilt
 
@@ -278,16 +284,16 @@ func _add_accessory(part: String, cap_pivot: Node3D) -> void:
 			grip.bottom_radius = 0.032 * k
 			grip.height = 0.18 * k
 			grip.radial_segments = 8
-			var grip_pos := guard_pos - axis * 0.10
+			var grip_pos := guard_pos - axis * 0.10 * k
 			var grip_node := _add_part(
-				"SwordGrip", grip, mat_dark, _sword_pos(grip_pos) + offset, Vector3.ONE,
+				"SwordGrip", grip, mat_dark, _sword(grip_pos, anchor) + offset, Vector3.ONE,
 			)
 			grip_node.rotation_degrees = tilt
 
 			var pommel := _sphere(10, 6)
-			var pommel_pos := guard_pos - axis * 0.19
+			var pommel_pos := guard_pos - axis * 0.19 * k
 			_add_part(
-				"SwordPommel", pommel, mat_steel, _sword_pos(pommel_pos) + offset,
+				"SwordPommel", pommel, mat_steel, _sword(pommel_pos, anchor) + offset,
 				Vector3.ONE * 0.055 * k,
 			)
 		"cape":
@@ -348,10 +354,14 @@ func _add_accessory(part: String, cap_pivot: Node3D) -> void:
 			push_warning("未知零件：%s" % part)
 
 
-## 剑是挂在身上的（不跟帽子倾斜），坐标按「帽底 + 相对帽底的偏移」换算。
-func _sword_pos(p: Vector2) -> Vector3:
-	var k := host.cap_radius / PARTS_BASE_CAP_RADIUS
-	return Vector3(p.x * k, cap_base() + (p.y - PARTS_BASE_CAP_BASE) * k, 0.06 * k)
+## 剑挂在右手上（不跟帽子倾斜）。锚点由体型给世界坐标，剑身沿轴长出去。
+func _sword(p: Vector2, anchor: Vector3) -> Vector3:
+	return Vector3(p.x, p.y, anchor.z)
+
+
+## 剑的把手位置（世界坐标）。默认是红蘑菇手边那点，子类按自己的手改。
+func _sword_anchor() -> Vector3:
+	return Vector3(0.76, 0.82, 0.06)
 
 
 ## 背后一片弧面：从帽底挂下来，横向跟帽子走、纵向跟身体走。

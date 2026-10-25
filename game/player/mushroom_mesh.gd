@@ -62,6 +62,7 @@ func use_skin(skin: MushroomSkin) -> void:
 	if skin == null:
 		# 没穿皮肤 = 这个角色本来的样子，不是「红蘑菇的配色」
 		_body.apply_defaults(self)
+		_body.apply_look_defaults(self)
 		return
 	tint_cap = skin.tint_cap
 	tint_body = skin.tint_body
