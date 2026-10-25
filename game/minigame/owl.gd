@@ -57,7 +57,7 @@ func _ready() -> void:
 		actor.name = "Actor%d" % i
 		actor.position = Vector3(Config.OWL_SEAT_X[i], 0.0, 0.0)
 		add_child(actor)
-		# 四朵都背对镜头、正面朝着猫头鹰（嘴开在头顶，从背后看就是仰头张嘴）
+		# 四朵都背对镜头、正面朝着猫头鹰（不说话，抬头就当张嘴）
 		actor.setup(SEAT_COLORS[i], Gaze.yaw_to(actor.position, _arena.owl_point()))
 		_actors.append(actor)
 
