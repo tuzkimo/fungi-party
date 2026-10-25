@@ -15,6 +15,9 @@ var _second: Player = null
 
 ## 联网会话挂在根上，不随场景一起换掉（进小游戏再回森林也还在）
 var _net: NetClient = null
+## 森林里别人的替身：账号 → RemotePlayer
+var _ghosts := {}
+var _move_timer := 0.0
 
 
 func _ready() -> void:
@@ -27,6 +30,7 @@ func _ready() -> void:
 		# 从小游戏转回来：联网会话还在，不用再登录
 		Save.remote = _net
 		_refresh_looks()
+		_net.world_changed.connect(_on_world)
 	else:
 		Save.remote = null
 		_start_menu.setup(_net)
@@ -47,6 +51,60 @@ func _ensure_net() -> NetClient:
 func _on_online_ready() -> void:
 	Save.remote = _net
 	_refresh_looks()
+	_net.world_changed.connect(_on_world)
+
+
+## 联网时把自己（和同屏的 2P）报上去，别人才能看见
+func _process(delta: float) -> void:
+	if _net == null or not _net.ready():
+		return
+	_move_timer += delta
+	if _move_timer >= 1.0 / Config.NET_MOVE_HZ:
+		_move_timer = 0.0
+		_report_position(0, _first)
+		_report_position(1, _second)
+	_animate_ghosts(delta)
+
+
+func _report_position(slot: int, player: Player) -> void:
+	if player == null:
+		return
+	var look := Party.look(slot)
+	_net.send_move(
+		slot, player.global_position, player.rotation.y,
+		str(look["body"]), str(look["skin"])
+	)
+
+
+## 服务器说世界变了：新建、更新、删掉替身
+func _on_world() -> void:
+	if _forest == null or _net == null:
+		return
+	for key in _net.world:
+		if _ghosts.has(key):
+			continue
+		var state: Dictionary = _net.world[key]
+		var ghost := RemotePlayer.new()
+		ghost.name = "Ghost_%s" % str(key).replace("|", "_")
+		_forest.add_child(ghost)
+		ghost.setup(str(state.get("name", key)), str(state.get("body", "")), str(state.get("skin", "")))
+		ghost.apply(state, 0.0, true)
+		_ghosts[key] = ghost
+	for key in _ghosts.keys():
+		if not _net.world.has(key):
+			(_ghosts[key] as Node).queue_free()
+			_ghosts.erase(key)
+
+
+func _animate_ghosts(delta: float) -> void:
+	for key in _ghosts:
+		var ghost: RemotePlayer = _ghosts[key]
+		var state: Dictionary = _net.world.get(key, {})
+		if state.is_empty():
+			continue
+		var before := ghost.global_position
+		ghost.apply(state, delta)
+		ghost.bob(delta, before.distance_to(ghost.global_position) > 0.002)
 
 
 func _refresh_looks() -> void:

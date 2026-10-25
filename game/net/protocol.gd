@@ -8,7 +8,11 @@ const VERSION := 1
 ## 一封存档带 15 顶皮肤 id 大约 1 KB，8 KB 已经是很宽松的天花板
 const MAX_PACKET := 8192
 
-enum Msg { HELLO, CHALLENGE, PROOF, WELCOME, OP, OP_RESULT, ERROR }
+enum Msg {
+	HELLO, CHALLENGE, PROOF, WELCOME, OP, OP_RESULT, ERROR,
+	MOVE,   # 客户端 → 服务器：我在哪、朝哪、长什么样
+	WORLD,  # 服务器 → 客户端：这座森林里现在有谁、几点、有没有人邀请我
+}
 
 
 static func pack(kind: int, body: Dictionary) -> PackedByteArray:

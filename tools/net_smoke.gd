@@ -59,8 +59,35 @@ func _run() -> void:
 	print("重连后 币 %d 皮肤 %d 顶：存档在服务器上" % [coins_before, owned_before])
 
 	await _same_account_two_devices()
+	await _world_check()
 	print("SMOKE OK")
 	quit(0)
+
+
+## 共享森林：两个人互相看得见，同屏的 2P 也是世界里的一份子。
+func _world_check() -> void:
+	var other := NetClient.new()
+	other.failed.connect(_on_failed)
+	root.add_child(other)
+	other.connect_to(_host, _port, "%sB" % _name, _password)
+	await other.logged_in
+	_client.send_move(0, Vector3(1.0, 0.0, 2.0), 0.5, "red", "")
+	_client.send_move(1, Vector3(2.0, 0.0, 3.0), 0.5, "seafood", "")
+	other.send_move(0, Vector3(-5.0, 0.0, 6.0), 1.0, "seafood", "")
+	# 世界每 1/10 秒广播一次，等它轮到下一次
+	await create_timer(0.5).timeout
+	if not other.world.has(_name):
+		_die("B 看不见 A（世界：%s）" % str(other.world.keys()))
+	if not other.world.has("%s|1" % _name):
+		_die("B 看不见 A 的同屏 2P")
+	if other.world[_name].get("z") != 2.0:
+		_die("B 拿到的 A 的位置不对：%s" % str(other.world[_name]))
+	if (other.world["%s|1" % _name] as Dictionary).get("name") != "%s 2P" % _name:
+		_die("2P 的名字不对：%s" % str(other.world["%s|1" % _name]))
+	if not _client.world.has("%sB" % _name):
+		_die("A 看不见 B")
+	print("共享森林：A 看见 %d 份（含 2P），B 看见 A 和 A 的 2P" % _client.world.size())
+	other.close()
 
 
 ## 两台设备同一个账号：后一台的镜像是旧的，钱必须还是服务器的账本说了算。

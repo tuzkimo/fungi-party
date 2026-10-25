@@ -15,6 +15,9 @@ var _peer: ENetMultiplayerPeer
 var _save_dir := DEFAULT_SAVES
 ## peer_id -> {name, nonce, salt, authed, since}
 var _sessions := {}
+## 世界时钟（三分之一个真实日）：天色由它给，三期接上客户端
+var _world_clock := Config.MORNING_TIME
+var _world_timer := 0.0
 
 
 func _initialize() -> void:
@@ -39,6 +42,10 @@ func _process(_delta: float) -> bool:
 		var from := _peer.get_packet_peer()
 		_handle(from, _peer.get_packet())
 	_drop_silent_peers()
+	_world_timer += _delta
+	if _world_timer >= 1.0 / Config.NET_WORLD_HZ:
+		_world_timer = 0.0
+		_broadcast_world()
 	return false
 
 
@@ -58,6 +65,8 @@ func _handle(from: int, packet: PackedByteArray) -> void:
 			_on_proof(from, session, body)
 		NetProtocol.Msg.OP:
 			_on_op(from, session, body)
+		NetProtocol.Msg.MOVE:
+			_on_move(session, body)
 		_:
 			_send(from, NetProtocol.Msg.ERROR, {"reason": "kind"})
 
@@ -126,6 +135,64 @@ func _on_op(from: int, session: Dictionary, body: Dictionary) -> void:
 		"result": result.get("result", {}),
 		"save": result["data"],
 	})
+
+
+## 别人的位置：这是唯一一条不落盘、不回包的消息，只往世界里广播。
+## 位置是信任边界，但作弊后果只有「他飘到别处」：非有限数、飞天、瞬移一律不采信。
+func _on_move(session: Dictionary, body: Dictionary) -> void:
+	if not bool(session.get("authed", false)):
+		return
+	# slot 0 = 这台手机的主人，slot 1 = 同屏的 2P（两个人共用一个账号，各报各的）
+	var slot := int(body.get("slot", 0))
+	if slot < 0 or slot > 1:
+		return
+	var spot := Vector3(float(body.get("x", 0.0)), float(body.get("y", 0.0)), float(body.get("z", 0.0)))
+	if not spot.is_finite():
+		return
+	spot.y = clampf(spot.y, 0.0, 6.0)
+	var slots: Dictionary = session.get("slots", {})
+	var last: Variant = slots.get(slot, null)
+	if last != null and (spot - Vector3((last as Dictionary)["pos"])).length() > Config.NET_MOVE_MAX_STEP * 2.0:
+		return
+	var skin := str(body.get("skin", ""))
+	slots[slot] = {
+		"pos": spot,
+		"yaw": float(body.get("yaw", 0.0)),
+		"body": BodyCatalog.normalize(str(body.get("body", ""))),
+		"skin": skin if SkinCatalog.by_id(skin) != null else "",
+	}
+	session["slots"] = slots
+
+
+## 每 1/10 秒给每个登录的人一份世界快照（各自一份：邀请是发给具体某个人的）。
+func _broadcast_world() -> void:
+	var players := {}
+	for id in _sessions:
+		var session: Dictionary = _sessions[id]
+		if not bool(session.get("authed", false)):
+			continue
+		var account := str(session["name"])
+		var slots: Dictionary = session.get("slots", {})
+		for slot in slots:
+			var state: Dictionary = slots[slot]
+			var spot: Vector3 = state["pos"]
+			var key := account if int(slot) == 0 else "%s|1" % account
+			players[key] = {
+				"x": spot.x, "y": spot.y, "z": spot.z,
+				"yaw": float(state["yaw"]),
+				"body": str(state["body"]),
+				"skin": str(state["skin"]),
+				"name": account if int(slot) == 0 else "%s 2P" % account,
+			}
+	for id in _sessions:
+		var session: Dictionary = _sessions[id]
+		if not bool(session.get("authed", false)):
+			continue
+		_send(int(id), NetProtocol.Msg.WORLD, {
+			"clock": _world_clock,
+			"players": players,
+			"me": str(session["name"]),
+		})
 
 
 func _send(to: int, kind: int, body: Dictionary) -> void:

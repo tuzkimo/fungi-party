@@ -7,6 +7,7 @@ extends Node
 ## 心跳/重连一概没有（设计里一期不做）：掉线就 failed()，客户端回启动菜单。
 
 signal logged_in
+signal world_changed
 signal changed
 signal failed(reason: String)
 
@@ -27,6 +28,10 @@ var _salt := ""
 var _exists := false
 ## 最后一条 op 的服务器回包（商店要拿抽卡结果放演出）
 var last_result := {}
+## 世界快照：{账号: {x,y,z,yaw,body,skin}}，不含自己
+var world := {}
+## 服务器给的世界时钟（0~1 的一天）
+var clock := Config.MORNING_TIME
 
 var _queue: Array[Dictionary] = []
 var _inflight := ""
@@ -74,6 +79,17 @@ func request(op: String, args: Dictionary = {}) -> void:
 	_queue.append({"op": op, "args": args})
 
 
+## 我在哪、朝哪、长什么样：森林里每 1/10 秒报一次，别人靠它画我。
+func send_move(slot: int, spot: Vector3, yaw: float, body_id: String, skin_id: String) -> void:
+	if state != State.READY:
+		return
+	# 走 MOVE 这条不排队的通道：位置比 op 新，堵在队列后面就没意义了
+	_send(NetProtocol.Msg.MOVE, {
+		"slot": slot, "x": spot.x, "y": spot.y, "z": spot.z, "yaw": yaw,
+		"body": body_id, "skin": skin_id,
+	})
+
+
 func me() -> String:
 	return player_name
 
@@ -115,6 +131,13 @@ func _drain() -> void:
 				_on_welcome(body)
 			NetProtocol.Msg.OP_RESULT:
 				_on_result(body)
+			NetProtocol.Msg.WORLD:
+				world = body.get("players", {})
+				# 自己身上那两份（本人 + 同屏 2P）由本地真实玩家画，别重复画
+				world.erase(str(body.get("me", player_name)))
+				world.erase("%s|1" % str(body.get("me", player_name)))
+				clock = float(body.get("clock", clock))
+				world_changed.emit()
 			NetProtocol.Msg.ERROR:
 				_dead(str(body.get("reason", "error")))
 

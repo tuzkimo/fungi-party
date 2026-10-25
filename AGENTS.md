@@ -12,8 +12,10 @@
   谁推摇杆谁带队，镜头跟着带队的那个；四款小游戏都变成两人同场：教室坐 0/1 号课桌、猫头鹰喂食坐 0/1 号位、
   传炸弹坐 0/1 号座各有一对投掷键、赛跑左右分屏各跟一台相机。币是共享钱包，两个人都各自结算再相加；
   二号位的形象只活在这次运行里（`Party` 静态状态），不写盘
-- v7（进行中）：联机一期 —— 账号、存档、钱包、抽卡搬到自己的 Linux 服务器（`game/net/`），启动菜单分「一个人玩 / 联网」；
-  共享森林、四款小游戏联网、邀请还在后续计划里（`docs/superpowers/plans/2026-10-25-v7-online-skeleton.md`）
+- v7（进行中）：联机 —— 账号、存档、钱包、抽卡在服务器上（`game/net/`），启动菜单分「一个人玩 / 联网」；
+  **共享森林已通**：每人每 0.1 秒报一次位置（`MOVE`），服务器每 0.1 秒广播一次世界（`WORLD`），别人是插值着走的替身（`game/world/remote_player.gd`），
+  同屏 2P 也是世界里的一份（`账号|1`），不用单独登录。
+  **还没做**：邀请真人进同一局、四款小游戏搬到服务器跑（`docs/superpowers/plans/2026-10-25-v7-online-skeleton.md` 末尾有下一步）
 - v5：角色可换 —— 红蘑菇之外加了海鲜菇（细长杆 + 小扁帽 + 四根黑棍手脚 + 腮红，按 `refs/海鲜菇角色设计图.png`），帐篷里免费换；体型与皮肤解耦，15 顶皮肤两个角色都能戴
 - 场景：`game/world/` 森林与 POI、`game/minigame/` 教室/赛跑/传炸弹/猫头鹰喂食、`game/skins/` 15 顶皮肤数据（`.tres`）与 `catalog.gd` 总表、`game/player/body/` 角色体型（红蘑菇 / 海鲜菇，`catalog.gd` 总表）、`game/ui/` HUD 与浮层
 
@@ -30,6 +32,7 @@ godot --headless --path . --script res://tools/soak_party.gd   # 四款小游戏
 godot --headless --path . --script res://game/net/server_main.gd -- --port 7000 --saves build/accounts  # 本机起服务器
 bash scripts/net_smoke.sh                                      # 联机冒烟：起真服务器 + 客户端注册/抽卡/重连验存档
 godot --path . --script res://tools/net_login_shot.gd -- --port 7000   # 桌面看一眼启动菜单和登录（shots/login*.png）
+godot --path . --script res://tools/net_world_shot.gd -- --port 7000   # 桌面看一眼共享森林里的替身（shots/world.png）
 bash scripts/deploy-server.sh fungi@你的主机                    # 导出 Linux 无头构建并部署（见 deploy/README.md）
 godot --headless --path . --export-debug "Android" build/app.apk   # 调试包，带 FPS/DRAW/TRI 信息条
 bash scripts/export-release.sh                                      # 正式签名包 build/fungi_party_<版本>_arm64.apk
@@ -85,5 +88,7 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
   `add_coins` 是一期小游戏还在本机跑时的临时口子，二期必须删。
 - `NetProtocol.VERSION` 一变，老客户端就连不上。客户端和服务端要一起发版。
 - 服务器上账号文件是唯一持久化的东西：写盘一律 `.tmp` + rename，昵称进文件名前必须过 `Accounts.valid_name()`。
+- 森林里别人的位置走 `MOVE`（不进 op 队列，位置比 op 新），世界快照走 `WORLD`，两边都由 `NetClient` 收发；
+  替身只显示、不碰撞、不读输入；同屏 2P 用 `账号|1` 这个键，客户端要把自己那两份从世界快照里剔掉。
 - 网络来的东西全是信任边界：包的字节、昵称、op 名、op 参数，都要在服务器侧校验，不校验就当 0 处理是错的。
 - 提交信息用中文。

@@ -139,7 +139,24 @@
 - [x] 步骤 3：部署脚本与 systemd unit（服务端二进制放 `/opt/fungi/`，存档 `/var/lib/fungi/saves`）
 - [x] 步骤 4：提交
 
-## 后续计划（不在这一期）
+## 下一步（已做/没做，接着干从这里接）
+
+已做：共享森林。`MOVE`/`WORLD` 两条消息 + `RemotePlayer` 替身 + 同屏 2P 也进世界（键 `账号|1`）。
+`bash scripts/net_smoke.sh` 里 `_world_check()` 守着它，`tools/net_world_shot.gd` 能截图看。
+
+没做，按这个顺序：
+
+1. **房间**（`game/net/room.gd`，服务器侧）：`{kind, 座位表, 模型对象, 阶段, 结算}`。
+   座位表沿用「真人占 0..n-1，人机从 n 往后」，本地 2P 占 1 号座、不占账号。
+2. **邀请**：`OP {op: "invite", args: {to, kind}}` → 服务器在对方的 `WORLD` 里塞 `invites`，客户端弹「接受/拒绝」
+   → `OP {op: "answer", args: {from, accept}}` → 成局后双方收到 `SESSION`，各自 `change_scene` 进同一个场景。
+3. **四款小游戏上服务器**，一款一款来，顺序 教室 → 传炸弹 → 猫头鹰 → 赛跑：
+   - 服务器：`room.gd` 里按 kind 建模型（`StealEat`/`BombRound`/`OwlRound`），每 tick 推进，发 `SESSION` 快照
+   - 客户端：对应场景在「整局是服务器的」模式下不自己 tick，把快照写进本地模型再照旧渲染，输入用 `INPUT` 上报
+   - 赛跑额外要做：把 `RacePlayer`（CharacterBody3D）换成纯数学模型，离线一起改并重调手感
+4. **睡觉一天一次**：接上服务器世界时钟后改 `NetOps._sleep`。
+
+## 剩下的（原计划的二三期）
 
 - 二期：四款小游戏上服务器（逻辑类上移 + 阶段机搬迁 + 邀请），顺序 教室 → 传炸弹 → 猫头鹰 → 赛跑（赛跑要先把真人物理体换成纯模型）。
 - 三期：共享森林（位置广播 15 Hz、他人替身、POI 邀请、服务器世界时钟天色）。
