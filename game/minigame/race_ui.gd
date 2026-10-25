@@ -1,27 +1,32 @@
 class_name RaceUI
 extends CanvasLayer
 
-## 赛跑 HUD：顶部前进条 + 名次/用时、右下角圆形冲刺按钮、倒数、结算与暂停面板。
+## 赛跑 HUD：顶部前进条 + 每人一份名次/用时、每人一个圆形冲刺键、倒数、结算与暂停面板。
+## 双人时两行 hud 分别贴在左右两半的左上角，冲刺键各在自己那半边。
 
 signal again_pressed
 signal forest_pressed
 signal quit_pressed
-signal dash_pressed
+signal dash_pressed(player: int)
 
-const PLAYER_COLOR := Color(0.92, 0.25, 0.22)
+const PLAYER_COLORS := [Color(0.92, 0.25, 0.22), Color(0.24, 0.72, 0.60)]
 const RIVAL_COLORS := [Color(0.32, 0.55, 0.88), Color(0.66, 0.40, 0.86), Color(0.95, 0.58, 0.25)]
 const DOT_SIZE := 16.0
-## 冲刺按钮圆心离右下角的偏移，和跳跃按钮（圆心约 -176,-176）拉开距离，
+## 冲刺按钮圆心离锚点的偏移，和跳跃按钮（圆心约 -176,-176）拉开距离，
 ## 免得一次点按既算跳又算冲刺。
 const DASH_CENTER := Vector2(-300.0, -340.0)
+## 双人：冲刺键各在自己那半边、摇杆上方
+const DUO_DASH_CENTER := Vector2(200.0, -390.0)
 
 var _time := 0.0
 var _rank := 1
-var _hud: Label
+var _times: Array = []
+var _ranks: Array = []
+var _huds: Array[Label] = []
 var _countdown: Label
 var _bar: ColorRect
 var _dots: Array[ColorRect] = []
-var _dash: DashButton
+var _dashes: Array[DashButton] = []
 var _result: ColorRect
 var _title: Label
 var _standings: Label
@@ -39,16 +44,31 @@ func _ready() -> void:
 	root.theme = UIStyle.theme()
 	add_child(root)
 
-	_hud = Label.new()
-	_hud.name = "Hud"
-	_hud.position = Vector2(28.0, 52.0)
-	root.add_child(_hud)
+	for i in Party.count():
+		_times.append(0.0)
+		_ranks.append(1)
 
+	_build_huds(root)
 	_build_bar(root)
 	_build_dash(root)
 	_build_countdown(root)
 	_build_result(root)
 	_build_pause(root)
+
+
+## 一人一行；双人时第二行贴在右半边左上角。
+func _build_huds(root: Control) -> void:
+	for i in Party.count():
+		var hud := Label.new()
+		hud.name = "Hud%d" % i
+		hud.position = Vector2(28.0, 52.0)
+		if i > 0:
+			hud.anchor_left = 0.5
+			hud.anchor_right = 0.5
+			hud.offset_left = 28.0
+			hud.offset_top = 52.0
+		root.add_child(hud)
+		_huds.append(hud)
 
 
 func _build_bar(root: Control) -> void:
@@ -63,11 +83,14 @@ func _build_bar(root: Control) -> void:
 	_bar.offset_bottom = 42.0
 	root.add_child(_bar)
 
-	for i in RIVAL_COLORS.size() + 1:
+	for i in Party.count() + RIVAL_COLORS.size():
 		var dot := ColorRect.new()
 		dot.name = "Dot%d" % i
 		dot.size = Vector2(DOT_SIZE, DOT_SIZE)
-		dot.color = PLAYER_COLOR if i == 0 else RIVAL_COLORS[i - 1]
+		if i < Party.count():
+			dot.color = PLAYER_COLORS[i]
+		else:
+			dot.color = RIVAL_COLORS[i - Party.count()]
 		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		dot.position.y = -1.0
 		_bar.add_child(dot)
@@ -75,15 +98,26 @@ func _build_bar(root: Control) -> void:
 
 
 func _build_dash(root: Control) -> void:
-	_dash = DashButton.new()
-	_dash.name = "Dash"
-	_dash.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_dash.offset_left = DASH_CENTER.x - DashButton.RADIUS
-	_dash.offset_right = DASH_CENTER.x + DashButton.RADIUS
-	_dash.offset_top = DASH_CENTER.y - DashButton.RADIUS
-	_dash.offset_bottom = DASH_CENTER.y + DashButton.RADIUS
-	_dash.pressed.connect(func() -> void: dash_pressed.emit())
-	root.add_child(_dash)
+	for i in Party.count():
+		var dash := DashButton.new()
+		dash.name = "Dash%d" % i
+		if Party.joined():
+			_place(dash, Control.PRESET_BOTTOM_LEFT if i == 0 else Control.PRESET_BOTTOM_RIGHT,
+				DUO_DASH_CENTER * (1.0 if i == 0 else Vector2(-1.0, 1.0)))
+		else:
+			_place(dash, Control.PRESET_BOTTOM_RIGHT, DASH_CENTER)
+		var player := i
+		dash.pressed.connect(func() -> void: dash_pressed.emit(player))
+		root.add_child(dash)
+		_dashes.append(dash)
+
+
+func _place(button: DashButton, preset: int, center: Vector2) -> void:
+	button.set_anchors_preset(preset)
+	button.offset_left = center.x - button.radius
+	button.offset_right = center.x + button.radius
+	button.offset_top = center.y - button.radius
+	button.offset_bottom = center.y + button.radius
 
 
 func _build_countdown(root: Control) -> void:
@@ -200,30 +234,42 @@ func hide_countdown() -> void:
 	_countdown.visible = false
 
 
-func set_progress(player_z: float, rivals: Array, rank: int) -> void:
-	_rank = rank
-	_dots[0].position.x = _dot_x(player_z)
+## player_z：每个玩家的前进距离；ranks：每个玩家当前名次（1 基）。
+func set_progress(player_z: Array, rivals: Array, ranks: Array) -> void:
+	_ranks = ranks
+	for i in player_z.size():
+		_dots[i].position.x = _dot_x(float(player_z[i]))
 	for i in rivals.size():
-		_dots[i + 1].position.x = _dot_x(rivals[i].z)
+		_dots[player_z.size() + i].position.x = _dot_x(rivals[i].z)
 	_refresh_hud()
 
 
-func set_time(seconds: float) -> void:
-	_time = seconds
+func set_time(times: Array) -> void:
+	_times = times
 	_refresh_hud()
 
 
 ## ratio：0 = 刚用掉，1 = 冷却好了。
-func set_dash_ready(ratio: float) -> void:
-	_dash.set_ratio(ratio)
+func set_dash_ready(player: int, ratio: float) -> void:
+	_dashes[player].set_ratio(ratio)
 
 
+## ranks / times / hits 按玩家座位序各一项；earned 是两个人加起来的总币。
 ## standings：按名次排好的 [{name, finished, time}]，全部跑者都在里面。
-func show_result(rank: int, seconds: float, hits: int, earned: int, standings: Array) -> void:
+func show_result(ranks: Array, times: Array, hits: Array, earned: int, standings: Array) -> void:
 	_result.visible = true
-	_dash.armed = false
-	_title.text = "第 %d 名" % rank
-	_detail.text = "用时 %d 秒，撞了 %d 次，+%d 蘑菇币" % [ceili(seconds), hits, earned]
+	_set_armed(false)
+	var titles := PackedStringArray()
+	for i in ranks.size():
+		var who := "" if ranks.size() == 1 else "%s " % Party.name_of(i)
+		titles.append("%s第 %d 名" % [who, int(ranks[i])])
+	_title.text = "，".join(titles)
+	var details := PackedStringArray()
+	for i in ranks.size():
+		var who := "" if ranks.size() == 1 else "%s：" % Party.name_of(i)
+		details.append("%s用时 %d 秒，撞了 %d 次" % [who, ceili(float(times[i])), int(hits[i])])
+	details.append("+%d 蘑菇币" % earned)
+	_detail.text = "　".join(details)
 	var lines := PackedStringArray()
 	for i in standings.size():
 		var row: Dictionary = standings[i]
@@ -234,12 +280,17 @@ func show_result(rank: int, seconds: float, hits: int, earned: int, standings: A
 
 func show_pause() -> void:
 	_pause.visible = true
-	_dash.armed = false
+	_set_armed(false)
 
 
 func hide_pause() -> void:
 	_pause.visible = false
-	_dash.armed = true
+	_set_armed(true)
+
+
+func _set_armed(armed: bool) -> void:
+	for dash in _dashes:
+		dash.armed = armed
 
 
 func _dot_x(z: float) -> float:
@@ -248,4 +299,5 @@ func _dot_x(z: float) -> float:
 
 
 func _refresh_hud() -> void:
-	_hud.text = "用时 %d 秒　第 %d 名" % [int(_time), _rank]
+	for i in _huds.size():
+		_huds[i].text = "用时 %d 秒　第 %d 名" % [int(_times[i]), int(_ranks[i])]

@@ -20,10 +20,12 @@ static func coins(rank: int) -> int:
 
 
 ## 结算表：活着的排最前（按 alive 原顺序），然后按死亡顺序倒着列。
-static func rows(death_order: Array, alive: Array, names: Array) -> Array:
+## human 让面板把「人」那几行标出来（同屏双人时有两行）。
+static func rows(death_order: Array, alive: Array, names: Array, humans := 1) -> Array:
 	var out := []
 	for seat in alive:
-		out.append({"name": names[seat], "note": "仍在场上"})
+		out.append({"name": names[seat], "note": "仍在场上", "human": int(seat) < humans})
 	for i in range(death_order.size() - 1, -1, -1):
-		out.append({"name": names[death_order[i]], "note": "第 %d 个被炸" % (i + 1)})
+		var seat: int = death_order[i]
+		out.append({"name": names[seat], "note": "第 %d 个被炸" % (i + 1), "human": seat < humans})
 	return out

@@ -54,21 +54,23 @@ func _ready() -> void:
 	for i in Config.NPC_GUTS.size():
 		_npcs.append(NpcSeat.new(Config.NPC_GUTS[i], randi()))
 
-	# 玩家穿的戴的，教室里的自己也长一样（换场景后 Player 不在，座位 0 才是「我」）
-	_seats[0].apply_saved_look()
+	_round.humans = Party.count()
+	# 坐在座位上的玩家跟森林里长得一样（换场景后 Player 不在，座位才是「我」）
+	for seat in Party.count():
+		_seats[seat].apply_look(seat)
 
 	_ui.again_pressed.connect(func() -> void: get_tree().reload_current_scene())
 	_ui.forest_pressed.connect(func() -> void: get_tree().change_scene_to_file(Config.FOREST_PATH))
 
 
 func _input(event: InputEvent) -> void:
-	_eat.feed(event)
+	_eat.feed(event, get_viewport().get_visible_rect().size.x)
 
 
 func _notification(what: int) -> void:
 	# 系统抢走前台时抬手事件可能永远不来，不清掉就会一直「按着」
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
-		_eat.finger = -1
+		_eat.clear()
 	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		# 教室没有暂停面板：返回键还是直接退出，和以前一致
 		get_tree().quit()
@@ -94,14 +96,10 @@ func _process(delta: float) -> void:
 		var eating: bool = _press[i] and seat.stun <= 0.0 and not seat.out
 		_seats[i].apply(seat, eating, delta, _gaze.watching() == i)
 
-	_ui.set_state(_round.time_left, _round.seats[0].bites, _round.seats[0].caught, _round.seats[0].stun > 0.0)
+	_ui.set_state(_round.time_left, _player_rows(), _stunned())
 
 	if _round.over and not _settled:
-		_settled = true
-		var mine: StealEat.Seat = _round.seats[0]
-		var won := _round.winner == 0
-		var earned := int(Save.apply_round(mine.bites, won, mine.caught)["earned"])
-		_ui.show_result(mine.bites, mine.caught, won, earned)
+		_settle()
 
 
 func _play(delta: float) -> void:
@@ -109,13 +107,51 @@ func _play(delta: float) -> void:
 	_teacher.apply(_gaze, delta)
 
 	if not _round.over:
-		_press[0] = _eat.pressing() or Input.is_action_pressed("jump")
+		# 双人各按自己那半边屏；单人时任意手指都算（老行为）
+		_press[0] = _eat.pressing(0 if Party.joined() else -1) or Input.is_action_pressed("jump")
+		if Party.joined():
+			_press[1] = _eat.pressing(1)
 		for i in _npcs.size():
 			var seat_index: int = i + 1
+			if Party.human(seat_index):
+				continue   # 这个座位是人，不喂人机
 			_press[seat_index] = _npcs[i].decide(delta, _gaze, seat_index, _round.seats[seat_index].stun > 0.0)
 		var events := _round.tick(delta, _press, _gaze.watching())
-		if events["caught"][0]:
-			_ui.flash()
+		for seat in Party.count():
+			if events["caught"][seat]:
+				_ui.flash()
+				break
+
+
+## 每个玩家的成绩：UI 只认这个。
+func _player_rows() -> Array:
+	var rows := []
+	for seat in Party.count():
+		var mine: StealEat.Seat = _round.seats[seat]
+		rows.append({
+			"name": Party.name_of(seat),
+			"bites": mine.bites,
+			"caught": mine.caught,
+			"win": _round.winner == seat,
+		})
+	return rows
+
+
+func _stunned() -> Array:
+	var out := []
+	for seat in Party.count():
+		out.append((_round.seats[seat] as StealEat.Seat).stun > 0.0)
+	return out
+
+
+## 结算：每个玩家各自算币，都进同一个钱包（一台手机一份存档，不拆）。
+func _settle() -> void:
+	_settled = true
+	var earned := 0
+	for seat in Party.count():
+		var mine: StealEat.Seat = _round.seats[seat]
+		earned += int(Save.apply_round(mine.bites, _round.winner == seat, mine.caught)["earned"])
+	_ui.show_result(_player_rows(), earned)
 
 
 func _build_room() -> void:

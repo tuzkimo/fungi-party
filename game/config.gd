@@ -24,8 +24,9 @@ const GAZE_WARN := 0.3
 const GAZE_WATCH := 2.0
 const GAZE_HALF_ANGLE := 14.0
 const GAZE_RANGE := 8.5
+## 0/1 号座给玩家（同屏双人时正好占中间两张课桌），2/3 号座给人机
 const SEAT_POSITIONS := [
-	Vector3(-1.2, 0.0, 1.2), Vector3(-4.0, 0.0, 0.6), Vector3(1.6, 0.0, 0.6), Vector3(4.2, 0.0, 1.2)
+	Vector3(-1.2, 0.0, 0.6), Vector3(1.6, 0.0, 0.6), Vector3(-4.0, 0.0, 1.2), Vector3(4.2, 0.0, 1.2)
 ]
 const TEACHER_POS := Vector3(0.0, 0.0, -5.5)
 # v2 人机
@@ -56,6 +57,13 @@ const RARITY_COLORS: Array[Color] = [
 const CLASSROOM_PATH := "res://game/minigame/classroom.tscn"
 const FOREST_PATH := "res://game/main.tscn"
 
+# v6 同屏双人：二号位在森林里跟着走（不读输入）
+const PARTY_FOLLOW_GAP := 1.2     # 目标点在一号位身后多远
+## 侧面让开这么多：正后方会夹在相机和一号位中间，被拍成一张糊满屏的大脸
+const PARTY_FOLLOW_SIDE := 1.1
+const PARTY_FOLLOW_STOP := 0.45   # 离目标点这么近就停下，免得原地抖
+const PARTY_FOLLOW_RUN := 3.5     # 被甩开这么远就改成跑
+
 # v3 森林赛跑
 const RACE_TRACK_LENGTH := 220.0
 const RACE_TRACK_HALF_WIDTH := 4.5
@@ -74,7 +82,8 @@ const RACE_LOW_WIDTH := 3.4
 const RACE_ANIMAL_COUNT := 6
 const RACE_ANIMAL_WARN := 1.0
 const RACE_ANIMAL_CLEAR := 8.0
-const RACE_RANK_COINS := [70, 50, 35, 20]
+## 五名：同屏双人时场上两个人类 + 三个人机
+const RACE_RANK_COINS := [70, 50, 35, 20, 20]
 const RACE_HIT_PENALTY := 5
 const RACE_TIME_LIMIT := 120.0
 const RACE_PATH := "res://game/minigame/race.tscn"
@@ -151,7 +160,8 @@ const OWL_RANK_COINS := [70, 50, 35, 20]
 const OWL_FAST_FORWARD := 2.5
 const OWL_BREAK_SECONDS := 1.6
 const OWL_COUNTDOWN := 3.0
-const OWL_SEAT_X := [-2.7, -0.9, 0.9, 2.7]
+## 0/1 号座给玩家（双人时占中间两个），2/3 号座给人机
+const OWL_SEAT_X := [-0.9, 0.9, -2.7, 2.7]
 ## 三个 NPC：敢吃糖的概率 / 会误吞屎的概率 / 张嘴提前量（下落时长的倍数）
 const OWL_NPC_EAT := [0.9, 0.97, 0.75]
 const OWL_NPC_GREED := [0.05, 0.28, 0.02]

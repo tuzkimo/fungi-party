@@ -43,6 +43,19 @@ static func clamp_arm_length(length: float, min_length: float) -> float:
 	return maxf(length, min_length)
 
 
+## 拉远射线要无视所有玩家自己：同屏双人时跟在身后那个会把镜头顶到脸上。
+static func exclude_players(target: Node) -> Array:
+	var rids: Array = []
+	var tree := target.get_tree()
+	if tree == null:
+		return rids
+	for node in tree.get_nodes_in_group("player"):
+		var body := node as CollisionObject3D
+		if body != null:
+			rids.append(body.get_rid())
+	return rids
+
+
 ## 支点该抬多高：抬头时相机沿 -Y 甩出去 arm_length * sin(pitch)，
 ## 补到相机至少还有 min_height 离地。低头时不动（sin 为负）。
 static func pivot_lift(follow_height: float, pitch: float, arm_length: float, min_height: float) -> float:
@@ -55,7 +68,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventScreenDrag:
 		_find_touch()
 		# 按手指判，不按位置判：拇指推出摇杆圈外时不该顺手转视角。
-		if _touch != null and _touch.is_stick_finger(event.index):
+		# 任何控件（摇杆或动作键）上的手指都算，双人时二号位的摇杆也能转歪一号位的镜头。
+		if _touch != null and _touch.is_control_finger(event.index):
 			return
 		_apply_drag(event.relative)
 
@@ -79,7 +93,7 @@ func _physics_process(_delta: float) -> void:
 		var from := global_position
 		var to := from + global_transform.basis.z * requested_length
 		var query := PhysicsRayQueryParameters3D.create(from, to, collision_mask)
-		query.exclude = [target.get_rid()]
+		query.exclude = CamRig.exclude_players(target)
 		var hit := space.intersect_ray(query)
 		if not hit.is_empty():
 			distance = from.distance_to(hit.position) - 0.15

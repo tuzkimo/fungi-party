@@ -48,12 +48,23 @@ func use_body(id: String) -> MushroomBody:
 	return _body
 
 
-## 按存档把体型和皮肤一起刷上：读一次盘，四处「显示玩家本人」的地方都走这里。
+## 按「体型 + 皮肤」刷外观。skin_id 为空 = 这个角色本来的样子。
+func use_look(body_id: String, skin_id: String) -> void:
+	use_body(body_id)
+	use_skin(SkinCatalog.by_id(skin_id))
+	build()
+
+
+## 按存档把体型和皮肤一起刷上：一号位走这里。
 func use_saved_look() -> void:
 	var data := Save.read()
-	use_body(str(data["character"]))
-	use_skin(SkinCatalog.by_id(str(data["equipped"])))
-	build()
+	use_look(str(data["character"]), str(data["equipped"]))
+
+
+## 第 seat 位玩家（见 Party）该长什么样：小游戏里显示「玩家本人」的座位都走这里。
+func use_party_look(seat: int) -> void:
+	var look := Party.look(seat)
+	use_look(str(look["body"]), str(look["skin"]))
 
 
 ## 只搬字段，不重建；调用方改完自己的覆盖再 build() 一次。

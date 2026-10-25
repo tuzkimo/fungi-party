@@ -36,7 +36,7 @@ func test_neighbour_when_alone() -> void:
 	r.alive = [1]
 	r.holder = 1
 	check_eq(r.neighbour(1, -1), -1, "只剩自己时没有邻居")
-	check(not r.request_throw(-1), "只剩自己时扔不出去")
+	check(not r.request_throw(0, -1), "只剩自己时扔不出去")
 
 
 func test_throw_needs_lock() -> void:
@@ -44,8 +44,8 @@ func test_throw_needs_lock() -> void:
 	# 开局持有者由种子决定，这一条测的是「玩家的硬直」，所以显式把炸弹放到玩家手里
 	r.holder = BombRound.PLAYER
 	r.lock = Config.BOMB_CATCH_LOCK
-	check(not r.request_throw(-1), "硬直期间立即扔不出去")
-	check_eq(r.queued_side, -1, "方向被记下来")
+	check(not r.request_throw(0, -1), "硬直期间立即扔不出去")
+	check_eq(r.queued[0], -1, "方向被记下来")
 	_run_until(r, Config.BOMB_CATCH_LOCK + 0.05)
 	check_eq(r.flight > 0.0, true, "硬直结束后自动扔出去")
 
@@ -55,7 +55,7 @@ func test_explosion_in_flight_kills_the_thrower() -> void:
 	r.holder = BombRound.PLAYER
 	r.lock = 0.0
 	r.fuse = 5.0
-	r.request_throw(1)
+	r.request_throw(0, 1)
 	var thrower_before := r.thrower
 	check(thrower_before >= 0, "已经扔出去了")
 	r.fuse = 0.05
@@ -95,7 +95,7 @@ func test_no_events_after_over() -> void:
 	_drain(r)
 	_run_until(r, 5.0)
 	check_eq(r.events.size(), 0, "结束后不再产生事件")
-	check(not r.request_throw(-1), "结束后按按钮无效")
+	check(not r.request_throw(0, -1), "结束后按按钮无效")
 
 
 func test_request_throw_after_own_death_is_rejected() -> void:
@@ -103,7 +103,7 @@ func test_request_throw_after_own_death_is_rejected() -> void:
 	r.alive = [1, 2, 3]
 	r.holder = 1
 	r.lock = 0.0
-	check(not r.request_throw(-1), "玩家已死不接受投掷")
+	check(not r.request_throw(0, -1), "玩家已死不接受投掷")
 	check_eq(r.holder, 1, "炸弹没动")
 
 
@@ -143,9 +143,9 @@ func test_request_throw_when_npc_holds_is_rejected() -> void:
 	r.holder = 1
 	r.lock = 0.0
 	r.flight = 0.0
-	check(not r.request_throw(1), "炸弹不在自己手上时按不动")
+	check(not r.request_throw(0, 1), "炸弹不在自己手上时按不动")
 	check_eq(r.holder, 1, "炸弹留在人机手里")
-	check_eq(r.queued_side, 0, "也不会被记成待扔方向")
+	check_eq(r.queued[0], 0, "也不会被记成待扔方向")
 
 
 func test_npc_passes_periodically() -> void:
@@ -170,3 +170,29 @@ func test_round_has_many_passes() -> void:
 			if e["kind"] == "throw":
 				throws += 1
 		check(throws >= 10, "seed %d 一局只有 %d 次传递（至少 10 次）" % [seed_value, throws])
+
+
+## 双人：1 号座也是人，他手里的炸弹只能由他按出去。
+func test_second_human_throws_his_own_bomb() -> void:
+	var r := BombRound.new(23)
+	r.humans = 2
+	r.holder = 1
+	r.lock = 0.0
+	r.flight = 0.0
+	r.fuse = 5.0
+	check(not r.request_throw(0, -1), "一号位按不动二号位手里的炸弹")
+	check_eq(r.holder, 1, "炸弹没动")
+	check(r.request_throw(1, -1), "二号位自己按得动")
+	check(r.flight > 0.0, "飞出去了")
+
+
+## 双人：两个人都不出手时也会被炸死（没有哪个座位是「自动」的）。
+func test_second_human_waits_like_a_human() -> void:
+	var r := BombRound.new(24)
+	r.humans = 2
+	r.holder = 1
+	r.lock = 0.0
+	r.flight = 0.0
+	r.fuse = 3.0
+	_run_until(r, 5.0)
+	check(r.death_order.size() >= 1, "一直不按也会被炸死")

@@ -21,6 +21,8 @@ var seats: Array = []
 var time_left := Config.ROUND_SECONDS
 var over := false
 var winner := -1
+## 前 humans 个座位是人在玩（同屏双人 = 2），其余是人机。
+var humans := 1
 
 
 func _init(count: int = Config.SEAT_COUNT) -> void:
@@ -69,7 +71,7 @@ func tick(delta: float, press: Array, watched: int) -> Dictionary:
 				over = true
 				winner = i
 
-	if not over and seats[0].out:
+	if not over and all_humans_out():
 		over = true
 		winner = decide_winner()
 	if not over and time_left <= 0.0:
@@ -77,6 +79,14 @@ func tick(delta: float, press: Array, watched: int) -> Dictionary:
 		winner = decide_winner()
 
 	return {"chomped": chomped, "caught": caught_now, "over": over, "winner": winner}
+
+
+## 全场的人都出局才结束：一个人被罚满三次不该把另一个人的局也收掉。
+func all_humans_out() -> bool:
+	for i in humans:
+		if not (seats[i] as Seat).out:
+			return false
+	return true
 
 
 func decide_winner() -> int:

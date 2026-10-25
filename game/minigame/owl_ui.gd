@@ -11,6 +11,7 @@ signal quit_pressed
 const HINT_TEXT := "长按屏幕 = 张嘴，松手 = 闭嘴"
 
 var _hud: Label
+var _hint: Label
 var _countdown: Label
 var _result: ColorRect
 var _title: Label
@@ -49,16 +50,22 @@ func _build_hud(root: Control) -> void:
 
 
 func _build_hint(root: Control) -> void:
-	var hint := Label.new()
-	hint.name = "Hint"
-	hint.text = HINT_TEXT
-	hint.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	hint.offset_left = 28.0
-	hint.offset_top = -56.0
-	hint.offset_bottom = -20.0
-	hint.add_theme_font_size_override("font_size", 22)
-	hint.modulate.a = 0.75
-	root.add_child(hint)
+	_hint = Label.new()
+	_hint.name = "Hint"
+	_hint.text = HINT_TEXT
+	_hint.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_hint.offset_left = 28.0
+	_hint.offset_top = -56.0
+	_hint.offset_bottom = -20.0
+	_hint.add_theme_font_size_override("font_size", 22)
+	_hint.modulate.a = 0.75
+	root.add_child(_hint)
+
+
+## 双人时换成「各按自己那半边」的说法；空字符串 = 保持默认那句话。
+func set_hint(text: String) -> void:
+	if text != "":
+		_hint.text = text
 
 
 func _build_countdown(root: Control) -> void:
@@ -187,18 +194,24 @@ func set_hud(level: int, time_left: float, scores: Array, outs: Array) -> void:
 	_hud.text = "%s\n%s" % [head, " · ".join(parts)]
 
 
-## rows：按名次排好的 [{"name": String, "score": int, "out": bool}]。
-func show_result(rank: int, earned: int, rows: Array) -> void:
+## ranks：每个玩家的名次（1 基，按座位序）。
+## rows：按名次排好的 [{"name": String, "score": int, "out": bool, "human": bool}]。
+func show_result(ranks: Array, earned: int, rows: Array) -> void:
 	_result.visible = true
 	_countdown.visible = false
-	_title.text = "第 %d 名" % rank
+	var titles := PackedStringArray()
+	for i in ranks.size():
+		var who := "" if ranks.size() == 1 else "%s " % Party.name_of(i)
+		titles.append("%s第 %d 名" % [who, int(ranks[i])])
+	_title.text = "，".join(titles)
 	_detail.text = "+%d 蘑菇币" % earned
 	var lines := PackedStringArray()
 	for row in rows:
-		var mark := "▶ " if String(row["name"]) == "你" else "　"
+		var mark := "▶ " if bool(row.get("human", false)) else "　"
 		var out := "（出局）" if bool(row.get("out", false)) else ""
 		lines.append("%s%s　%d 分%s" % [mark, String(row["name"]), int(row["score"]), out])
-	_rows.text = "\n".join(lines)
+	_rows.text = "
+".join(lines)
 
 
 func show_pause() -> void:

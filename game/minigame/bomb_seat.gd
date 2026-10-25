@@ -30,12 +30,12 @@ func _ready() -> void:
 		rotation.y = atan2(towards.x, towards.z)
 
 
-## use_saved_skin 只有玩家座位传 true：读了皮肤就照存档换配色。（use_skin 不 build，等别处 build）
-func setup(color: Color, use_saved_skin: bool) -> void:
+## seat 是人坐的位子就按那位玩家的样子长（体型 + 皮肤），人机传 -1 用色块认人。
+func setup(color: Color, seat: int) -> void:
 	_mesh = MushroomMesh.new()
 	_mesh.name = "Body"
-	if use_saved_skin:
-		_mesh.use_saved_look()
+	if seat >= 0:
+		_mesh.use_party_look(seat)
 	else:
 		_mesh.tint_cap = color
 	add_child(_mesh)

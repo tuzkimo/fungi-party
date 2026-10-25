@@ -3,7 +3,8 @@ extends Node3D
 ## 猫头鹰喂食编排：扣体力、建场景、喂输入、阶段机（倒数 / 对战 / 关间停顿 / 结算）。
 ## 自包含单场景：节点间直接引用；规则全在 OwlRound 里，每局新种子（randi()），绝不写死。
 
-const SEAT_NAMES := ["你", "稳", "贪", "胆小"]
+## 人机三个性格的名字，按「座位号 - 1」对表（座位 0 永远是玩家）
+const NPC_NAMES := ["稳", "贪", "胆小"]
 const SEAT_COLORS := [
 	Color(0.92, 0.25, 0.22), Color(0.32, 0.55, 0.88), Color(0.95, 0.58, 0.25), Color(0.66, 0.40, 0.86)
 ]
@@ -25,6 +26,7 @@ var _phase := Phase.COUNTDOWN
 var _timer := Config.OWL_COUNTDOWN
 var _countdown_shown := -1
 var _settled := false
+var _names := []
 
 
 func _bail_to_forest() -> void:
@@ -45,6 +47,8 @@ func _ready() -> void:
 
 	var seed_value := randi()
 	_round = OwlRound.new(seed_value)
+	_round.humans = Party.count()
+	_names = _seat_names()
 	print("猫头鹰种子：%d" % seed_value)
 
 	_arena = OwlArena.new()
@@ -68,24 +72,26 @@ func _ready() -> void:
 		item.visible = false
 		_items.append(item)
 
-	# 玩家那一朵跟角色一致（教室同款做法）
-	_actors[OwlRound.PLAYER].apply_saved_look()
+	# 玩家坐的那几朵跟森林里长得一样（教室同款做法）
+	for seat in Party.count():
+		_actors[seat].apply_look(seat)
 
 	_ui = $UI
-	_ui.set_names(SEAT_NAMES)
+	_ui.set_names(_names)
+	_ui.set_hint("两人各按自己那半边屏幕：按住 = 张嘴，松开 = 闭嘴" if Party.joined() else "")
 	_ui.again_pressed.connect(_restart)
 	_ui.forest_pressed.connect(_to_forest)
 	_ui.quit_pressed.connect(_quit)
 
 
 func _input(event: InputEvent) -> void:
-	_eat.feed(event)
+	_eat.feed(event, get_viewport().get_visible_rect().size.x)
 
 
 func _notification(what: int) -> void:
 	# 系统抢走前台时抬手事件可能永远不来，不清掉就会一直「按着」
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
-		_eat.finger = -1
+		_eat.clear()
 	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		if _settled:
 			return
@@ -93,7 +99,7 @@ func _notification(what: int) -> void:
 		if get_tree().paused:
 			get_tree().paused = false
 			# 暂停期间收不到抬手事件，恢复时把手指状态丢掉，免得嘴一直张着
-			_eat.finger = -1
+			_eat.clear()
 			_ui.hide_pause()
 		else:
 			_ui.show_pause()
@@ -124,7 +130,7 @@ func _tick_countdown(delta: float) -> void:
 
 func _play(delta: float) -> void:
 	# 玩家出局后本关剩下一段 2.5 倍速跑完：人机分数照实累加，不做补算
-	var speed := Config.OWL_FAST_FORWARD if _round.player_out() else 1.0
+	var speed := Config.OWL_FAST_FORWARD if _round.players_out() else 1.0
 	_round.tick(delta * speed, _presses())
 	_drain_events()
 	_update_visuals(delta)
@@ -155,17 +161,28 @@ func _tick_break(delta: float) -> void:
 ## 进对战那一刻把输入清零：倒数时拇指搭在屏幕上、暂停时松手（暂停期间收不到抬手事件），
 ## 不清就会带着一张「自己张开的嘴」进场，第一颗正好是屎时玩家完全解释不了。
 func _enter_play() -> void:
-	_eat.finger = -1
+	_eat.clear()
 	_phase = Phase.PLAY
 	_ui.set_hud(_round.level + 1, _round.time_left, _scores(), _outs())
 
 
 ## 只有对战阶段才喂输入。
 func _presses() -> Array:
+	var presses := [false, false, false, false]
 	if _phase != Phase.PLAY:
-		return [false, false, false, false]
-	var down := _eat.pressing() or Input.is_action_pressed("jump")
-	return [down, false, false, false]
+		return presses
+	presses[0] = _eat.pressing(0 if Party.joined() else -1) or Input.is_action_pressed("jump")
+	if Party.joined():
+		presses[1] = _eat.pressing(1)
+	return presses
+
+
+## 座位名：人坐前几个，人机从后面补。
+func _seat_names() -> Array:
+	var names := []
+	for seat in OwlRound.SEATS:
+		names.append(Party.name_of(seat) if Party.human(seat) else NPC_NAMES[seat - 1])
+	return names
 
 
 func _scores() -> Array:
@@ -186,9 +203,9 @@ func _drain_events() -> void:
 	for event in _round.events:
 		match String(event["kind"]):
 			"eat":
-				print("吃到糖：%s" % SEAT_NAMES[int(event["seat"])])
+				print("吃到糖：%s" % _names[int(event["seat"])])
 			"poop":
-				print("吃屎出局：%s" % SEAT_NAMES[int(event["seat"])])
+				print("吃屎出局：%s" % _names[int(event["seat"])])
 	_round.events.clear()
 
 
@@ -209,7 +226,12 @@ func _rows(order: Array) -> Array:
 	var rows := []
 	for index in order:
 		var mouth: OwlRound.Mouth = _round.mouths[index]
-		rows.append({"name": SEAT_NAMES[index], "score": mouth.score, "out": mouth.out})
+		rows.append({
+			"name": _names[index],
+			"score": mouth.score,
+			"out": mouth.out,
+			"human": Party.human(index),
+		})
 	return rows
 
 
@@ -227,11 +249,16 @@ func _settle() -> void:
 	_freeze_visuals()
 	var scores := _scores()
 	var order := OwlRound.ranking(scores)
-	var rank: int = order.find(OwlRound.PLAYER)
-	var earned := OwlRound.coins(rank)
+	# 每个玩家各自按名次算币，都进同一个钱包（一台手机一份存档）
+	var earned := 0
+	var ranks := []
+	for seat in Party.count():
+		var rank: int = order.find(seat)
+		ranks.append(rank + 1)
+		earned += OwlRound.coins(rank)
 	Save.add_coins(earned)
-	print("结算：第 %d 名，%d 分，+%d 蘑菇币" % [rank + 1, int(scores[OwlRound.PLAYER]), earned])
-	_ui.show_result(rank + 1, earned, _rows(order))
+	print("结算：%s 名，+%d 蘑菇币" % [str(ranks), earned])
+	_ui.show_result(ranks, earned, _rows(order))
 
 
 func _restart() -> void:

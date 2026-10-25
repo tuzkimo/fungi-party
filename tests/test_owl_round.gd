@@ -255,3 +255,25 @@ func test_npc_personalities() -> void:
 	check(Config.OWL_NPC_EAT[0] > Config.OWL_NPC_EAT[2], "胆小的更常漏糖")
 	check(Config.OWL_NPC_GREED[1] > Config.OWL_NPC_GREED[0], "贪的更容易吃屎")
 	check(Config.OWL_NPC_GREED[0] > Config.OWL_NPC_GREED[2], "胆小的最不会吃屎")
+
+
+## 双人：1 号座也改由输入驱动，不再走人机的「提前量」那套。
+func test_second_human_is_driven_by_input() -> void:
+	var r := _round(3)
+	r.humans = 2
+	_freeze(r)
+	_drop(r, 1, false, 0.5)
+	r.events.clear()
+	var step := 1.0 / 60.0
+	for i in 30:
+		r.tick(step, [false, true, false, false])
+	check_eq(r.mouths[1].score, 1, "1 号座按着就吃到糖")
+
+func test_players_out_needs_everyone() -> void:
+	var r := _round(4)
+	r.humans = 2
+	check(not r.players_out(), "开局都没出局")
+	r.mouths[0].out = true
+	check(not r.players_out(), "一个人出局还算在玩")
+	r.mouths[1].out = true
+	check(r.players_out(), "两个人都出局才快进")

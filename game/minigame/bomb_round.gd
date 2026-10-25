@@ -2,8 +2,9 @@ class_name BombRound
 extends RefCounted
 
 ## 传炸弹的全部规则：引信、传递、判死、人机判断。不碰任何节点，能无头跑完整局。
-## 座位按 南(0, 玩家) → 西(1) → 北(2) → 东(3) 排；玩家面朝北，所以下标 +1 是玩家的左手边，
-## 外部传的 side 是「玩家的左右」：side -1 = 左手边 = 下标 +1，side +1 = 右手边 = 下标 -1。
+## 座位按 南(0) → 西(1) → 北(2) → 东(3) 排；玩家面朝北，所以下标 +1 是玩家的左手边，
+## 外面传的 side 是「扔的人的左右」：side -1 = 左手边 = 下标 +1，side +1 = 右手边 = 下标 -1。
+## 前 humans 个座位是人（单人 1 个、同屏双人 2 个），其余是人机。
 
 enum Style { STEADY, GAMBLER, SPITEFUL }
 
@@ -21,10 +22,13 @@ var target := -1
 var flight := 0.0
 var lock := 0.0
 var fuse := 0.0
-var queued_side := 0
+## 每个座位记的「硬直结束后想往哪扔」：0 没记，-1 左，+1 右
+var queued := [0, 0, 0, 0]
 var over := false
 var elapsed := 0.0
 var events: Array = []
+## 前 humans 个座位是人在玩（同屏双人 = 2），其余是人机。
+var humans := 1
 
 var _rng := RandomNumberGenerator.new()
 var _error := 0.0
@@ -38,6 +42,10 @@ var _hold_left := 0.0
 func _init(seed_value: int = 1) -> void:
 	_rng.seed = seed_value
 	_ignite()
+
+
+func is_human(seat: int) -> bool:
+	return seat >= 0 and seat < humans
 
 
 func tick(delta: float) -> void:
@@ -59,22 +67,22 @@ func tick(delta: float) -> void:
 			_land()
 		return
 	lock = maxf(0.0, lock - delta)
-	if holder == PLAYER:
-		if queued_side != 0 and lock <= 0.0:
-			_throw(queued_side)
+	if is_human(holder):
+		if queued[holder] != 0 and lock <= 0.0:
+			_throw(queued[holder])
 		return
 	_npc_think(delta)
 
 
-## side：-1 左 / +1 右。硬直期间只记方向（回来一结束自动扔），空中或已死直接拒绝。
-## 只有炸弹在自己手上才按得动：玩家按键不能替人机扔。
-func request_throw(side: int) -> bool:
-	if over or not alive.has(PLAYER):
+## seat：谁按的。side：-1 左 / +1 右。硬直期间只记方向（硬直一结束自动扔）；
+## 空中 / 已死 / 炸弹不在自己手上直接拒绝 —— 按别人的键替不了别人扔。
+func request_throw(seat: int, side: int) -> bool:
+	if over or not is_human(seat) or not alive.has(seat):
 		return false
-	if holder != PLAYER or flight > 0.0:
+	if holder != seat or flight > 0.0:
 		return false
 	if lock > 0.0:
-		queued_side = -1 if side < 0 else 1
+		queued[seat] = -1 if side < 0 else 1
 		return false
 	return _throw(side)
 
@@ -105,7 +113,7 @@ func _ignite() -> void:
 	holder = alive[_rng.randi_range(0, alive.size() - 1)]
 	lock = Config.BOMB_CATCH_LOCK
 	fuse = _roll_fuse()
-	queued_side = 0
+	_clear_queue()
 	thrower = -1
 	target = -1
 	flight = 0.0
@@ -113,6 +121,11 @@ func _ignite() -> void:
 	_error = _roll_error(holder)
 	_hold_left = _roll_hold(holder)
 	events.append({"kind": "ignite", "seat": holder})
+
+
+func _clear_queue() -> void:
+	for i in SEATS:
+		queued[i] = 0
 
 
 func _roll_fuse() -> float:
@@ -124,17 +137,17 @@ func _roll_fuse() -> float:
 	return _rng.randf_range(span.x, span.y)
 
 
-## 人机每次接住重掷「打算抱多久」；玩家座位由玩家自己决定，永远是 0。
+## 人机每次接住重掷「打算抱多久」；人坐的位子由玩家自己决定，永远是 0。
 func _roll_hold(seat: int) -> float:
-	if seat == PLAYER:
+	if is_human(seat):
 		return 0.0
 	var span: Vector2 = Config.BOMB_NPC_HOLD[NPC_STYLE[seat - 1]]
 	return _rng.randf_range(span.x, span.y)
 
 
-## 人机每次接住重掷自己的判断误差；玩家座位没有误差。
+## 人机每次接住重掷自己的判断误差；人坐的位子没有误差。
 func _roll_error(seat: int) -> float:
-	if seat == PLAYER:
+	if is_human(seat):
 		return 0.0
 	var limit: float = Config.BOMB_NPC_ERROR[NPC_STYLE[seat - 1]]
 	return _rng.randf_range(-limit, limit)
@@ -149,9 +162,9 @@ func _throw(side: int) -> bool:
 	events.append({"kind": "throw", "from": holder, "to": to})
 	thrower = holder
 	target = to
+	queued[holder] = 0
 	holder = -1
 	flight = Config.BOMB_THROW_SECONDS
-	queued_side = 0
 	return true
 
 
@@ -161,7 +174,7 @@ func _land() -> void:
 	target = -1
 	thrower = -1
 	lock = Config.BOMB_CATCH_LOCK
-	queued_side = 0
+	queued[holder] = 0
 	_error = _roll_error(holder)
 	_hold_left = _roll_hold(holder)
 
@@ -179,7 +192,7 @@ func _explode() -> void:
 	target = -1
 	flight = 0.0
 	lock = 0.0
-	queued_side = 0
+	_clear_queue()
 	_giver = -1
 	if alive.size() <= 1:
 		over = true
@@ -190,7 +203,7 @@ func _explode() -> void:
 
 ## 抱够自己的节奏、或者引信逼近忍耐线，就扔；记仇型优先扔回上一手扔给他的人。
 func _npc_think(delta: float) -> void:
-	if holder <= PLAYER:
+	if is_human(holder):
 		return
 	_hold_left -= delta
 	if lock > 0.0:

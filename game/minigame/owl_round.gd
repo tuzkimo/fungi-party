@@ -2,7 +2,7 @@ class_name OwlRound
 extends RefCounted
 
 ## 猫头鹰喂食的全部规则：四条投喂线、张嘴判定、三关推进、人机决策、名次与币。
-## 不碰节点，能无头跑完整局。座位 0 = 玩家，1/2/3 = 稳 / 贪 / 胆小。
+## 不碰节点，能无头跑完整局。前 humans 个座位是人（单人 1 个、同屏双人 2 个），其余是人机。
 ## 判定只有一句：东西抵达嘴边那一刻嘴张着吗？不做物理碰撞。
 
 const SEATS := 4
@@ -34,6 +34,8 @@ var level := 0
 var time_left := 0.0
 var level_over := false
 var events: Array = []
+## 前 humans 个座位是人在玩（同屏双人 = 2），其余是人机。
+var humans := 1
 
 var _rng := RandomNumberGenerator.new()
 
@@ -60,8 +62,12 @@ func start_level(index: int) -> void:
 		m.wait = _rng.randf_range(0.3, 0.7)
 
 
-func player_out() -> bool:
-	return mouths[PLAYER].out
+## 全场的人都出局：只有这时才值得把本关剩下的时间快进掉。
+func players_out() -> bool:
+	for i in humans:
+		if not (mouths[i] as Mouth).out:
+			return false
+	return true
 
 
 ## 结果只有两条通道：座位的状态（score/open/out）和 events。没有第二份返回值。
@@ -69,7 +75,9 @@ func tick(delta: float, presses: Array) -> void:
 	if level_over:
 		return
 
-	mouths[PLAYER].open = bool(presses[PLAYER]) and not mouths[PLAYER].out
+	for i in humans:
+		var human_mouth: Mouth = mouths[i]
+		human_mouth.open = bool(presses[i]) and not human_mouth.out
 
 	# 按「最早抵达」切步：一步绝不跨过任何一次抵达，所以快进也精确
 	var left := delta
@@ -114,7 +122,7 @@ func _is_open(seat: int) -> bool:
 	var mouth: Mouth = mouths[seat]
 	if mouth.out:
 		return false
-	if seat == PLAYER:
+	if seat < humans:
 		return mouth.open
 	return mouth.lead >= 0.0 and mouth.flying > 0.0 and mouth.flying <= mouth.lead
 
@@ -147,7 +155,7 @@ func _spawn(seat: int) -> void:
 	mouth.fall = Config.OWL_FALL[level]
 	mouth.flying = mouth.fall
 	mouth.lead = -1.0
-	if seat == PLAYER:
+	if seat < humans:
 		return
 	var chance: float = Config.OWL_NPC_GREED[seat - 1] if mouth.poop else Config.OWL_NPC_EAT[seat - 1]
 	if _rng.randf() >= chance:
@@ -164,7 +172,7 @@ func _gap() -> float:
 
 func _refresh_open() -> void:
 	for i in SEATS:
-		if i == PLAYER:
+		if i < humans:
 			continue
 		var mouth: Mouth = mouths[i]
 		mouth.open = (

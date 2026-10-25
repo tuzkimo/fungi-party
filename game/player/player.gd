@@ -3,13 +3,21 @@ extends CharacterBody3D
 
 ## 编排层：读输入、走 Movement 的数学、驱动外观动画。
 ## 不引用任何具体 mesh 节点名字，只认 MushroomMesh 的 scale / position。
+##
+## 同屏双人里二号位是同一个类：seat = 1、leader = 一号位。有 leader 就不读输入、
+## 不带相机，一路追到 leader 身后 —— 森林里只有一个人操控移动。
 
 @onready var _visual: MushroomMesh = $MushroomMesh
 @onready var _cam: CamRig = $CamRig
 
+## 第几位玩家（Party 的座位号）：决定长什么样
+var seat := 0
+## 非空就进「跟随」模式：不读输入，追这个节点的身后
+var leader: Node3D = null
+
 var speed_input := Vector2.ZERO
 var _touch: TouchControls = null
-var _prev_touch_jump := false
+var _prev_touch_held := false
 var _was_on_floor := true
 var _land_timer := 0.0
 var _walk_phase := 0.0
@@ -23,15 +31,43 @@ static func resolve_direction(input: Vector2, camera_yaw: float) -> Vector3:
 	return dir.rotated(Vector3.UP, camera_yaw)
 
 
+## 跟随方向：已经站在目标点附近就停下（零向量），否则朝目标走。
+static func follow_direction(from: Vector3, to: Vector3, stop: float) -> Vector3:
+	var offset := to - from
+	offset.y = 0.0
+	if offset.length() <= stop:
+		return Vector3.ZERO
+	return offset.normalized()
+
+
+## 跟随者要去的点：leader 身后 gap 米、往侧面再让开 side 米。
+## Node3D 的 +Z 是背后（前方是 -Z）；正后方会正好夹在相机和 leader 中间，
+## 把镜头射线顶到最短距离、糊满整块屏，所以默认往侧面让开。
+static func follow_point(leader_position: Vector3, leader_basis: Basis, gap: float, side := 0.0) -> Vector3:
+	return (
+		leader_position
+		+ leader_basis.z.normalized() * gap
+		+ leader_basis.x.normalized() * side
+	)
+
+
 func _ready() -> void:
 	Controls.ensure()
 	add_to_group("player")
+	if leader != null and _cam != null:
+		# 跟随者没有镜头：多一条相机只会白做每帧的射线，还会抢拖动事件
+		_cam.free()
+		_cam = null
 	apply_skin()
 
 
-## 按存档把外观刷成「戴着的皮肤 + 选的角色」；没戴就回到默认配色。
+## 按会话状态把外观刷成「该座位玩家戴着的皮肤 + 选的角色」。
 func apply_skin() -> void:
-	_visual.use_saved_look()
+	_visual.use_party_look(seat)
+
+
+func is_follower() -> bool:
+	return leader != null
 
 
 func _find_touch() -> void:
@@ -45,21 +81,22 @@ func _find_touch() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	_find_touch()
-	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	var want_jump := Input.is_action_just_pressed("jump")
-	if _touch != null:
-		if _touch.move_input.length() > 0.05:
-			input = _touch.move_input
-		if _touch.jump_pressed and not _prev_touch_jump:
-			want_jump = true
-		_prev_touch_jump = _touch.jump_pressed
-	speed_input = input
+	var dir := Vector3.ZERO
+	var speed := Config.WALK_SPEED
+	var want_jump := false
+	if leader != null and is_instance_valid(leader):
+		speed = _follow_speed()
+		dir = _follow_direction()
+		speed_input = Vector2(dir.x, dir.z)
+	else:
+		_find_touch()
+		var input := _read_input()
+		want_jump = _take_touch_jump()
+		speed_input = input
+		speed = Config.RUN_SPEED if Input.is_action_pressed("run") else Config.WALK_SPEED
+		dir = Player.resolve_direction(input, _cam.global_rotation.y if _cam != null else 0.0)
 
 	var on_floor := is_on_floor()
-	var speed := Config.RUN_SPEED if Input.is_action_pressed("run") else Config.WALK_SPEED
-	var dir := Player.resolve_direction(input, _cam.global_rotation.y)
-
 	var accel := Config.ACCEL if on_floor else Config.ACCEL * Config.AIR_CONTROL
 	var horizontal := Movement.accelerate(
 		Vector3(velocity.x, 0.0, velocity.z), dir * speed, accel, Config.DECEL, delta
@@ -82,6 +119,49 @@ func _physics_process(delta: float) -> void:
 
 	_turn(dir, delta)
 	_animate(horizontal.length(), delta)
+
+
+## 摇杆优先，键盘兜底。
+func _read_input() -> Vector2:
+	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	if _touch != null and _touch.move(0).length() > 0.05:
+		input = _touch.move(0)
+	return input
+
+
+## 动作键记的是「按着」，跳跃要的是「这一帧刚按下」，边沿检测在这做。
+func _take_touch_jump() -> bool:
+	var want := Input.is_action_just_pressed("jump")
+	if _touch == null:
+		return want
+	var held := _touch.held(0)
+	if held and not _prev_touch_held:
+		want = true
+	_prev_touch_held = held
+	return want
+
+
+## 走到一号位身后就停；已经贴到一号位跟前时也别再往前顶（会被推着往前跑）。
+func _follow_direction() -> Vector3:
+	var to_leader := leader.global_position - global_position
+	to_leader.y = 0.0
+	if to_leader.length() <= Config.PARTY_FOLLOW_STOP:
+		return Vector3.ZERO
+	return Player.follow_direction(
+		global_position,
+		Player.follow_point(
+			leader.global_position, leader.global_basis,
+			Config.PARTY_FOLLOW_GAP, Config.PARTY_FOLLOW_SIDE
+		),
+		Config.PARTY_FOLLOW_STOP
+	)
+
+
+## 被甩开就用跑的，贴着就走的。
+func _follow_speed() -> float:
+	if global_position.distance_to(leader.global_position) > Config.PARTY_FOLLOW_RUN:
+		return Config.RUN_SPEED
+	return Config.WALK_SPEED
 
 
 ## 咬三口：挤压力和走路的 squash 相乘，别把走路的挤掉。

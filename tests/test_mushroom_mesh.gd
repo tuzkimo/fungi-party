@@ -254,3 +254,12 @@ func test_preset_tint_survives_first_build() -> void:
 	if body != null:
 		check_eq(body.material_override.albedo_color, Color(0.95, 0.80, 0.30), "身体真的用上了预置的颜色")
 	m.free()
+
+
+## 同屏双人：二号位的体型和皮肤直接喂进来，不走存档。
+func test_use_look_sets_body_and_skin() -> void:
+	var m := MushroomMesh.new()
+	m.use_look("seafood", "hero")
+	check_eq(m.body_id, "seafood", "换体型")
+	check_eq(m.parts, ["sword", "cape", "horned_helmet"], "也戴上了皮肤零件")
+	m.free()

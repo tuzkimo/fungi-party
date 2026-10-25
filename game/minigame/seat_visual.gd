@@ -37,9 +37,9 @@ func setup(index_value: int) -> void:
 	_build_mark()
 
 
-## 座位上的自己也要跟玩家穿的一样（体型 + 皮肤），教室只占一个座位，头顶的条不跟着变。
-func apply_saved_look() -> void:
-	_body.use_saved_look()
+## 座位上的自己也要跟玩家穿的一样（体型 + 皮肤），头顶的条不跟着变。
+func apply_look(seat: int) -> void:
+	_body.use_party_look(seat)
 	_bar_y = _body.top() * BODY_SCALE * BAR_RATIO
 	_mark_y = _body.top() * BODY_SCALE * MARK_RATIO
 	_fill.position.y = _bar_y

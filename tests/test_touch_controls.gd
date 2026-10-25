@@ -35,3 +35,36 @@ func test_safe_insets_scaled_to_viewport() -> void:
 	var insets := TouchControls.safe_insets(Vector2i(2400, 1080), Rect2i(60, 0, 2280, 1080), Vector2(1600, 720))
 	check(absf(insets.x - 40.0) < 0.01, "左侧内缩（实得 %.2f）" % insets.x)
 	check(absf(insets.y - 40.0) < 0.01, "右侧内缩（实得 %.2f）" % insets.y)
+
+
+## 单人布局必须和以前一样：摇杆在左、动作键在右。
+func test_solo_arm_keeps_the_old_layout() -> void:
+	var arms := TouchControls.arm_centers(Vector2(1280, 720), Vector2.ZERO, false)
+	check_eq(arms.size(), 1, "单人一组")
+	check(arms[0][0].x < 640.0, "摇杆在左半")
+	check(arms[0][1].x > 640.0, "动作键在右半")
+
+
+func test_duo_arms_stay_in_their_half() -> void:
+	var arms := TouchControls.arm_centers(Vector2(1280, 720), Vector2.ZERO, true)
+	check_eq(arms.size(), 2, "双人两组")
+	check(arms[0][0].x < 640.0 and arms[0][1].x < 640.0, "一号位两个控件都在左半")
+	check(arms[1][0].x > 640.0 and arms[1][1].x > 640.0, "二号位两个控件都在右半")
+	var gap: float = arms[1][1].x - arms[0][1].x
+	check(gap >= TouchControls.ACTION_RADIUS * 2.0, "两个动作键不重叠（间隔 %.0f）" % gap)
+
+
+func test_duo_stick_and_action_do_not_overlap() -> void:
+	var arms := TouchControls.arm_centers(Vector2(1280, 720), Vector2.ZERO, true)
+	for arm in arms:
+		var distance: float = arm[0].distance_to(arm[1])
+		check(
+			distance > TouchControls.STICK_RADIUS + TouchControls.ACTION_RADIUS,
+			"摇杆和动作键不重叠（距离 %.0f）" % distance
+		)
+
+
+func test_safe_area_shifts_both_sticks_inward() -> void:
+	var arms := TouchControls.arm_centers(Vector2(1280, 720), Vector2(40.0, 40.0), true)
+	check(arms[0][0].x > 230.0, "左侧安全区把摇杆往中间推")
+	check(arms[1][0].x < 1050.0, "右侧安全区也往中间推")

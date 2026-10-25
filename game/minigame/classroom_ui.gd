@@ -66,17 +66,33 @@ func hide_countdown() -> void:
 	_count.visible = false
 
 
-func set_state(time_left: float, bites: int, caught: int, stunned: bool) -> void:
-	_hud.text = "时间 %d　吃了 %d/%d　被抓 %d/%d" % [
-		ceili(maxf(time_left, 0.0)), bites, Config.BITES_TO_WIN, caught, Config.MAX_CAUGHT
-	]
-	_stun.visible = stunned
+## rows：每个玩家一行的成绩（见 classroom.gd 的 _player_rows）。双人时一人一行。
+func set_state(time_left: float, rows: Array, stunned: Array) -> void:
+	var lines := PackedStringArray(["时间 %d" % ceili(maxf(time_left, 0.0))])
+	for row in rows:
+		var prefix := "吃了" if rows.size() == 1 else "%s 吃了" % String(row["name"])
+		lines.append("%s %d/%d　被抓 %d/%d" % [
+			prefix, int(row["bites"]), Config.BITES_TO_WIN, int(row["caught"]), Config.MAX_CAUGHT
+		])
+	_hud.text = "\n".join(lines)
+	_stun.visible = false
+	for value in stunned:
+		if bool(value):
+			_stun.visible = true
 
 
-func show_result(bites: int, caught: int, won: bool, earned: int) -> void:
+func show_result(rows: Array, earned: int) -> void:
 	_result.visible = true
+	var won := false
+	for row in rows:
+		won = won or bool(row["win"])
 	_title.text = "赢了！" if won else "时间到"
-	_detail.text = "吃了 %d 口，被抓 %d 次，+%d 蘑菇币" % [bites, caught, earned]
+	var lines := PackedStringArray()
+	for row in rows:
+		var prefix := "吃了" if rows.size() == 1 else "%s 吃了" % String(row["name"])
+		lines.append("%s %d 口，被抓 %d 次" % [prefix, int(row["bites"]), int(row["caught"])])
+	lines.append("+%d 蘑菇币" % earned)
+	_detail.text = "\n".join(lines)
 
 
 func flash() -> void:

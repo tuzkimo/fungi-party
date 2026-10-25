@@ -10,6 +10,9 @@ const LAND_SECONDS := 0.15
 const DASH_STRETCH := 0.18
 const HIT_SQUASH := 0.2
 
+## 第几位玩家（Party 的座位号）：决定长什么样
+var seat := 0
+
 var hits := 0
 var finished := false
 var finish_time := 0.0
@@ -38,7 +41,7 @@ func _ready() -> void:
 
 	_visual = MushroomMesh.new()
 	_visual.name = "MushroomMesh"
-	_visual.use_saved_look()
+	_visual.use_party_look(seat)
 	add_child(_visual)
 
 

@@ -42,8 +42,8 @@ func setup(cap_color: Color, yaw: float) -> void:
 
 
 ## 座位上的自己跟玩家穿的、选的一致（教室那套做法）。
-func apply_saved_look() -> void:
-	_body.use_saved_look()
+func apply_look(seat: int) -> void:
+	_body.use_party_look(seat)
 	_cap_color = _body.tint_cap
 
 

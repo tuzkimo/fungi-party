@@ -28,13 +28,14 @@ static func ranking(racers: Array) -> Array:
 	return order
 
 
-## 四个跑者里已经有三个冲线：名次定死，不用再等最后一名跑完。
-static func decided(racers: Array) -> bool:
+## 前 top 名的名次定死了就不用再等：剩下的人谁先到都挤不进前三。
+## 四人赛时「三个冲线」、五人赛时「三个冲线」都成立，所以按 size - top 算。
+static func decided(racers: Array, top := 3) -> bool:
 	var unfinished := 0
 	for racer in racers:
 		if not bool(racer["finished"]):
 			unfinished += 1
-	return unfinished <= 1
+	return unfinished <= maxi(racers.size() - top, 0)
 
 
 static func coins(rank: int, hits: int) -> int:

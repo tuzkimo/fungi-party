@@ -35,3 +35,13 @@ func test_settle_when_only_one_racer_left() -> void:
 
 func test_coins_never_negative() -> void:
 	check_eq(RaceScore.coins(3, 99), 0, "撞太多次夹到 0")
+
+
+func test_decided_with_five_racers() -> void:
+	var racers := [
+		_r(true, 30.0, 220.0), _r(false, 0.0, 120.0), _r(true, 31.0, 220.0),
+		_r(true, 32.0, 220.0), _r(false, 0.0, 80.0),
+	]
+	check(RaceScore.decided(racers), "五个人里前三名定了就算定了")
+	racers[3] = _r(false, 0.0, 130.0)
+	check(not RaceScore.decided(racers), "只剩两个人冲线就还没定")

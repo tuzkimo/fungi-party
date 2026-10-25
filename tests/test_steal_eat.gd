@@ -102,3 +102,14 @@ func test_player_out_ends_round() -> void:
 	r.seats[0].out = true
 	_feed(r, IDLE, -1, 0.1)
 	check(r.over, "玩家出局后回合立刻结束，不留几十秒干等的空转")
+
+
+func test_duo_round_ends_only_when_both_out() -> void:
+	var r := StealEat.new(4)
+	r.humans = 2
+	r.seats[0].out = true
+	_feed(r, IDLE, -1, 0.1)
+	check(not r.over, "一个人出局不结束，另一个人还在吃")
+	r.seats[1].out = true
+	_feed(r, IDLE, -1, 0.1)
+	check(r.over, "两个人都出局才结束")

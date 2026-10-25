@@ -7,10 +7,16 @@ extends CanvasLayer
 signal again_pressed
 signal forest_pressed
 signal quit_pressed
-signal throw_pressed(side: int)
+## player：第几位玩家按的（Party 的座位号）；side：-1 左手边 / +1 右手边
+signal throw_pressed(player: int, side: int)
 
 const BUTTON_RADIUS := 76.0
 const BUTTON_INSET := 150.0
+## 双人：每人一对键挤在自己那半边，半径小一圈才放得下两根手指
+const DUO_RADIUS := 66.0
+const DUO_EDGE := 90.0
+const DUO_GAP := 210.0
+const DUO_BOTTOM := 110.0
 ## 屏幕泛红：danger 超过这个值才开始泛，到 1 时最浓。
 const EDGE_MIN := 0.35
 const EDGE_ALPHA := 0.55
@@ -19,8 +25,7 @@ const EDGE_COLOR := Color(0.86, 0.12, 0.10)
 
 var _countdown: Label
 var _edges: Array[ColorRect] = []
-var _left: DashButton
-var _right: DashButton
+var _buttons: Array[DashButton] = []
 var _result: ColorRect
 var _title: Label
 var _detail: Label
@@ -68,24 +73,41 @@ func _build_edges(root: Control) -> void:
 		_edges.append(edge)
 
 
+## 投掷键布局：[{anchor, offset, player, side}]。单人两个键分在屏幕两头（老布局）；
+## 双人每人一对挤在自己那半边，两人各按各的。
+static func button_layout(duo_mode: bool) -> Array:
+	if not duo_mode:
+		return [
+			{"anchor": Control.PRESET_BOTTOM_LEFT, "offset": Vector2(BUTTON_INSET, -BUTTON_INSET), "player": 0, "side": -1},
+			{"anchor": Control.PRESET_BOTTOM_RIGHT, "offset": Vector2(-BUTTON_INSET, -BUTTON_INSET), "player": 0, "side": 1},
+		]
+	return [
+		{"anchor": Control.PRESET_BOTTOM_LEFT, "offset": Vector2(DUO_EDGE, -DUO_BOTTOM), "player": 0, "side": -1},
+		{"anchor": Control.PRESET_BOTTOM_LEFT, "offset": Vector2(DUO_EDGE + DUO_GAP, -DUO_BOTTOM), "player": 0, "side": 1},
+		{"anchor": Control.PRESET_BOTTOM_RIGHT, "offset": Vector2(-DUO_EDGE - DUO_GAP, -DUO_BOTTOM), "player": 1, "side": -1},
+		{"anchor": Control.PRESET_BOTTOM_RIGHT, "offset": Vector2(-DUO_EDGE, -DUO_BOTTOM), "player": 1, "side": 1},
+	]
+
+
 func _build_buttons(root: Control) -> void:
-	_left = _throw_button("ThrowLeft", true)
-	_left.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	_place(_left, Vector2(BUTTON_INSET, -BUTTON_INSET))
-	_left.pressed.connect(func() -> void: throw_pressed.emit(-1))
-	root.add_child(_left)
+	var duo_mode := Party.joined()
+	var layout := BombUI.button_layout(duo_mode)
+	for i in layout.size():
+		var spec: Dictionary = layout[i]
+		var button := _throw_button("Throw%d" % i, int(spec["side"]) < 0, duo_mode)
+		button.set_anchors_preset(int(spec["anchor"]))
+		_place(button, spec["offset"])
+		var player := int(spec["player"])
+		var side := int(spec["side"])
+		button.pressed.connect(func() -> void: throw_pressed.emit(player, side))
+		root.add_child(button)
+		_buttons.append(button)
 
-	_right = _throw_button("ThrowRight", false)
-	_right.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_place(_right, Vector2(-BUTTON_INSET, -BUTTON_INSET))
-	_right.pressed.connect(func() -> void: throw_pressed.emit(1))
-	root.add_child(_right)
 
-
-func _throw_button(node_name: String, mirrored: bool) -> DashButton:
+func _throw_button(node_name: String, mirrored: bool, duo_mode: bool) -> DashButton:
 	var button := DashButton.new()
 	button.name = node_name
-	button.radius = BUTTON_RADIUS
+	button.radius = DUO_RADIUS if duo_mode else BUTTON_RADIUS
 	button.mirror = mirrored
 	return button
 
@@ -224,16 +246,21 @@ func set_danger(danger: float) -> void:
 		edge.color.a = alpha
 
 
-## rows：BombScore.rows() 的结果（活着的人在前，玩家那行标 ▶）。
-func show_result(rank: int, seconds: float, earned: int, rows: Array) -> void:
+## ranks：每个玩家的名次（1 基，按座位序）。
+## rows：BombScore.rows() 的结果（活着的人在前，人那几行标 ▶）。
+func show_result(ranks: Array, seconds: float, earned: int, rows: Array) -> void:
 	_result.visible = true
 	_set_armed(false)
 	_countdown.visible = false
-	_title.text = "第 %d 名" % rank
+	var titles := PackedStringArray()
+	for i in ranks.size():
+		var who := "" if ranks.size() == 1 else "%s " % Party.name_of(i)
+		titles.append("%s第 %d 名" % [who, int(ranks[i])])
+	_title.text = "，".join(titles)
 	_detail.text = "撑了 %d 秒，+%d 蘑菇币" % [ceili(seconds), earned]
 	var lines := PackedStringArray()
 	for row in rows:
-		var mark := "▶ " if String(row["name"]) == "你" else "　"
+		var mark := "▶ " if bool(row.get("human", false)) else "　"
 		lines.append("%s%s　%s" % [mark, String(row["name"]), String(row["note"])])
 	_rows.text = "\n".join(lines)
 
@@ -249,5 +276,5 @@ func hide_pause() -> void:
 
 
 func _set_armed(armed: bool) -> void:
-	_left.armed = armed
-	_right.armed = armed
+	for button in _buttons:
+		button.armed = armed
