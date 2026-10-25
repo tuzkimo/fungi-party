@@ -6,8 +6,48 @@ class_name Save
 const PATH := "user://save.cfg"
 const SECTION := "game"
 
+## 非空 = 联机模式：存档在服务器上，本机只是镜像（见 game/net/client.gd）。
+static var remote: Node = null
+
+
+static func online() -> bool:
+	return remote != null
+
+
+## 一份崭新存档的全部字段。服务器上的账号记录也用这一份，别在两处各写一遍缺省值。
+static func defaults() -> Dictionary:
+	return {
+		"coins": 0,
+		"owned": PackedStringArray(),
+		"equipped": "",
+		"character": BodyCatalog.DEFAULT_ID,
+		"pity": 0,
+		"stamina": Config.STAMINA_MAX,
+		"meals": 0,
+		"day": 1,
+		"day_time": Config.MORNING_TIME,
+	}
+
+
+## 存档字典的字段类型统一在这里收口：JSON 存一遍再读回来，整数会变成浮点、
+## PackedStringArray 会变成 Array，`as PackedStringArray` 直接拿到 null。
+static func normalize(raw: Dictionary) -> Dictionary:
+	var data := defaults()
+	data["coins"] = int(raw.get("coins", 0))
+	data["owned"] = PackedStringArray(raw.get("owned", []))
+	data["equipped"] = str(raw.get("equipped", ""))
+	data["character"] = str(raw.get("character", BodyCatalog.DEFAULT_ID))
+	data["pity"] = int(raw.get("pity", 0))
+	data["stamina"] = int(raw.get("stamina", Config.STAMINA_MAX))
+	data["meals"] = int(raw.get("meals", 0))
+	data["day"] = int(raw.get("day", 1))
+	data["day_time"] = float(raw.get("day_time", Config.MORNING_TIME))
+	return data
+
 
 static func read(path: String = PATH) -> Dictionary:
+	if remote != null:
+		return remote.call("mirror")
 	var cfg := ConfigFile.new()
 	cfg.load(path)
 	# v3 存档里 owned/equipped 是布尔键：直接赋给 PackedStringArray 会报错，
@@ -24,21 +64,26 @@ static func read(path: String = PATH) -> Dictionary:
 		equipped = raw_equipped
 	elif typeof(raw_equipped) == TYPE_BOOL and bool(raw_equipped):
 		equipped = "blueberry"
-	return {
-		"coins": int(cfg.get_value(SECTION, "coins", 0)),
+	return Save.normalize({
+		"coins": cfg.get_value(SECTION, "coins", 0),
 		"owned": owned,
 		"equipped": equipped,
-		"character": str(cfg.get_value(SECTION, "character", BodyCatalog.DEFAULT_ID)),
-		"pity": int(cfg.get_value(SECTION, "pity", 0)),
-		"stamina": int(cfg.get_value(SECTION, "stamina", Config.STAMINA_MAX)),
-		"meals": int(cfg.get_value(SECTION, "meals", 0)),
-		"day": int(cfg.get_value(SECTION, "day", 1)),
+		"character": cfg.get_value(SECTION, "character", BodyCatalog.DEFAULT_ID),
+		"pity": cfg.get_value(SECTION, "pity", 0),
+		"stamina": cfg.get_value(SECTION, "stamina", Config.STAMINA_MAX),
+		"meals": cfg.get_value(SECTION, "meals", 0),
+		"day": cfg.get_value(SECTION, "day", 1),
 		"day_time": float(cfg.get_value(SECTION, "day_time", Config.MORNING_TIME)),
-	}
+	})
 
 
 ## 只改传入的键：先 load 再 set，别让买皮肤顺手把体力和天色抹回缺省。
+## 联机模式下只有天色是本机说了算的（世界时钟到三期才收到服务器上）。
 static func write(path: String, data: Dictionary) -> void:
+	if remote != null:
+		if data.has("day_time"):
+			remote.call("push_day_time", float(data["day_time"]))
+		return
 	var cfg := ConfigFile.new()
 	cfg.load(path)
 	for key in data:
