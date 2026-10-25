@@ -24,6 +24,11 @@ var _walk_phase := 0.0
 var _chew := -1.0   # >= 0 表示正在吃饭，-1 表示没在咬
 
 
+## 存档变了（比如刚在登录界面拿到服务器上那份）就重刷外观。
+func refresh_look() -> void:
+	_visual.use_party_look(seat)
+
+
 static func resolve_direction(input: Vector2, camera_yaw: float) -> Vector3:
 	var dir := Vector3(input.x, 0.0, input.y)
 	if dir.length() > 1.0:

@@ -11,6 +11,10 @@ var _second: Player = null
 
 @onready var _join_panel: JoinPanel = $JoinPanel
 @onready var _forest: Node3D = $Forest
+@onready var _start_menu: StartMenu = $StartMenu
+
+## 联网会话挂在根上，不随场景一起换掉（进小游戏再回森林也还在）
+var _net: NetClient = null
 
 
 func _ready() -> void:
@@ -18,6 +22,38 @@ func _ready() -> void:
 	_join_panel.leave_pressed.connect(_on_leave)
 	_first = Player.of_seat(get_tree(), 0)
 	_spawn_second()
+	_net = _ensure_net()
+	if _net.ready():
+		# 从小游戏转回来：联网会话还在，不用再登录
+		Save.remote = _net
+		_refresh_looks()
+	else:
+		Save.remote = null
+		_start_menu.setup(_net)
+		_start_menu.online_ready.connect(_on_online_ready)
+
+
+## 根上已经有一个就复用：换场景不会把它带走，重登会多出一个来抢同一份存档。
+func _ensure_net() -> NetClient:
+	var existing := get_tree().root.get_node_or_null("Net")
+	if existing is NetClient:
+		return existing
+	var net := NetClient.new()
+	net.name = "Net"
+	get_tree().root.add_child(net)
+	return net
+
+
+func _on_online_ready() -> void:
+	Save.remote = _net
+	_refresh_looks()
+
+
+func _refresh_looks() -> void:
+	for node in get_tree().get_nodes_in_group("player"):
+		var player := node as Player
+		if player != null:
+			player.refresh_look()
 
 
 ## 领队没推摇杆、另一个人推了，就把方向盘交出去（镜头一并换到新领队身上）。

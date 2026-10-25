@@ -1,0 +1,17 @@
+[Unit]
+Description=FungiParty 游戏服务器（无头）
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fungi
+WorkingDirectory=/opt/fungi
+Environment=HOME=/var/lib/fungi
+ExecStart=/opt/fungi/fungi-party-server --headless --script res://game/net/server_main.gd -- --port 7000 --saves /var/lib/fungi/saves --max 32
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -167,3 +167,8 @@ const OWL_NPC_EAT := [0.9, 0.97, 0.75]
 const OWL_NPC_GREED := [0.05, 0.28, 0.02]
 const OWL_NPC_LEAD := [Vector2(0.15, 0.8), Vector2(0.15, 0.8), Vector2(0.35, 1.0)]
 const OWL_PATH := "res://game/minigame/owl.tscn"
+
+# v7 联机
+## 默认服务器地址（家里那台云主机的域名或 IP）；登录界面里可以改，改完记在 user://net.cfg
+const SERVER_HOST := "127.0.0.1"
+const SERVER_PORT := 7000

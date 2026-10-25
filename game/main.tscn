@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="PackedScene" path="res://game/world/forest.tscn" id="1_forest"]
 [ext_resource type="PackedScene" path="res://game/ui/debug_hud.tscn" id="2_hud"]
@@ -13,6 +13,7 @@
 [ext_resource type="Script" path="res://game/ui/meal_panel.gd" id="11_meal_panel"]
 [ext_resource type="Script" path="res://game/ui/owl_panel.gd" id="12_owl_panel"]
 [ext_resource type="Script" path="res://game/ui/join_panel.gd" id="13_join_panel"]
+[ext_resource type="Script" path="res://game/ui/start_menu.gd" id="14_start_menu"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("7_main")
@@ -50,3 +51,6 @@ script = ExtResource("12_owl_panel")
 
 [node name="JoinPanel" type="CanvasLayer" parent="."]
 script = ExtResource("13_join_panel")
+
+[node name="StartMenu" type="CanvasLayer" parent="."]
+script = ExtResource("14_start_menu")

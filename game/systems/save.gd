@@ -91,7 +91,12 @@ static func write(path: String, data: Dictionary) -> void:
 	cfg.save(path)
 
 
+## 联机模式下账本是服务器的：本机只把这一笔报上去，返回值仅是乐观估计。
 static func add_coins(amount: int, path: String = PATH) -> int:
+	if remote != null:
+		remote.call("request", "add_coins", {"amount": amount})
+		var mirrored: Dictionary = remote.call("mirror")
+		return maxi(0, int(mirrored["coins"]) + amount)
 	var data := read(path)
 	var coins := maxi(0, int(data["coins"]) + amount)
 	data["coins"] = coins
@@ -109,6 +114,9 @@ static func equip(skin_id: String, path: String = PATH) -> bool:
 	var data := read(path)
 	if skin_id != "" and not (data["owned"] as PackedStringArray).has(skin_id):
 		return false
+	if remote != null:
+		remote.call("request", "equip", {"skin": skin_id})
+		return true
 	write(path, {"equipped": skin_id})
 	return true
 
@@ -117,16 +125,23 @@ static func equip(skin_id: String, path: String = PATH) -> bool:
 static func set_character(id: String, path: String = PATH) -> bool:
 	if not BodyCatalog.BODIES.has(id):
 		return false
+	if remote != null:
+		remote.call("request", "set_character", {"id": id})
+		return true
 	write(path, {"character": id})
 	return true
 
 
-## 扣一局体力：够才扣（三款小游戏的 _ready 都走这里）。
+## 扣一局体力：够才扣（四款小游戏的 _ready 都走这里）。
+## 联机时先拿镜像判一次给个即时答复，服务器回包才是准的：错判只会少打一局，不会多打。
 static func spend_stamina(cost: int, path: String = PATH) -> bool:
 	var data := read(path)
 	var r := Day.spend_cost(int(data["stamina"]), cost)
 	if not bool(r["ok"]):
 		return false
+	if remote != null:
+		remote.call("request", "spend_stamina", {"cost": cost})
+		return true
 	write(path, {"stamina": int(r["stamina"])})
 	return true
 
@@ -136,6 +151,9 @@ static func eat_meal(path: String = PATH) -> bool:
 	var r := Day.meal(int(data["stamina"]), int(data["meals"]), int(data["coins"]))
 	if not bool(r["ok"]):
 		return false
+	if remote != null:
+		remote.call("request", "meal", {})
+		return true
 	write(path, {
 		"stamina": int(r["stamina"]), "meals": int(r["meals"]), "coins": int(r["coins"])
 	})
@@ -143,6 +161,9 @@ static func eat_meal(path: String = PATH) -> bool:
 
 
 static func rollover(path: String = PATH) -> void:
+	if remote != null:
+		remote.call("request", "sleep", {})
+		return
 	var data := read(path)
 	write(path, Day.rollover(int(data["day"])))
 
