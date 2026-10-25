@@ -53,3 +53,22 @@ func test_current_character_button_is_disabled() -> void:
 		var mine: bool = button.text == BodyCatalog.display_name("seafood")
 		check_eq(button.disabled, mine, "%s 的禁用状态" % button.text)
 	panel.free()
+
+
+## 二号位加入后，帐篷里选「2P」换的是他那个人的形象（不写盘）。
+func test_seat_switch_targets_the_second_player() -> void:
+	Party.join("red", "")
+	var panel := _open_panel()
+	panel._on_pick_seat(1)
+	panel._on_pick_character("seafood")
+	check_eq(Party.look(1)["body"], "seafood", "二号位换成了海鲜菇")
+	panel.free()
+
+	# 新开一块面板看按钮：不在树里的 queue_free 不会真的删，旧按钮还在
+	var fresh := _open_panel()
+	fresh._on_pick_seat(1)
+	for button in _character_buttons(fresh):
+		var mine: bool = button.text == BodyCatalog.display_name("seafood")
+		check_eq(button.disabled, mine, "二号位当前角色高亮为 %s" % button.text)
+	fresh.free()
+	Party.leave()

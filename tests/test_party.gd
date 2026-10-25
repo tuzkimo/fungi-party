@@ -44,3 +44,20 @@ func test_leave_restores_solo() -> void:
 	Party.leave()
 	check(not Party.joined(), "离队回单人")
 	check_eq(Party.count(), 1, "又只剩一个人")
+
+
+## 帐篷里给二号位换形象：只改会话状态，一号位的存档不动。
+func test_set_look_only_touches_the_second_seat() -> void:
+	Party.join("red", "")
+	var saved := Save.read()
+	Party.set_body("seafood")
+	Party.set_skin("")
+	check_eq(Party.look(1)["body"], "seafood", "二号位换成了海鲜菇")
+	check_eq(str(Save.read()["character"]), str(saved["character"]), "存档里的角色不变")
+	Party.leave()
+
+
+func test_set_look_without_a_second_player_is_a_noop() -> void:
+	Party.leave()
+	Party.set_body("seafood")
+	check(not Party.joined(), "没二号位时不会被凭空造出来")

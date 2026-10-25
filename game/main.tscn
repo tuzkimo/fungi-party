@@ -24,9 +24,6 @@ visible = false
 
 [node name="TouchControls" parent="." instance=ExtResource("3_touch")]
 
-[node name="Surface" parent="TouchControls" index="0"]
-duo = false
-
 [node name="ShopPanel" type="CanvasLayer" parent="."]
 script = ExtResource("4_shop")
 

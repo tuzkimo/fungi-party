@@ -4,8 +4,8 @@ extends CharacterBody3D
 ## 编排层：读输入、走 Movement 的数学、驱动外观动画。
 ## 不引用任何具体 mesh 节点名字，只认 MushroomMesh 的 scale / position。
 ##
-## 同屏双人里二号位是同一个类：seat = 1、leader = 一号位。有 leader 就不读输入、
-## 不带相机，一路追到 leader 身后 —— 森林里只有一个人操控移动。
+## 同屏双人里二号位是同一个类：seat = 1、leader = 一号位。有 leader 就追到 leader 身后。
+## 森林里谁推摇杆谁带队（镜头跟着带队的那个），见 main.gd 的 _physics_process。
 
 @onready var _visual: MushroomMesh = $MushroomMesh
 @onready var _cam: CamRig = $CamRig
@@ -40,6 +40,22 @@ static func follow_direction(from: Vector3, to: Vector3, stop: float) -> Vector3
 	return offset.normalized()
 
 
+## 抢方向盘：现在的领队没推摇杆、另一个人推了，就该换人带队。
+static func should_swap(lead_input: bool, other_input: bool) -> bool:
+	return other_input and not lead_input
+
+
+## 某号座位的玩家（森林里可能同时有两个，别拿组里第一个凑数）。
+static func of_seat(tree: SceneTree, seat: int) -> Player:
+	if tree == null:
+		return null
+	for node in tree.get_nodes_in_group("player"):
+		var player := node as Player
+		if player != null and player.seat == seat:
+			return player
+	return null
+
+
 ## 跟随者要去的点：leader 身后 gap 米、往侧面再让开 side 米。
 ## Node3D 的 +Z 是背后（前方是 -Z）；正后方会正好夹在相机和 leader 中间，
 ## 把镜头射线顶到最短距离、糊满整块屏，所以默认往侧面让开。
@@ -54,11 +70,20 @@ static func follow_point(leader_position: Vector3, leader_basis: Basis, gap: flo
 func _ready() -> void:
 	Controls.ensure()
 	add_to_group("player")
-	if leader != null and _cam != null:
-		# 跟随者没有镜头：多一条相机只会白做每帧的射线，还会抢拖动事件
-		_cam.free()
-		_cam = null
+	set_leading(leader == null)
 	apply_skin()
+
+
+## 带队的人拿镜头；跟着的那个把镜头熄掉，别白做射线、也别抢拖动事件。
+func set_leading(leading: bool) -> void:
+	if _cam != null:
+		_cam.set_active(leading)
+
+
+## 自己这一帧推了摇杆没有。跟随者只认自己那半边。
+func wants_to_lead() -> bool:
+	_find_touch()
+	return _read_input().length() > 0.05
 
 
 ## 按会话状态把外观刷成「该座位玩家戴着的皮肤 + 选的角色」。
@@ -121,20 +146,22 @@ func _physics_process(delta: float) -> void:
 	_animate(horizontal.length(), delta)
 
 
-## 摇杆优先，键盘兜底。
+## 摇杆优先，键盘只给一号位兜底。
 func _read_input() -> Vector2:
-	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	if _touch != null and _touch.move(0).length() > 0.05:
-		input = _touch.move(0)
+	var input := Vector2.ZERO
+	if seat == 0:
+		input = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	if _touch != null and _touch.move(seat).length() > 0.05:
+		input = _touch.move(seat)
 	return input
 
 
 ## 动作键记的是「按着」，跳跃要的是「这一帧刚按下」，边沿检测在这做。
 func _take_touch_jump() -> bool:
-	var want := Input.is_action_just_pressed("jump")
+	var want := seat == 0 and Input.is_action_just_pressed("jump")
 	if _touch == null:
 		return want
-	var held := _touch.held(0)
+	var held := _touch.held(seat)
 	if held and not _prev_touch_held:
 		want = true
 	_prev_touch_held = held

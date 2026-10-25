@@ -87,7 +87,7 @@ func _refresh() -> void:
 	var ok := bool(Day.meal(stamina, meals, coins)["ok"])
 	_eat.disabled = _busy or not ok
 	if ok:
-		_eat.text = "吃一份（%d 币）" % Config.MEAL_COINS
+		_eat.text = "吃一份(%d 币)" % Config.MEAL_COINS
 	elif meals >= Config.MEALS_PER_DAY:
 		_eat.text = "今天吃够了"
 	elif coins < Config.MEAL_COINS:

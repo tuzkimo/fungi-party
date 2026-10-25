@@ -190,7 +190,7 @@ func set_hud(level: int, time_left: float, scores: Array, outs: Array) -> void:
 	for i in scores.size():
 		var name := String(_names[i]) if i < _names.size() else str(i)
 		var out := bool(outs[i]) if i < outs.size() else false
-		parts.append("%s %d%s" % [name, int(scores[i]), "（出局）" if out else ""])
+		parts.append("%s %d%s" % [name, int(scores[i]), "(出局)" if out else ""])
 	_hud.text = "%s\n%s" % [head, " · ".join(parts)]
 
 
@@ -208,7 +208,7 @@ func show_result(ranks: Array, earned: int, rows: Array) -> void:
 	var lines := PackedStringArray()
 	for row in rows:
 		var mark := "▶ " if bool(row.get("human", false)) else "　"
-		var out := "（出局）" if bool(row.get("out", false)) else ""
+		var out := "(出局)" if bool(row.get("out", false)) else ""
 		lines.append("%s%s　%d 分%s" % [mark, String(row["name"]), int(row["score"]), out])
 	_rows.text = "
 ".join(lines)

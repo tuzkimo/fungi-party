@@ -28,6 +28,13 @@ func _ready() -> void:
 	top_level = true
 
 
+## 森林里领队会换人（谁推摇杆谁带队）：熄掉的那台不算射线、不抢拖动事件。
+func set_active(on: bool) -> void:
+	_camera.current = on
+	set_physics_process(on)
+	set_process_unhandled_input(on)
+
+
 func _find_touch() -> void:
 	if _touch == null:
 		_touch = get_tree().get_first_node_in_group("touch_controls") as TouchControls

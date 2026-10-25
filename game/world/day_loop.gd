@@ -85,16 +85,23 @@ func sleep() -> void:
 	sleeping = true
 	changed.emit()
 
-	var player := get_tree().get_first_node_in_group("player") as Node3D
+	var players: Array[Node3D] = []
+	for body in get_tree().get_nodes_in_group("player"):
+		var node := body as Node3D
+		if node != null:
+			players.append(node)
 	var tent := get_tree().get_first_node_in_group("tent") as Tent
 	var touch := get_tree().get_first_node_in_group("touch_controls") as CanvasItem
 	if touch != null:
 		touch.visible = false
-	if player != null and tent != null:
-		player.set_physics_process(false)
+	if tent != null:
 		var tween := create_tween().set_parallel(true)
-		tween.tween_property(player, "global_position", tent.bed_global_position() + Vector3(0.0, 0.35, 0.0), LIE_SECONDS)
-		tween.tween_property(player, "rotation:z", -PI / 2.0, LIE_SECONDS)
+		# 双人就并排躺：二号位这时候可能正在带队，他也不能继续走
+		for i in players.size():
+			players[i].set_physics_process(false)
+			var bed := tent.bed_global_position() + Vector3(0.45 * float(i), 0.35, 0.0)
+			tween.tween_property(players[i], "global_position", bed, LIE_SECONDS)
+			tween.tween_property(players[i], "rotation:z", -PI / 2.0, LIE_SECONDS)
 		await tween.finished
 
 	await get_tree().create_timer(0.3).timeout
@@ -104,10 +111,11 @@ func sleep() -> void:
 	time_of_day = Config.MORNING_TIME
 	refresh()
 
-	if player != null and tent != null:
-		player.global_position = tent.global_position + Vector3(0.0, 0.3, 1.2)
-		player.rotation.z = 0.0
-		player.set_physics_process(true)
+	if tent != null:
+		for i in players.size():
+			players[i].global_position = tent.global_position + Vector3(0.45 * float(i), 0.3, 1.2)
+			players[i].rotation.z = 0.0
+			players[i].set_physics_process(true)
 	if touch != null:
 		touch.visible = true
 

@@ -15,8 +15,8 @@ const DOT_SIZE := 16.0
 ## 冲刺按钮圆心离锚点的偏移，和跳跃按钮（圆心约 -176,-176）拉开距离，
 ## 免得一次点按既算跳又算冲刺。
 const DASH_CENTER := Vector2(-300.0, -340.0)
-## 双人：冲刺键各在自己那半边、摇杆上方
-const DUO_DASH_CENTER := Vector2(200.0, -390.0)
+## 双人：冲刺键压在自己跳跃键上方（相对位置跟单人一样），不在摇杆那半边
+const DUO_DASH_OFFSET := Vector2(70.0, 340.0)
 
 var _time := 0.0
 var _rank := 1
@@ -102,8 +102,11 @@ func _build_dash(root: Control) -> void:
 		var dash := DashButton.new()
 		dash.name = "Dash%d" % i
 		if Party.joined():
-			_place(dash, Control.PRESET_BOTTOM_LEFT if i == 0 else Control.PRESET_BOTTOM_RIGHT,
-				DUO_DASH_CENTER * (1.0 if i == 0 else Vector2(-1.0, 1.0)))
+			# 贴着中线左边/右边的那个跳跃键，压在它头上
+			var side := -1.0 if i == 0 else 1.0
+			_place(dash, Control.PRESET_CENTER_BOTTOM, Vector2(
+				(TouchControls.CENTER_GAP + DUO_DASH_OFFSET.x) * side, -DUO_DASH_OFFSET.y
+			))
 		else:
 			_place(dash, Control.PRESET_BOTTOM_RIGHT, DASH_CENTER)
 		var player := i

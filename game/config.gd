@@ -57,7 +57,7 @@ const RARITY_COLORS: Array[Color] = [
 const CLASSROOM_PATH := "res://game/minigame/classroom.tscn"
 const FOREST_PATH := "res://game/main.tscn"
 
-# v6 同屏双人：二号位在森林里跟着走（不读输入）
+# v6 同屏双人：森林里谁推摇杆谁带队，另一个跟在侧后方
 const PARTY_FOLLOW_GAP := 1.2     # 目标点在一号位身后多远
 ## 侧面让开这么多：正后方会夹在相机和一号位中间，被拍成一张糊满屏的大脸
 const PARTY_FOLLOW_SIDE := 1.1

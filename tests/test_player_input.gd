@@ -39,3 +39,11 @@ func test_follow_point_can_shift_to_the_side() -> void:
 	var point := Player.follow_point(Vector3.ZERO, Basis.IDENTITY, 1.7, 1.0)
 	check(absf(point.x - 1.0) < 0.001, "往侧面让开（实得 x=%.2f）" % point.x)
 	check(absf(point.z - 1.7) < 0.001, "背后的距离不变")
+
+
+## 森林里抢方向盘：领队没推、另一个人推了才换人（两人都推时不动，免得来回跳）。
+func test_lead_swaps_only_when_the_lead_is_idle() -> void:
+	check(Player.should_swap(false, true), "领队停手、另一个人推了 = 换人")
+	check(not Player.should_swap(true, true), "两个人都推的时候不换")
+	check(not Player.should_swap(false, false), "都没推不换")
+	check(not Player.should_swap(true, false), "领队自己在推不换")

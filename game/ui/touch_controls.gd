@@ -4,7 +4,6 @@ extends Control
 ## 每个玩家一组「摇杆 + 动作键」，按 finger index 各认各的手指。
 ## 单人：摇杆左下、动作键右下（老布局，手感不动）。
 ## 双人：一号位摇杆贴最左、动作键在中线左边；二号位镜像 —— 两人各用自己那半边。
-## 森林里二号位不走路，那张场景把 duo 关掉，只画一号位那一组。
 
 const STICK_RADIUS := 110.0
 const ACTION_RADIUS := 56.0
@@ -14,7 +13,7 @@ const EDGE_MARGIN := 120.0
 ## 双人时动作键离屏幕中线多远：两个键之间的空隙就由它决定
 const CENTER_GAP := 170.0
 
-## 关掉 = 只摆一号位那一组（森林用）
+## 关掉 = 只摆一号位那一组
 @export var duo := true
 
 
@@ -28,6 +27,8 @@ class Arm extends RefCounted:
 
 
 var _arms: Array[Arm] = []
+## 上次布局是为几个人摆的：二号位随时加入/离队，人数一变就得重摆
+var _laid_out_for := -1
 
 
 static func safe_insets(screen: Vector2i, safe: Rect2i, viewport: Vector2) -> Vector2:
@@ -69,6 +70,11 @@ func _ready() -> void:
 	_layout()
 
 
+func _process(_delta: float) -> void:
+	if Party.count() != _laid_out_for:
+		_layout()
+
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
 		_layout()
@@ -82,6 +88,7 @@ func _layout() -> void:
 	)
 	# duo 只表示「这张场景允许双人」；真的摆两组还得有人坐在二号位
 	var centers := TouchControls.arm_centers(view, insets, duo and Party.joined())
+	_laid_out_for = Party.count()
 	# 组数变了（森林 ↔ 小游戏）就把多余的手指状态丢掉，别留着一个按死的键
 	while _arms.size() > centers.size():
 		var dropped: Arm = _arms.pop_back()

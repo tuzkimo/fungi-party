@@ -42,3 +42,16 @@ static func look(seat: int) -> Dictionary:
 		var data := Save.read()
 		return {"body": str(data["character"]), "skin": str(data["equipped"])}
 	return _second.duplicate()
+
+
+## 帐篷里给二号位换形象：只改会话状态，不写盘（存档是单人的）。
+static func set_body(body_id: String) -> void:
+	if _second.is_empty():
+		return
+	_second["body"] = BodyCatalog.normalize(body_id)
+
+
+static func set_skin(skin_id: String) -> void:
+	if _second.is_empty():
+		return
+	_second["skin"] = skin_id
