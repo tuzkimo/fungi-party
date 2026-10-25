@@ -64,6 +64,11 @@ static func pull_ten(path: String = Save.PATH, generator: RandomNumberGenerator 
 	return results
 
 
+## 服务器（NetOps）用的公开入口：在一份已读出的存档上原地结算一抽，不碰磁盘。
+static func roll(data: Dictionary, charge: int, generator: RandomNumberGenerator = null) -> Dictionary:
+	return _roll(data, charge, generator)
+
+
 static func _collected(data: Dictionary) -> bool:
 	return (data["owned"] as PackedStringArray).size() >= SkinCatalog.count()
 
