@@ -25,6 +25,9 @@ var _password := ""
 var _nonce := ""
 var _salt := ""
 var _exists := false
+## 最后一条 op 的服务器回包（商店要拿抽卡结果放演出）
+var last_result := {}
+
 var _queue: Array[Dictionary] = []
 var _inflight := ""
 var _waiting := 0.0
@@ -140,6 +143,7 @@ func _on_welcome(body: Dictionary) -> void:
 func _on_result(body: Dictionary) -> void:
 	_inflight = ""
 	_waiting = 0.0
+	last_result = body
 	if body.has("save") and typeof(body["save"]) == TYPE_DICTIONARY:
 		data = Save.normalize(body["save"])
 	if not bool(body.get("ok", false)):

@@ -57,8 +57,36 @@ func _run() -> void:
 	if (_client.data["owned"] as PackedStringArray).size() != owned_before:
 		_die("重连后皮肤数量变了")
 	print("重连后 币 %d 皮肤 %d 顶：存档在服务器上" % [coins_before, owned_before])
+
+	await _same_account_two_devices()
 	print("SMOKE OK")
 	quit(0)
+
+
+## 两台设备同一个账号：后一台的镜像是旧的，钱必须还是服务器的账本说了算。
+func _same_account_two_devices() -> void:
+	var before := int(_client.data["coins"])
+	var refunded := 0
+	_client.request("pull", {"n": 1})
+	await _client.changed
+	refunded += int((_client.last_result.get("result", {}) as Dictionary).get("pulls", [{}])[0].get("refund", 0))
+	# 同一个账号再开一条连接：它连上时拿到的已经是扣过钱的那份
+	var second := NetClient.new()
+	second.failed.connect(_on_failed)
+	root.add_child(second)
+	second.connect_to(_host, _port, _name, _password)
+	await second.logged_in
+	if int(second.data["coins"]) != before - Config.GACHA_PRICE_ONE + refunded:
+		_die("第二条连接拿到的不是服务器上的账：%d" % int(second.data["coins"]))
+	second.request("pull", {"n": 1})
+	await second.changed
+	refunded += int((second.last_result.get("result", {}) as Dictionary).get("pulls", [{}])[0].get("refund", 0))
+	if int(second.data["coins"]) != before - Config.GACHA_PRICE_ONE * 2 + refunded:
+		_die("两台设备连抽之后账不对：%d" % int(second.data["coins"]))
+	if int(_client.data["coins"]) == int(second.data["coins"]):
+		pass
+	print("两台设备同账号：服务器账本一致，抽两抽后币 %d" % int(second.data["coins"]))
+	second.close()
 
 
 ## 发一条 op 并等服务器回来（失败/超时都会被 failed 或看门狗兜住）。
