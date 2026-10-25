@@ -109,3 +109,29 @@ func test_equip_gone_id_is_ignored() -> void:
 	check_eq(d.equipped, "ghost", "存档层不做白名单判断（读出来就是原样）")
 	check(SkinCatalog.by_id(d.equipped) == null, "上层拿到 null 会回落默认外观")
 	_clean()
+
+
+func test_character_defaults_to_red() -> void:
+	_clean()
+	check_eq(Save.read(P).character, "red", "没写过角色就是红蘑菇")
+	_clean()
+
+
+func test_character_roundtrip() -> void:
+	_clean()
+	Save.write(P, {"coins": 120})
+	check(Save.set_character("seafood", P), "能换成海鲜菇")
+	check_eq(Save.read(P).character, "seafood", "角色存得住")
+	check_eq(Save.read(P).coins, 120, "换角色不动钱")
+	check(not Save.set_character("sponge", P), "不存在的角色写不进去")
+	check_eq(Save.read(P).character, "seafood", "拒绝之后存档没变")
+	_clean()
+
+
+## 手改存档写了个乱七八糟的 id：读出来是原样（存档层不做白名单），
+## BodyCatalog.normalize() 兜住它，玩家看到的是红蘑菇而不是崩溃。
+func test_unknown_character_falls_back_to_red() -> void:
+	_clean()
+	Save.write(P, {"character": "sponge"})
+	check_eq(BodyCatalog.normalize(Save.read(P).character), "red", "乱写的角色回落红蘑菇")
+	_clean()

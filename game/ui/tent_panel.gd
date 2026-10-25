@@ -8,7 +8,9 @@ var _stamina: Label
 var _sleep: Button
 var _clothes: Button
 var _skins: VBoxContainer
+var _characters: HBoxContainer
 var _built_key := ""
+var _character_key := ""
 
 
 func _ready() -> void:
@@ -63,6 +65,12 @@ func _ready() -> void:
 	UIStyle.style_button(_clothes)
 	box.add_child(_clothes)
 
+	# 角色不折叠：它跟皮肤不是一个东西（皮肤是收藏，角色是「我是谁」），藏在二级菜单里会找不到
+	_characters = HBoxContainer.new()
+	_characters.add_theme_constant_override("separation", 10)
+	_characters.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_child(_characters)
+
 	# 一行一个档位：档位名在行首，后面跟这一档已拥有的皮肤。
 	# 不用「标题 + 一行按钮」那种分组，720 高的屏幕放不下六组。
 	_skins = VBoxContainer.new()
@@ -85,11 +93,34 @@ func _process(_delta: float) -> void:
 func _refresh() -> void:
 	var data := Save.read()
 	_stamina.text = "体力 %d/%d" % [int(data["stamina"]), Config.STAMINA_MAX]
+	if str(data["character"]) != _character_key:
+		_character_key = str(data["character"])
+		_build_character_buttons(_character_key)
 	# _process 每帧都调这里，按钮只在已拥有/穿戴变了时才重建
 	var key := "%s|%s" % [str(data["owned"]), str(data["equipped"])]
 	if _skins.visible and key != _built_key:
 		_built_key = key
 		_build_skin_buttons(data)
+
+
+## 角色一行：免费换，当前的那个按下不动。
+func _build_character_buttons(equipped: String) -> void:
+	for child in _characters.get_children():
+		child.queue_free()
+	var label := Label.new()
+	label.text = "角色"
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 22)
+	label.add_theme_color_override("font_color", Color(0.62, 0.60, 0.64))
+	_characters.add_child(label)
+	for id in BodyCatalog.ids():
+		var button := Button.new()
+		button.text = BodyCatalog.display_name(id)
+		button.custom_minimum_size = Vector2(132.0, 48.0)
+		button.disabled = id == equipped
+		button.pressed.connect(_on_pick_character.bind(id))
+		UIStyle.style_button(button)
+		_characters.add_child(button)
 
 
 ## 一行一档，档位名在行首，按钮带档位描边色。
@@ -158,6 +189,16 @@ func _on_sleep() -> void:
 func _on_clothes() -> void:
 	_skins.visible = not _skins.visible
 	_built_key = ""
+	_refresh()
+
+
+func _on_pick_character(character_id: String) -> void:
+	if not Save.set_character(character_id):
+		return
+	var player := get_tree().get_first_node_in_group("player") as Player
+	if player != null:
+		player.apply_skin()
+	_character_key = ""
 	_refresh()
 
 

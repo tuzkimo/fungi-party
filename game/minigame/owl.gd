@@ -68,10 +68,8 @@ func _ready() -> void:
 		item.visible = false
 		_items.append(item)
 
-	# 穿了皮肤的话，玩家那一朵跟角色一致（教室同款做法）
-	var skin := SkinCatalog.by_id(str(Save.read()["equipped"]))
-	if skin != null:
-		_actors[OwlRound.PLAYER].apply_skin(skin)
+	# 玩家那一朵跟角色一致（教室同款做法）
+	_actors[OwlRound.PLAYER].apply_saved_look()
 
 	_ui = $UI
 	_ui.set_names(SEAT_NAMES)

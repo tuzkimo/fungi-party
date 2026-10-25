@@ -8,7 +8,8 @@
 - 平台：Android，单机离线，不上架商店
 - v3：森林里七个 POI —— 校门（进教室偷吃）、摊位（开商店买皮肤）、起跑线（进 220m 障碍赛跑）、蘑菇圈（进传炸弹）、猫头鹰树（进猫头鹰喂食：长按张嘴接糖、混着屎、三关比总分）、饭店（花币吃饭回体力）、帐篷（睡觉过夜、换衣服）；体力按局扣，天色由体力派生，四款小游戏都是自包含单场景，名次/口数换蘑菇币
 - v4：摊位从买断皮肤改成抽卡 —— 15 顶皮肤分五档（夯 / 顶级 / 人上人 / NPC / 拉完了），蘑菇币单抽 50、十连 450，50 抽硬保底，重复按档位退币，抽到第一顶自动穿上；高档皮肤靠长零件区分（剑 / 披风 / 角盔 / 皇冠 / 花 / 宽檐），衣柜按档位一行一组、没抽到的显示「？？？」
-- 场景：`game/world/` 森林与 POI、`game/minigame/` 教室/赛跑/传炸弹/猫头鹰喂食、`game/skins/` 15 顶皮肤数据（`.tres`）与 `catalog.gd` 总表、`game/ui/` HUD 与浮层
+- v5：角色可换 —— 红蘑菇之外加了海鲜菇（细长杆 + 小扁帽 + 四根黑棍手脚 + 腮红，按 `refs/海鲜菇角色设计图.png`），帐篷里免费换；体型与皮肤解耦，15 顶皮肤两个角色都能戴
+- 场景：`game/world/` 森林与 POI、`game/minigame/` 教室/赛跑/传炸弹/猫头鹰喂食、`game/skins/` 15 顶皮肤数据（`.tres`）与 `catalog.gd` 总表、`game/player/body/` 角色体型（红蘑菇 / 海鲜菇，`catalog.gd` 总表）、`game/ui/` HUD 与浮层
 
 ## 开发命令
 
@@ -16,6 +17,8 @@
 godot --path . -e                                              # 打开编辑器
 godot --path .                                                 # 桌面运行
 bash scripts/test.sh                                           # 无头测试（先刷全局类缓存）
+godot --path . --script res://tools/shot_body.gd               # 角色渲染成 shots/body_*.png（真窗口，看外观用）
+godot --path . --script res://tools/shot_ingame.gd             # 进森林截一张 shots/ingame.png
 godot --headless --path . --export-debug "Android" build/app.apk   # 调试包，带 FPS/DRAW/TRI 信息条
 bash scripts/export-release.sh                                      # 正式签名包 build/fungi_party_<版本>_arm64.apk
 adb install -r build/app.apk
@@ -43,7 +46,10 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
 - 教室是自包含单场景，节点间直接 `$` 引用；森林侧的跨场景引用（摊位/玩家）每帧惰性 `get_first_node_in_group`，别在 `_ready` 里查。
 - 体力与天色只有 `game/systems/day.gd` 一套公式；别处不许再算天色。扣体力只在小游戏 `_ready` 一处。
 - 皮肤外观只有一个入口 `MushroomMesh.use_skin()`；存档里的皮肤 id 一律走 `SkinCatalog.by_id()`，查不到就回落默认外观。
+- 体型只有一套入口：`MushroomMesh` 是门面，几何在 `game/player/body/`（基类 `mushroom_body.gd` + 每体型一个子类）。加角色 = 加一个 `body_xxx.gd` + `BodyCatalog` 一条，别往 `build()` 里加 if。
+- 零件的坐标基准是红帽（半径 0.70）：横向一律 `×(cap_radius/0.70)`、帽上的纵向跟 `cap_height`、披风从帽底挂到腰。新零件照这个写，否则换个体型就埋进杆里或飘在空中。
+- 玩家的体型和皮肤一律走 `MushroomMesh.use_saved_look()`（森林本体、教室/猫头鹰/传炸弹/赛跑的「我」共五处），NPC 永远是红蘑菇。
 - `SkinCatalog.PATHS` 是显式路径表（不用扫目录，导出包不可靠）。加一顶皮肤 = 加一个 `.tres` + 一条 PATHS。
-- 帽子、脸、斑点、头顶零件的位置全部挂在 `cap_radius` / `cap_height` / `cap_base()` / `cap_top()` 上，改帽子尺寸不要写死坐标。
+- 帽子、脸、斑点、头顶零件的位置全部挂在 `cap_radius` / `cap_height` / `cap_base()` / `top()` 上，改帽子尺寸不要写死坐标。小游戏里的进度条、色块高度也按 `top()` 算。
 - 非平凡逻辑先写测试，能抽纯函数的抽成 `static func`。
 - 提交信息用中文。

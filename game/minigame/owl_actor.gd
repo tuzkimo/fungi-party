@@ -41,11 +41,10 @@ func setup(cap_color: Color, yaw: float) -> void:
 	_pivot.add_child(_body)
 
 
-## 穿戴了皮肤时，座位上的自己也换色换斑点（教室那套做法）。
-func apply_skin(skin: MushroomSkin) -> void:
-	_cap_color = skin.tint_cap
-	_body.use_skin(skin)
-	_body.build()
+## 座位上的自己跟玩家穿的、选的一致（教室那套做法）。
+func apply_saved_look() -> void:
+	_body.use_saved_look()
+	_cap_color = _body.tint_cap
 
 
 func apply(score: int, open: bool, out: bool, delta: float) -> void:
@@ -68,5 +67,4 @@ func apply(score: int, open: bool, out: bool, delta: float) -> void:
 
 ## 落点：菌盖尖的正上方（每帧问，跟着仰头动）。
 func mouth_point() -> Vector3:
-	var tip := _body.body_height - 0.05 + _body.cap_height
-	return _pivot.to_global(Vector3(0.0, tip * BODY_SCALE + 0.10, 0.0))
+	return _pivot.to_global(Vector3(0.0, _body.top() * BODY_SCALE + 0.10, 0.0))

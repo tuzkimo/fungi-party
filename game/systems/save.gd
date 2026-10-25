@@ -28,6 +28,7 @@ static func read(path: String = PATH) -> Dictionary:
 		"coins": int(cfg.get_value(SECTION, "coins", 0)),
 		"owned": owned,
 		"equipped": equipped,
+		"character": str(cfg.get_value(SECTION, "character", BodyCatalog.DEFAULT_ID)),
 		"pity": int(cfg.get_value(SECTION, "pity", 0)),
 		"stamina": int(cfg.get_value(SECTION, "stamina", Config.STAMINA_MAX)),
 		"meals": int(cfg.get_value(SECTION, "meals", 0)),
@@ -64,6 +65,14 @@ static func equip(skin_id: String, path: String = PATH) -> bool:
 	if skin_id != "" and not (data["owned"] as PackedStringArray).has(skin_id):
 		return false
 	write(path, {"equipped": skin_id})
+	return true
+
+
+## 换角色：id 必须在 BodyCatalog 里，否则不写盘。
+static func set_character(id: String, path: String = PATH) -> bool:
+	if not BodyCatalog.BODIES.has(id):
+		return false
+	write(path, {"character": id})
 	return true
 
 

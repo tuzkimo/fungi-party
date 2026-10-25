@@ -29,10 +29,9 @@ func _ready() -> void:
 	apply_skin()
 
 
-## 按存档把外观刷成「戴着的那个皮肤」；没戴就回到默认配色。
+## 按存档把外观刷成「戴着的皮肤 + 选的角色」；没戴就回到默认配色。
 func apply_skin() -> void:
-	_visual.use_skin(SkinCatalog.by_id(str(Save.read()["equipped"])))
-	_visual.build()
+	_visual.use_saved_look()
 
 
 func _find_touch() -> void:

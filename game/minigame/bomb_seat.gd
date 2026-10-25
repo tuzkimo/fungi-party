@@ -5,7 +5,8 @@ extends Node3D
 ## 只负责「看起来怎样」，规则全在 BombRound。
 
 const OFFSETS := [Vector3(0, 0, 1), Vector3(-1, 0, 0), Vector3(0, 0, -1), Vector3(1, 0, 0)]
-const MARK_Y := 2.0
+## 色块高度按角色头顶算（红蘑菇 1.81 → 2.0），换体型不会穿模。
+const MARK_RATIO := 1.10
 const MARK_RISE := 0.32
 const DEAD_SCALE := 0.55
 const DEAD_CAP := Color(0.32, 0.31, 0.33)
@@ -13,6 +14,7 @@ const DEAD_BODY := Color(0.40, 0.39, 0.41)
 
 var _mesh: MushroomMesh
 var _mark: MeshInstance3D
+var _mark_y := 0.0
 var _phase := 0.0
 var _shown_alive := true
 
@@ -30,14 +32,11 @@ func _ready() -> void:
 
 ## use_saved_skin 只有玩家座位传 true：读了皮肤就照存档换配色。（use_skin 不 build，等别处 build）
 func setup(color: Color, use_saved_skin: bool) -> void:
-	var skin: MushroomSkin = null
-	if use_saved_skin:
-		skin = SkinCatalog.by_id(str(Save.read()["equipped"]))
-
 	_mesh = MushroomMesh.new()
 	_mesh.name = "Body"
-	_mesh.use_skin(skin)
-	if skin == null:
+	if use_saved_skin:
+		_mesh.use_saved_look()
+	else:
 		_mesh.tint_cap = color
 	add_child(_mesh)
 
@@ -56,7 +55,8 @@ func setup(color: Color, use_saved_skin: bool) -> void:
 	mat.emission_energy_multiplier = 0.7
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_mark.material_override = mat
-	_mark.position = Vector3(0.0, MARK_Y, 0.0)
+	_mark_y = _mesh.top() * MARK_RATIO
+	_mark.position = Vector3(0.0, _mark_y, 0.0)
 	add_child(_mark)
 
 
@@ -80,7 +80,7 @@ func apply(hurried: float, alive: bool, delta: float) -> void:
 	_mesh.scale = Vector3(1.0 / breath, breath, 1.0 / breath)
 	_mesh.rotation.x = deg_to_rad(-8.0) * hurried * (0.6 + 0.4 * wave)
 	_mark.visible = true
-	_mark.position.y = MARK_Y + MARK_RISE * hurried * (0.5 + 0.5 * wave)
+	_mark.position.y = _mark_y + MARK_RISE * hurried * (0.5 + 0.5 * wave)
 
 
 func _grey_out() -> void:

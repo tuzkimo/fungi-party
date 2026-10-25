@@ -8,17 +8,21 @@ const TINTS := [
 	Color(0.90, 0.22, 0.20), Color(0.35, 0.78, 0.80), Color(0.95, 0.80, 0.30), Color(0.65, 0.45, 0.85)
 ]
 const BODY_SCALE := 0.9
-const BAR_Y := 2.1
+## 条和「!」挂在角色头顶上方：按 top() 的比例算（红蘑菇 1.63 → 2.1 / 2.4），换体型不穿模。
+const BAR_RATIO := 1.29
 const BAR_WIDTH := 1.0
 const BAR_HEIGHT := 0.14
-const MARK_Y := 2.4
+const MARK_RATIO := 1.47
 
 var index := 0
 
 var _body: MushroomMesh
 var _fill: MeshInstance3D
+var _bar_back: MeshInstance3D
 var _fill_mesh: QuadMesh
 var _mark: MeshInstance3D
+var _bar_y := 0.0
+var _mark_y := 0.0
 var _bounce := 0.0
 
 
@@ -33,10 +37,14 @@ func setup(index_value: int) -> void:
 	_build_mark()
 
 
-## 座位上的自己也要跟玩家穿的皮肤一致。
-func apply_skin(skin: MushroomSkin) -> void:
-	_body.use_skin(skin)
-	_body.build()
+## 座位上的自己也要跟玩家穿的一样（体型 + 皮肤），教室只占一个座位，头顶的条不跟着变。
+func apply_saved_look() -> void:
+	_body.use_saved_look()
+	_bar_y = _body.top() * BODY_SCALE * BAR_RATIO
+	_mark_y = _body.top() * BODY_SCALE * MARK_RATIO
+	_fill.position.y = _bar_y
+	_bar_back.position.y = _bar_y
+	_mark.position.y = _mark_y
 
 
 func apply(seat: StealEat.Seat, eating: bool, delta: float, watched := false) -> void:
@@ -73,14 +81,16 @@ func _build_body() -> void:
 
 
 func _build_bar() -> void:
+	_bar_y = _body.top() * BODY_SCALE * BAR_RATIO
+	_mark_y = _body.top() * BODY_SCALE * MARK_RATIO
 	var back := QuadMesh.new()
 	back.size = Vector2(BAR_WIDTH, BAR_HEIGHT)
-	_box_mesh("BarBack", back, Vector3(0.0, BAR_Y, 0.0), _billboard(Color(0.12, 0.12, 0.12)))
+	_bar_back = _box_mesh("BarBack", back, Vector3(0.0, _bar_y, 0.0), _billboard(Color(0.12, 0.12, 0.12)))
 
 	var fill := QuadMesh.new()
 	fill.size = Vector2(BAR_WIDTH, BAR_HEIGHT)
 	_fill_mesh = fill
-	_fill = _box_mesh("BarFill", fill, Vector3(0.0, BAR_Y, 0.02), _billboard(Color(0.45, 0.90, 0.40)))
+	_fill = _box_mesh("BarFill", fill, Vector3(0.0, _bar_y, 0.02), _billboard(Color(0.45, 0.90, 0.40)))
 
 
 func _build_mark() -> void:
@@ -88,7 +98,7 @@ func _build_mark() -> void:
 	quad.size = Vector2(0.28, 0.42)
 	var material := _billboard(Color(0.95, 0.15, 0.15))
 	material.no_depth_test = true
-	_mark = _box_mesh("Mark", quad, Vector3(0.0, MARK_Y, 0.0), material)
+	_mark = _box_mesh("Mark", quad, Vector3(0.0, _mark_y, 0.0), material)
 	_mark.visible = false
 
 

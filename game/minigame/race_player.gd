@@ -38,6 +38,7 @@ func _ready() -> void:
 
 	_visual = MushroomMesh.new()
 	_visual.name = "MushroomMesh"
+	_visual.use_saved_look()
 	add_child(_visual)
 
 
