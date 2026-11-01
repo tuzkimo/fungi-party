@@ -65,10 +65,18 @@ func _ready() -> void:
 	for i in Config.NPC_GUTS.size():
 		_npcs.append(NpcSeat.new(Config.NPC_GUTS[i], randi()))
 
-	_round.humans = Party.count()
 	# 坐在座位上的玩家跟森林里长得一样（换场景后 Player 不在，座位才是「我」）
-	for seat in Party.count():
-		_seats[seat].apply_look(seat)
+	if _net == null:
+		_round.humans = Party.count()
+		for seat in Party.count():
+			_seats[seat].apply_look(seat)
+	else:
+		# 服务器那一局：人机数和座位表由服务器说了算，本地 2P 没有座位
+		_round.humans = 0
+		for seat_state in _net.session.get("seats", []):
+			if not bool((seat_state as Dictionary).get("npc", false)):
+				_round.humans += 1
+		_seats[_my_seat].apply_look(0)
 
 	_ui.again_pressed.connect(_on_again)
 	_ui.forest_pressed.connect(_on_forest)
@@ -119,7 +127,10 @@ func _net_step(delta: float) -> void:
 	var game: Dictionary = _net.session.get("game", {})
 	if not game.is_empty():
 		_countdown = float(game.get("countdown", 0.0))
-		_apply_game(game)
+		_apply_game(game, delta)
+	# 服务器收局不一定是模型判的（有人走人、掉线、到硬顶）：只在 session 上置 over，
+	# 这一格不认就会停在「时间 45」，结算面板永远不会出现
+	_round.over = _round.over or bool(_net.session.get("over", false))
 	_show_countdown(_countdown, delta)
 	# 一台上一个人：整块屏都是自己的，不用分左右半
 	_sent_press = _eat.pressing() or Input.is_action_pressed("jump")
@@ -142,7 +153,7 @@ func _show_countdown(remaining: float, delta: float) -> void:
 
 
 ## 把服务器快照写进本地这几个对象（只写不推，规则全在服务器）
-func _apply_game(game: Dictionary) -> void:
+func _apply_game(game: Dictionary, delta: float) -> void:
 	_round.time_left = float(game.get("time_left", _round.time_left))
 	_round.over = bool(game.get("over", false))
 	_round.winner = int(game.get("winner", -1))
@@ -159,7 +170,7 @@ func _apply_game(game: Dictionary) -> void:
 	_gaze.phase = int(gaze.get("phase", Gaze.Phase.AWAY))
 	_gaze.target = int(gaze.get("target", 0))
 	_gaze.time_left = float(gaze.get("left", 0.0))
-	_teacher.apply(_gaze, 0.1)
+	_teacher.apply(_gaze, delta)
 	var mine: StealEat.Seat = _round.seats[_my_seat]
 	if mine.caught > _seen_caught:
 		_seen_caught = mine.caught
@@ -187,6 +198,10 @@ func _room_seat() -> int:
 
 func _on_again() -> void:
 	_release_room()
+	if _net != null:
+		# 服务器那一局没法在本机重开：新一局要从森林重新邀请
+		get_tree().change_scene_to_file(Config.FOREST_PATH)
+		return
 	get_tree().reload_current_scene()
 
 
@@ -211,7 +226,9 @@ func _play(delta: float) -> void:
 		if Party.joined():
 			_press[1] = _eat.pressing(1)
 		for i in _npcs.size():
-			var seat_index: int = i + 1
+			var seat_index: int = _round.humans + i
+			if seat_index >= Config.SEAT_COUNT:
+				break
 			if Party.human(seat_index):
 				continue   # 这个座位是人，不喂人机
 			_press[seat_index] = _npcs[i].decide(delta, _gaze, seat_index, _round.seats[seat_index].stun > 0.0)

@@ -7,6 +7,10 @@ extends RefCounted
 ## 体力规矩是「谁玩谁付自己的」：邀请时只查发起人的，接受时再查双方的，成局那一下才各扣一次；
 ## 拒绝、过期、中途离开一分不扣。
 
+## 已经搬上服务器的几款：只有这些能开局。其余几款还在客户端跑单机逻辑，
+## 邀进去等于扣两次体力、还白占着「同时 1 房」。每搬完一款往这里加一条。
+const MODELLED: Array[String] = ["classroom"]
+
 ## kind → 开局体力。和 NetRoom.KINDS 一一对应。
 const COSTS := {
 	"classroom": Config.STAMINA_COST_CLASSROOM,
@@ -38,7 +42,7 @@ static func cost_of(kind: String) -> int:
 
 ## 发邀请：只查不动账。返回 {ok, error}。
 func invite(from: String, to: String, kind: String, online: PackedStringArray, now: float) -> Dictionary:
-	if not COSTS.has(kind):
+	if not MODELLED.has(kind):
 		return {"ok": false, "error": "kind"}
 	if to == from:
 		return {"ok": false, "error": "self"}
@@ -124,6 +128,9 @@ func tick(delta: float) -> void:
 ## 按各人的口数把币写进存档（规则在 NetRoom.payouts / 模型里，这里只搬）。
 func _settle() -> void:
 	settled = true
+	# 刚开局就被收掉的局不结账：否则「邀请 → 立刻走人」能白刷底薪那几币
+	if room.elapsed < Config.NET_SETTLE_MIN_SECONDS:
+		return
 	var payouts := room.payouts()
 	for name in payouts:
 		var save := (_read.call(str(name)) as Dictionary).duplicate(true)

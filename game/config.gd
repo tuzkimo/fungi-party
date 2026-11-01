@@ -183,5 +183,7 @@ const NET_WORLD_HZ := 10.0
 const NET_ROOM_HZ := 20.0
 ## 一条邀请活多久：发出去没人理就作废，免得几天后点了个过期邀请
 const NET_INVITE_SECONDS := 20.0
-## 一局的硬顶：二期还没有结算，到点无条件收房，别让一间废房占满「同时 1 房」
+## 一局的硬顶：到点无条件收房，别让一间废房占满「同时 1 房」
 const NET_ROOM_MAX_SECONDS := 300.0
+## 短于这个时长的局不结账：「邀请 → 立刻走人」不该挣到底薪那 10 币
+const NET_SETTLE_MIN_SECONDS := 5.0

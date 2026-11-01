@@ -36,10 +36,11 @@ func test_cost_matches_config() -> void:
 func test_invite_rejects() -> void:
 	var lobby := _lobby(_fresh())
 	check_eq(str(lobby.invite("甲", "乙", "nope", ONLINE, NOW)["error"]), "kind", "不认识的 kind")
-	check_eq(str(lobby.invite("甲", "甲", "race", ONLINE, NOW)["error"]), "self", "不能邀请自己")
-	check_eq(str(lobby.invite("甲", "丁", "race", ONLINE, NOW)["error"]), "offline", "对方不在线")
+	check_eq(str(lobby.invite("甲", "乙", "bomb", ONLINE, NOW)["error"]), "kind", "还没搬上服务器的游戏不能开局")
+	check_eq(str(lobby.invite("甲", "甲", "classroom", ONLINE, NOW)["error"]), "self", "不能邀请自己")
+	check_eq(str(lobby.invite("甲", "丁", "classroom", ONLINE, NOW)["error"]), "offline", "对方不在线")
 	var tired := {"甲": {"stamina": 5}, "乙": {"stamina": 100}}
-	check_eq(str(_lobby(tired).invite("甲", "乙", "race", ONLINE, NOW)["error"]), "stamina", "自己体力不够")
+	check_eq(str(_lobby(tired).invite("甲", "乙", "classroom", ONLINE, NOW)["error"]), "stamina", "自己体力不够")
 	check_eq(lobby.pending.size(), 0, "被拒的邀请不留下任何东西")
 
 
@@ -56,27 +57,27 @@ func test_invite_show_up_for_the_invitee() -> void:
 
 func test_invite_expires() -> void:
 	var lobby := _lobby(_fresh())
-	lobby.invite("甲", "乙", "owl", ONLINE, NOW)
+	lobby.invite("甲", "乙", "classroom", ONLINE, NOW)
 	var late := NOW + Config.NET_INVITE_SECONDS + 1.0
 	check_eq(lobby.invites_for("乙", ONLINE, late).size(), 0, "过期的邀请不再显示")
 	check_eq(lobby.pending.size(), 0, "过期的邀请被清掉")
-	lobby.invite("甲", "乙", "owl", ONLINE, NOW)
-	check_eq(str(lobby.answer("甲", "乙", "owl", true, ONLINE, late)["error"]), "expired", "过期了不能接受")
+	lobby.invite("甲", "乙", "classroom", ONLINE, NOW)
+	check_eq(str(lobby.answer("甲", "乙", "classroom", true, ONLINE, late)["error"]), "expired", "过期了不能接受")
 
 
 func test_answer_without_invite() -> void:
 	var lobby := _lobby(_fresh())
 	check_eq(str(lobby.answer("甲", "乙", "owl", true, ONLINE, NOW)["error"]), "invite", "没有邀请不能接受")
-	lobby.invite("甲", "乙", "owl", ONLINE, NOW)
-	check_eq(str(lobby.answer("丙", "乙", "owl", true, ONLINE, NOW)["error"]), "invite", "冒充别人回答")
-	check_eq(str(lobby.answer("甲", "乙", "race", true, ONLINE, NOW)["error"]), "invite", "换一款游戏回答")
+	lobby.invite("甲", "乙", "classroom", ONLINE, NOW)
+	check_eq(str(lobby.answer("丙", "乙", "classroom", true, ONLINE, NOW)["error"]), "invite", "冒充别人回答")
+	check_eq(str(lobby.answer("甲", "乙", "owl", true, ONLINE, NOW)["error"]), "invite", "换一款游戏回答")
 
 
 func test_answer_declined_costs_nothing() -> void:
 	var saves := _fresh()
 	var lobby := _lobby(saves)
-	lobby.invite("甲", "乙", "bomb", ONLINE, NOW)
-	var r := lobby.answer("甲", "乙", "bomb", false, ONLINE, NOW)
+	lobby.invite("甲", "乙", "classroom", ONLINE, NOW)
+	var r := lobby.answer("甲", "乙", "classroom", false, ONLINE, NOW)
 	check(bool(r["ok"]), "拒绝也是一次合法回答")
 	check_eq(bool(r["result"]["accepted"]), false, "回执说没成局")
 	check(lobby.room == null, "拒绝不成局")
@@ -87,14 +88,14 @@ func test_answer_declined_costs_nothing() -> void:
 func test_answer_starts_and_charges_both() -> void:
 	var saves := _fresh()
 	var lobby := _lobby(saves)
-	lobby.invite("甲", "乙", "owl", ONLINE, NOW)
-	var r := lobby.answer("甲", "乙", "owl", true, ONLINE, NOW)
+	lobby.invite("甲", "乙", "classroom", ONLINE, NOW)
+	var r := lobby.answer("甲", "乙", "classroom", true, ONLINE, NOW)
 	check(bool(r["ok"]), "接受成局")
 	check(lobby.room != null, "有一间房了")
-	check_eq(lobby.room.kind, "owl", "房是猫头鹰")
+	check_eq(lobby.room.kind, "classroom", "房是教室")
 	check_eq(lobby.room.seat_of("甲"), 0, "发起的坐 0 号")
 	check_eq(lobby.room.seat_of("乙"), 1, "接受的坐 1 号")
-	var cost := Config.STAMINA_COST_OWL
+	var cost := Config.STAMINA_COST_CLASSROOM
 	var out := r["saves"] as Dictionary
 	check_eq(int((out["甲"] as Dictionary)["stamina"]), 100 - cost, "邀请方扣自己的")
 	check_eq(int((out["乙"] as Dictionary)["stamina"]), 100 - cost, "被邀请方扣自己的")
@@ -105,22 +106,22 @@ func test_answer_starts_and_charges_both() -> void:
 func test_answer_needs_stamina_at_the_moment() -> void:
 	var saves := _fresh()
 	var lobby := _lobby(saves)
-	lobby.invite("甲", "乙", "owl", ONLINE, NOW)
+	lobby.invite("甲", "乙", "classroom", ONLINE, NOW)
 	saves["乙"]["stamina"] = 3
-	check_eq(str(lobby.answer("甲", "乙", "owl", true, ONLINE, NOW)["error"]), "stamina", "接受时不够就进不去")
+	check_eq(str(lobby.answer("甲", "乙", "classroom", true, ONLINE, NOW)["error"]), "stamina", "接受时不够就进不去")
 	check(lobby.room == null, "不成局")
 	check_eq(int(saves["甲"]["stamina"]), 100, "没成局不扣体力")
 	saves["乙"]["stamina"] = 100
-	lobby.invite("甲", "乙", "owl", ONLINE, NOW)
+	lobby.invite("甲", "乙", "classroom", ONLINE, NOW)
 	saves["甲"]["stamina"] = 1
-	check_eq(str(lobby.answer("甲", "乙", "owl", true, ONLINE, NOW)["error"]), "stamina", "邀请方中间花掉了也进不去")
+	check_eq(str(lobby.answer("甲", "乙", "classroom", true, ONLINE, NOW)["error"]), "stamina", "邀请方中间花掉了也进不去")
 	check(lobby.room == null, "不成局")
 
 
 func test_answer_inviter_gone() -> void:
 	var lobby := _lobby(_fresh())
-	lobby.invite("甲", "乙", "race", ONLINE, NOW)
-	check_eq(str(lobby.answer("甲", "乙", "race", true, PackedStringArray(["乙"]), NOW)["error"]), "offline", "邀请方掉线不能成局")
+	lobby.invite("甲", "乙", "classroom", ONLINE, NOW)
+	check_eq(str(lobby.answer("甲", "乙", "classroom", true, PackedStringArray(["乙"]), NOW)["error"]), "offline", "邀请方掉线不能成局")
 	check(lobby.room == null, "不成局")
 
 
@@ -145,16 +146,16 @@ func test_formation_voids_other_invites() -> void:
 
 func test_leaving_clears_invites() -> void:
 	var lobby := _lobby(_fresh())
-	lobby.invite("甲", "乙", "race", ONLINE, NOW)
-	lobby.invite("乙", "甲", "race", ONLINE, NOW)
+	lobby.invite("甲", "乙", "classroom", ONLINE, NOW)
+	lobby.invite("乙", "甲", "classroom", ONLINE, NOW)
 	lobby.leave("甲")
 	check_eq(lobby.pending.size(), 0, "掉线的人发出的和收到的邀请都作废")
 
 
 func test_leaving_ends_the_room() -> void:
 	var lobby := _lobby(_fresh())
-	lobby.invite("甲", "乙", "bomb", ONLINE, NOW)
-	lobby.answer("甲", "乙", "bomb", true, ONLINE, NOW)
+	lobby.invite("甲", "乙", "classroom", ONLINE, NOW)
+	lobby.answer("甲", "乙", "classroom", true, ONLINE, NOW)
 	lobby.leave("乙")
 	check(lobby.room != null, "房里的人掉线房还在（等人机顶上）")
 	check_eq(lobby.room.over, true, "但这一局已经收了")
@@ -186,6 +187,7 @@ func test_round_settles_the_coins_once() -> void:
 	var round: ClassroomRound = lobby.room.model
 	round.eat.seats[0].bites = 3
 	round.eat.winner = 0
+	lobby.tick(Config.NET_SETTLE_MIN_SECONDS + 1.0)
 	lobby.leave("乙")
 	lobby.tick(0.1)
 	var earned := Config.COIN_BASE + Config.COIN_PER_BITE * 3 + Config.COIN_WIN_BONUS
@@ -195,12 +197,14 @@ func test_round_settles_the_coins_once() -> void:
 	check(lobby.settled, "记下已经结过账了")
 
 
-## 不是教室（还没搬上服务器）的局没有模型，不收钱也不算账。
-func test_unmodelled_room_settles_nothing() -> void:
+## 刚开局就散伙不结账：「邀请 → 立刻走人」不能白刷底薪。
+func test_aborted_round_pays_nothing() -> void:
 	var saves := _fresh()
 	var lobby := _lobby(saves)
-	lobby.invite("甲", "乙", "race", ONLINE, NOW)
-	lobby.answer("甲", "乙", "race", true, ONLINE, NOW)
+	lobby.invite("甲", "乙", "classroom", ONLINE, NOW)
+	lobby.answer("甲", "乙", "classroom", true, ONLINE, NOW)
+	lobby.tick(0.2)
+	lobby.leave("乙")
 	lobby.tick(0.1)
-	check(lobby.room != null, "房还在")
-	check_eq(int(saves["甲"]["coins"]), 0, "没搬的游戏不结账")
+	check_eq(int(saves["甲"]["coins"]), 0, "一秒都不到的局不结账")
+	check(lobby.settled, "但还是记下结过账了")
