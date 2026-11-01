@@ -113,6 +113,11 @@ func _process(_delta: float) -> void:
 func _refresh() -> void:
 	var data := Save.read()
 	_stamina.text = "体力 %d/%d" % [int(data["stamina"]), Config.STAMINA_MAX]
+	# 联机一天只能睡一次（服务器判，这里只是置灰）
+	var net := Save.remote as NetClient
+	var slept := net != null and net.slept_today()
+	_sleep.disabled = slept
+	_sleep.text = "今天睡过了" if slept else "睡到早上"
 	_sync_seats()
 	var look := Party.look(_seat)
 	var character_key := "%d|%s" % [_seat, str(look["body"])]

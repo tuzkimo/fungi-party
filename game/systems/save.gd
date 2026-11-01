@@ -26,6 +26,8 @@ static func defaults() -> Dictionary:
 		"meals": 0,
 		"day": 1,
 		"day_time": Config.MORNING_TIME,
+		# 睡过的日序号（-1 = 没睡过）：日子归服务器世界时钟，老存档读不到就是 -1
+		"slept_day": -1,
 	}
 
 
@@ -42,6 +44,7 @@ static func normalize(raw: Dictionary) -> Dictionary:
 	data["meals"] = int(raw.get("meals", 0))
 	data["day"] = int(raw.get("day", 1))
 	data["day_time"] = float(raw.get("day_time", Config.MORNING_TIME))
+	data["slept_day"] = int(raw.get("slept_day", -1))
 	return data
 
 
@@ -78,11 +81,9 @@ static func read(path: String = PATH) -> Dictionary:
 
 
 ## 只改传入的键：先 load 再 set，别让买皮肤顺手把体力和天色抹回缺省。
-## 联机模式下只有天色是本机说了算的（世界时钟到三期才收到服务器上）。
+## 联机模式下不写盘：所有改动都得走 op（天色也归服务器世界时钟）。
 static func write(path: String, data: Dictionary) -> void:
 	if remote != null:
-		if data.has("day_time"):
-			remote.call("push_day_time", float(data["day_time"]))
 		return
 	var cfg := ConfigFile.new()
 	cfg.load(path)

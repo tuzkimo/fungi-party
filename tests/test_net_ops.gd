@@ -92,19 +92,37 @@ func test_add_coins_bounds() -> void:
 	check_eq(int(NetOps.apply(_fresh({"coins": 10}), "add_coins", {"amount": 20})["data"]["coins"]), 30, "照实加")
 
 
-func test_day_time_only_moves_forward() -> void:
-	var late := _fresh({"day_time": 0.7})
-	check_eq(float(NetOps.apply(late, "patch_day_time", {"t": 0.4})["data"]["day_time"]), 0.7, "天色不倒退")
-	check(absf(float(NetOps.apply(_fresh(), "patch_day_time", {"t": 0.6})["data"]["day_time"]) - 0.6) < 0.001, "往前能推")
-	check(not bool(NetOps.apply(_fresh(), "patch_day_time", {"t": 5.0})["ok"]), "越界拒绝")
+func test_day_time_is_not_client_writable() -> void:
+	check(not NetOps.allowed("patch_day_time"), "天色归世界时钟，客户端不能再推")
 
 
-func test_sleep_rolls_over() -> void:
+func test_sleep_once_per_world_day() -> void:
 	var save := _fresh({"stamina": 12, "meals": 2, "day": 4, "day_time": 0.8})
-	var r := NetOps.apply(save, "sleep", {})
-	check(bool(r["ok"]), "能睡")
+	var r := NetOps.apply(save, "sleep", {}, {"day": 7})
+	check(bool(r["ok"]), "今天没睡过就能睡")
 	var next := r["data"] as Dictionary
 	check_eq(int(next["stamina"]), Config.STAMINA_MAX, "体力回满")
 	check_eq(int(next["meals"]), 0, "份数清零")
-	check_eq(int(next["day"]), 5, "过了一天")
-	check(absf(float(next["day_time"]) - Config.MORNING_TIME) < 0.001, "天亮了")
+	check_eq(int(next["day"]), 7, "日子跟世界时钟走")
+	check_eq(int(next["slept_day"]), 7, "记下睡过哪天")
+	check(absf(float(next["day_time"]) - 0.8) < 0.001, "天色归世界时钟，睡觉不动它")
+
+	var again := NetOps.apply(next, "sleep", {}, {"day": 7})
+	check(not bool(again["ok"]), "同一天不能再睡")
+	check_eq(str(again.get("error", "")), "slept", "拒绝原因是 slept")
+	check(absf(float((again["data"] as Dictionary)["day_time"]) - 0.8) < 0.001, "被拒也不动天色")
+
+	check(bool(NetOps.apply(next, "sleep", {}, {"day": 8})["ok"]), "到了下一天又能睡")
+
+
+## 日子是服务器注入的：客户端在 args 里塞一个 day 不算数
+func test_sleep_reads_the_world_day_not_the_args() -> void:
+	var r := NetOps.apply(_fresh({"day": 4}), "sleep", {"day": 99}, {"day": 7})
+	check_eq(int((r["data"] as Dictionary)["day"]), 7, "日子来自世界，不来自客户端")
+
+
+## 老存档没有 slept_day：读成 -1，第一天就能睡
+func test_old_save_can_sleep_on_day_one() -> void:
+	var r := NetOps.apply(_fresh(), "sleep", {}, {"day": 1})
+	check(bool(r["ok"]), "没睡过就能睡")
+	check(bool(NetOps.slept_today(r["data"] as Dictionary, 1)), "slept_today 认得出")

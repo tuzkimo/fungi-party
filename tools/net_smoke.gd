@@ -49,6 +49,17 @@ func _run() -> void:
 		_die("睡觉没回体力")
 	print("睡觉之后 体力 %d 第 %d 天" % [int(_client.data["stamina"]), int(_client.data["day"])])
 
+	# 世界时钟一天只能睡一次：第二次得被拒，但照样得回 OP_RESULT（不回就 timeout 掉线）
+	var day_before := int(_client.data["day"])
+	await _op("sleep", {})
+	if bool(_client.last_result.get("ok", true)):
+		_die("同一天睡了第二次")
+	if str(_client.last_result.get("error", "")) != "slept":
+		_die("第二次睡觉的拒绝原因不对：%s" % str(_client.last_result.get("error", "")))
+	if int(_client.data["day"]) != day_before:
+		_die("被拒的睡觉改了天数：%d -> %d" % [day_before, int(_client.data["day"])])
+	print("同一天再睡被拒（error: slept），天数还是 %d" % day_before)
+
 	var coins_before := int(_client.data["coins"])
 	var owned_before := (_client.data["owned"] as PackedStringArray).size()
 	_client.close()

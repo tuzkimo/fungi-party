@@ -16,3 +16,15 @@ func test_take_events_without_a_game_is_empty() -> void:
 	var client := NetClient.new()
 	check_eq(client.take_events().size(), 0, "没有局内快照就是空的")
 	client.free()
+
+
+## 帐篷的置灰和服务器那道门槛看同一个东西：slept_day 对世界时钟的今天
+func test_slept_today_follows_the_world_day() -> void:
+	var client := NetClient.new()
+	check(not client.slept_today(), "镜像还没下来就是没睡过")
+	client.data = Save.normalize({"slept_day": 3})
+	client.day = 3
+	check(client.slept_today(), "同一天算睡过")
+	client.day = 4
+	check(not client.slept_today(), "第二天又没睡过")
+	client.free()

@@ -15,8 +15,16 @@ func test_old_save_gets_defaults() -> void:
 	check_eq(d.stamina, 100, "老存档默认满体力")
 	check_eq(d.meals, 0, "老存档没吃过饭")
 	check_eq(d.day, 1, "老存档是第一天")
+	check_eq(d.slept_day, -1, "老存档没睡过（实得 %s）" % d.slept_day)
 	check(absf(d.day_time - 0.28) < 0.001, "老存档在清晨（实得 %.3f）" % d.day_time)
 	_clean()
+
+
+## slept_day 不落本机盘（睡几号归服务器），归一化照旧得给个 -1，别丢掉这个键
+func test_slept_day_roundtrips_through_normalize() -> void:
+	check_eq(int(Save.defaults()["slept_day"]), -1, "缺省是没睡过")
+	check_eq(int(Save.normalize({})["slept_day"]), -1, "空存档读成 -1")
+	check_eq(int(Save.normalize({"slept_day": 9})["slept_day"]), 9, "服务器那份读得回来")
 
 
 func test_partial_write_keeps_other_fields() -> void:

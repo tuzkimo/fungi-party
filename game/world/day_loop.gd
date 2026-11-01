@@ -24,6 +24,8 @@ var _fade: ColorRect
 var _sunset := -1.0
 var _sunset_from := 0.0
 var _save_timer := 0.0
+## 联机时体力/份数也是服务器的：每条 op 回包后重新读一次镜像（晚上睡觉的体力就靠它落地）
+var _net_wired := false
 
 
 func _ready() -> void:
@@ -49,38 +51,60 @@ func _process(delta: float) -> void:
 	if sleeping:
 		return
 
-	if Day.exhausted(stamina):
-		# 见底：太阳不再按体力算，压到落山后就停在那儿
-		if _sunset < 0.0:
-			_sunset = 0.0
-			_sunset_from = time_of_day
-		_sunset = minf(_sunset + delta, SUNSET_SECONDS)
-		time_of_day = maxf(time_of_day, lerpf(_sunset_from, Config.NIGHT_TIME, _sunset / SUNSET_SECONDS))
+	if Save.online():
+		# 联机：天色归服务器世界时钟（体力只决定能不能开局），也不往本机写天色
+		_sync_clock()
 	else:
-		_sunset = -1.0
-		time_of_day = Day.advance_time(time_of_day, stamina)
+		if Day.exhausted(stamina):
+			# 见底：太阳不再按体力算，压到落山后就停在那儿
+			if _sunset < 0.0:
+				_sunset = 0.0
+				_sunset_from = time_of_day
+			_sunset = minf(_sunset + delta, SUNSET_SECONDS)
+			time_of_day = maxf(time_of_day, lerpf(_sunset_from, Config.NIGHT_TIME, _sunset / SUNSET_SECONDS))
+		else:
+			_sunset = -1.0
+			time_of_day = Day.advance_time(time_of_day, stamina)
+		_save_timer += delta
+		if _save_timer >= Config.DAY_SAVE_INTERVAL:
+			_save_timer = 0.0
+			Save.set_day_time(time_of_day)
 	_push_time()
-
-	_save_timer += delta
-	if _save_timer >= Config.DAY_SAVE_INTERVAL:
-		_save_timer = 0.0
-		Save.set_day_time(time_of_day)
 
 
 ## 体力可能被吃饭改掉：改动的面板负责调这里，不在这里轮询。
 ## 天色拿存档里的水位当前提——不能用成员 time_of_day，那会把 0.71 盖回 0.28。
 func refresh() -> void:
+	var net := Save.remote as NetClient
+	if net != null and not _net_wired:
+		_net_wired = true
+		net.changed.connect(refresh)
 	var data := Save.read()
 	stamina = int(data["stamina"])
 	meals = int(data["meals"])
 	day = int(data["day"])
-	time_of_day = Day.advance_time(float(data["day_time"]), stamina)
+	if Save.online():
+		_sync_clock()
+	else:
+		time_of_day = Day.advance_time(float(data["day_time"]), stamina)
 	_push_time()
 	changed.emit()
 
 
+## 联机的天色只有一份：服务器 WORLD 里那份（本机不自己推）
+func _sync_clock() -> void:
+	var net := Save.remote as NetClient
+	time_of_day = net.clock if net != null else Config.MORNING_TIME
+
+
+## 联机一天只能睡一次：门槛在服务器上，这里不去演一遍必然被拒的睡觉
+func _slept_today() -> bool:
+	var net := Save.remote as NetClient
+	return net != null and net.slept_today()
+
+
 func sleep() -> void:
-	if sleeping:
+	if sleeping or _slept_today():
 		return
 	sleeping = true
 	changed.emit()
@@ -108,7 +132,9 @@ func sleep() -> void:
 	await _fade_to(1.0, FADE_IN)
 
 	Save.rollover()
-	time_of_day = Config.MORNING_TIME
+	# 联机时天色归世界时钟：睡觉只回体力，不把太阳拨回早上
+	if not Save.online():
+		time_of_day = Config.MORNING_TIME
 	refresh()
 
 	if tent != null:

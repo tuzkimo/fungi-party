@@ -9,7 +9,7 @@ class_name NetOps
 ## shortcut: 一期允许 add_coins，因为四款小游戏还在客户端跑（结算得有个去处）。
 ## 二期小游戏搬到服务器之后必须把它从这里删掉，否则谁都能自己加币。
 const CLIENT_OPS: Array[String] = [
-	"pull", "meal", "spend_stamina", "equip", "set_character", "add_coins", "patch_day_time", "sleep",
+	"pull", "meal", "spend_stamina", "equip", "set_character", "add_coins", "sleep",
 ]
 
 ## 一期客户端上报的单次收益上限：最大的赛跑冠军是 70 币，留一倍余量
@@ -21,7 +21,8 @@ static func allowed(op: String) -> bool:
 
 
 ## 返回 {ok, data, result, error}。data 是新的一份存档（不原地改调用方的字典）。
-static func apply(data: Dictionary, op: String, args: Dictionary) -> Dictionary:
+## `world` 是服务器注入的世界状态（`{"day": int}`）：客户端说不了算，缺省就按存档自己的日子。
+static func apply(data: Dictionary, op: String, args: Dictionary, world: Dictionary = {}) -> Dictionary:
 	if not allowed(op):
 		return {"ok": false, "data": data, "error": "op"}
 	var save := Save.normalize(data)
@@ -38,10 +39,8 @@ static func apply(data: Dictionary, op: String, args: Dictionary) -> Dictionary:
 			return _set_character(save, args)
 		"add_coins":
 			return _add_coins(save, args)
-		"patch_day_time":
-			return _patch_day_time(save, args)
 		"sleep":
-			return _sleep(save)
+			return _sleep(save, world)
 	return {"ok": false, "data": save, "error": "op"}
 
 
@@ -108,21 +107,18 @@ static func _add_coins(save: Dictionary, args: Dictionary) -> Dictionary:
 	return {"ok": true, "data": save}
 
 
-## 天色只前进不后退（和 Day.advance_time 一个规矩），联机时这条是客户端唯一能碰的场面状态。
-static func _patch_day_time(save: Dictionary, args: Dictionary) -> Dictionary:
-	var t := float(args.get("t", -1.0))
-	if t < Config.MORNING_TIME or t > Config.DAYTIME_MAX_T + 0.2:
-		return {"ok": false, "data": save, "error": "args"}
-	save["day_time"] = maxf(float(save["day_time"]), t)
-	return {"ok": true, "data": save}
+## 今天睡过了没有：服务器判进出、帐篷照这条置灰，别在两处各写一遍。
+static func slept_today(save: Dictionary, world_day: int) -> bool:
+	return int(save.get("slept_day", -1)) == world_day
 
 
-## shortcut: 一期没有世界时钟，睡觉还能随时睡（跟单机一样）。
-## 三期接上世界时钟后要加「一天一次」，否则体力门槛失效。
-static func _sleep(save: Dictionary) -> Dictionary:
-	var r := Day.rollover(int(save["day"]))
-	save["stamina"] = int(r["stamina"])
-	save["meals"] = int(r["meals"])
-	save["day"] = int(r["day"])
-	save["day_time"] = float(r["day_time"])
+## 一天一次：日子归世界时钟（`world.day`），天色也归它，所以只回体力、清份数，不动 `day_time`。
+static func _sleep(save: Dictionary, world: Dictionary) -> Dictionary:
+	var today := int(world.get("day", int(save["day"])))
+	if slept_today(save, today):
+		return {"ok": false, "data": save, "error": "slept"}
+	save["stamina"] = Config.STAMINA_MAX
+	save["meals"] = 0
+	save["slept_day"] = today
+	save["day"] = today
 	return {"ok": true, "data": save}

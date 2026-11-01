@@ -55,6 +55,28 @@ func test_current_character_button_is_disabled() -> void:
 	panel.free()
 
 
+## 联机一天只能睡一次：睡过了按钮就置灰（服务器那道门槛在 test_net_ops 里另测）。
+## `Save.remote` 是静态的，测完一定要还原，否则后面的用例会以为自己在联机。
+func test_sleep_button_greys_out_after_sleeping_today() -> void:
+	var net := NetClient.new()
+	net.data = Save.normalize({"slept_day": 3})
+	net.day = 3
+	Save.remote = net
+	var panel := _open_panel()
+	panel._refresh()
+	check(panel._sleep.disabled, "今天睡过了就按不动")
+	check_eq(panel._sleep.text, "今天睡过了", "按钮写明原因")
+
+	net.day = 4
+	panel._refresh()
+	check(not panel._sleep.disabled, "到了下一天又能睡")
+	check_eq(panel._sleep.text, "睡到早上", "按钮恢复")
+
+	Save.remote = null
+	panel.free()
+	net.free()
+
+
 ## 二号位加入后，帐篷里选「2P」换的是他那个人的形象（不写盘）。
 func test_seat_switch_targets_the_second_player() -> void:
 	Party.join("red", "")

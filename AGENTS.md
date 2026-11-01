@@ -19,7 +19,9 @@
   成局后两边各收一份 `SESSION` 换场景，局内输入走 `INPUT`、局内快照 20 Hz 回推。
   **教室、传炸弹、猫头鹰、赛跑已搬上服务器**（`game/minigame/classroom_round.gd` / `bomb_round.gd` / `owl_round.gd` / `race_round.gd`，结算在服务器）。
   **邀请的 UI 已通**：森林右上角「邀请」列出世界里的人、挑一款发邀请，别人邀请我时屏幕底下弹一条接受/拒绝
-  （`game/ui/invite_panel.gd`，只发信号，发 op 在 `main.gd`）。**还没做**：睡觉一天一次。
+  （`game/ui/invite_panel.gd`，只发信号，发 op 在 `main.gd`）。
+  **睡觉一天一次已通**：天色改由服务器世界时钟给（`game/net/clock.gd`，一天 = 真实 4 小时，`WORLD` 里带 `day`），
+  睡觉只回体力不再拨太阳，`slept_day` 记在世界时钟的那一天，同一天再睡服务器回 `error: "slept"`、帐篷按钮置灰。
   接手联机先读 `docs/superpowers/plans/2026-10-25-v7-handoff.md`（现状、约束、下一步、坑都在那一份里）。
 - v5：角色可换 —— 红蘑菇之外加了海鲜菇（细长杆 + 小扁帽 + 四根黑棍手脚 + 腮红，按 `refs/海鲜菇角色设计图.png`），帐篷里免费换；体型与皮肤解耦，15 顶皮肤两个角色都能戴
 - 场景：`game/world/` 森林与 POI、`game/minigame/` 教室/赛跑/传炸弹/猫头鹰喂食、`game/skins/` 15 顶皮肤数据（`.tres`）与 `catalog.gd` 总表、`game/player/body/` 角色体型（红蘑菇 / 海鲜菇，`catalog.gd` 总表）、`game/ui/` HUD 与浮层
@@ -70,7 +72,10 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
   「跳」不是物理而是「y 高过矮栏（`RaceField.LOW_HEIGHT`）就跨过去」，高栏照撞。别再往赛跑里塞 `CharacterBody3D`。
 - 赛跑一局的座位 / 倒数 / 冲线 / 币都在 `RaceRound`：本机 tick 它，服务器那一局只把快照写进去再照旧渲染。
   真人输入分两种形状 —— 横移按着（`steer`），跳跃 / 冲刺点一下（`jump` / `dash` 立刻进模型，不排到 tick）。
-- 体力与天色只有 `game/systems/day.gd` 一套公式；别处不许再算天色。扣体力只在小游戏 `_ready` 一处。
+- 体力与天色的公式只有 `game/systems/day.gd` 一套：单机的天色由体力派生；联机时天色归服务器的世界时钟
+  （`game/net/clock.gd`，`DayLoop` 只读 `NetClient.clock`，不自己推、不落本机盘）。别处不许再算天色。扣体力只在小游戏 `_ready` 一处。
+- 睡几号归服务器：`slept_day` 是账号字段，日子来自世界时钟（`NetOps.apply` 的 `world` 参数由服务器注入，客户端说不了算）。
+  UI 置灰走 `NetClient.slept_today()`，和服务器那道门槛是同一个判断，别各写一遍。
 - 皮肤外观只有一个入口 `MushroomMesh.use_skin()`；存档里的皮肤 id 一律走 `SkinCatalog.by_id()`，查不到就回落默认外观。
 - 体型只有一套入口：`MushroomMesh` 是门面，几何在 `game/player/body/`（基类 `mushroom_body.gd` + 每体型一个子类）。加角色 = 加一个 `body_xxx.gd` + `BodyCatalog` 一条，别往 `build()` 里加 if。
 - 零件的坐标基准是红帽（半径 0.70）：横向一律 `×(cap_radius/0.70)`、帽上的纵向跟 `cap_height`、披风从帽底挂到腰。新零件照这个写，否则换个体型就埋进杆里或飘在空中。

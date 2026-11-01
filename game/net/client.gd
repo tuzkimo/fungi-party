@@ -34,6 +34,8 @@ var last_result := {}
 var world := {}
 ## 服务器给的世界时钟（0~1 的一天）
 var clock := Config.MORNING_TIME
+## 世界上第几天：服务器给，睡觉的「一天一次」和帐篷的置灰都看它
+var day := 1
 ## 谁在邀请我：[{from, kind}]，跟着 WORLD 一起来
 var invites := []
 ## 我所在的这一局（服务器发的快照）；空 = 不在局里
@@ -125,9 +127,9 @@ func seat_index() -> int:
 	return 0
 
 
-## 天色：联机时天色由服务器采纳，`Save.write()` 在镜像模式下只推这一个字段。
-func push_day_time(t: float) -> void:
-	request("patch_day_time", {"t": t})
+## 今天睡过了没有：`slept_day` 归服务器，今天是第几天归世界时钟
+func slept_today() -> bool:
+	return NetOps.slept_today(mirror(), day)
 
 
 ## 局内输入：和 send_move 一样走独立通道，不排 op 队列——输入比 op 新，堵在后面就是白加延迟。
@@ -191,6 +193,7 @@ func _drain() -> void:
 				world.erase(str(body.get("me", player_name)))
 				world.erase("%s|1" % str(body.get("me", player_name)))
 				clock = float(body.get("clock", clock))
+				day = int(body.get("day", day))
 				invites = body.get("invites", [])
 				world_changed.emit()
 			NetProtocol.Msg.SESSION:

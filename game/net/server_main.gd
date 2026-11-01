@@ -21,8 +21,8 @@ var _sessions := {}
 ## 邀请配对 + 同时只开一间房
 var _lobby: NetLobby = null
 var _room_timer := 0.0
-## 世界时钟（三分之一个真实日）：天色由它给，三期接上客户端
-var _world_clock := Config.MORNING_TIME
+## 世界时钟：走一圈 day + 1，天色由它给（不再由体力派生）
+var _clock := NetClock.new()
 var _world_timer := 0.0
 
 
@@ -56,6 +56,7 @@ func _process(_delta: float) -> bool:
 		var from := _peer.get_packet_peer()
 		_handle(from, _peer.get_packet())
 	_drop_silent_peers()
+	_clock.advance(_delta)
 	_world_timer += _delta
 	if _world_timer >= 1.0 / Config.NET_WORLD_HZ:
 		_world_timer = 0.0
@@ -152,7 +153,9 @@ func _on_op(from: int, session: Dictionary, body: Dictionary) -> void:
 	if ROOM_OPS.has(op):
 		_on_room_op(from, player_name, op, args as Dictionary)
 		return
-	var result := NetOps.apply(Accounts.read(_save_dir, player_name), op, args as Dictionary)
+	var result := NetOps.apply(
+		Accounts.read(_save_dir, player_name), op, args as Dictionary, {"day": _clock.day}
+	)
 	if bool(result["ok"]):
 		Accounts.write(_save_dir, player_name, result["data"] as Dictionary)
 	_send(from, NetProtocol.Msg.OP_RESULT, {
@@ -288,7 +291,8 @@ func _broadcast_world() -> void:
 		if not bool(session.get("authed", false)):
 			continue
 		_send(int(id), NetProtocol.Msg.WORLD, {
-			"clock": _world_clock,
+			"clock": _clock.time_of_day(),
+			"day": _clock.day,
 			"players": players,
 			"me": str(session["name"]),
 			"invites": _lobby.invites_for(str(session["name"]), _online(), _now()),
