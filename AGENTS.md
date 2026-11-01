@@ -18,7 +18,8 @@
   **邀请已通**：`invite` / `answer` 进 `game/net/lobby.gd`（同时只开一间房，谁玩谁付自己的体力），
   成局后两边各收一份 `SESSION` 换场景，局内输入走 `INPUT`、局内快照 20 Hz 回推。
   **教室已搬上服务器**（`game/minigame/classroom_round.gd`，结算在服务器）。
-  **还没做**：传炸弹 / 猫头鹰 / 赛跑搬上服务器、邀请的 UI、睡觉一天一次。
+  **邀请的 UI 已通**：森林右上角「邀请」列出世界里的人、挑一款发邀请，别人邀请我时屏幕底下弹一条接受/拒绝
+  （`game/ui/invite_panel.gd`，只发信号，发 op 在 `main.gd`）。**还没做**：传炸弹 / 猫头鹰 / 赛跑搬上服务器、睡觉一天一次。
   接手联机先读 `docs/superpowers/plans/2026-10-25-v7-handoff.md`（现状、约束、下一步、坑都在那一份里）。
 - v5：角色可换 —— 红蘑菇之外加了海鲜菇（细长杆 + 小扁帽 + 四根黑棍手脚 + 腮红，按 `refs/海鲜菇角色设计图.png`），帐篷里免费换；体型与皮肤解耦，15 顶皮肤两个角色都能戴
 - 场景：`game/world/` 森林与 POI、`game/minigame/` 教室/赛跑/传炸弹/猫头鹰喂食、`game/skins/` 15 顶皮肤数据（`.tres`）与 `catalog.gd` 总表、`game/player/body/` 角色体型（红蘑菇 / 海鲜菇，`catalog.gd` 总表）、`game/ui/` HUD 与浮层
@@ -37,6 +38,7 @@ godot --headless --path . --script res://game/net/server_main.gd -- --port 7000 
 bash scripts/net_smoke.sh                                      # 联机冒烟：起真服务器 + 客户端注册/抽卡/重连验存档
 godot --path . --script res://tools/net_login_shot.gd -- --port 7000   # 桌面看一眼启动菜单和登录（shots/login*.png）
 godot --path . --script res://tools/net_world_shot.gd -- --port 7000   # 桌面看一眼共享森林里的替身（shots/world.png）
+godot --path . --script res://tools/net_invite_shot.gd -- --port 7000   # 桌面看一眼邀请：列表 + 横幅 + 接受后进教室（shots/invite.png）
 bash scripts/deploy-server.sh fungi@你的主机                    # 导出 Linux 无头构建并部署（见 deploy/README.md）
 godot --headless --path . --export-debug "Android" build/app.apk   # 调试包，带 FPS/DRAW/TRI 信息条
 bash scripts/export-release.sh                                      # 正式签名包 build/fungi_party_<版本>_arm64.apk

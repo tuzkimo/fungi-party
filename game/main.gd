@@ -10,6 +10,7 @@ var _first: Player = null
 var _second: Player = null
 
 @onready var _join_panel: JoinPanel = $JoinPanel
+@onready var _invite_panel: InvitePanel = $InvitePanel
 @onready var _forest: Node3D = $Forest
 @onready var _start_menu: StartMenu = $StartMenu
 
@@ -23,15 +24,15 @@ var _move_timer := 0.0
 func _ready() -> void:
 	_join_panel.join_pressed.connect(_on_join)
 	_join_panel.leave_pressed.connect(_on_leave)
+	_invite_panel.invite_pressed.connect(_on_invite)
+	_invite_panel.answer_pressed.connect(_on_answer)
 	_first = Player.of_seat(get_tree(), 0)
 	_spawn_second()
 	_net = _ensure_net()
 	_net.join_room.connect(_on_join_room)
 	if _net.ready():
 		# 从小游戏转回来：联网会话还在，不用再登录
-		Save.remote = _net
-		_refresh_looks()
-		_net.world_changed.connect(_on_world)
+		_go_online()
 	else:
 		Save.remote = null
 		_start_menu.setup(_net)
@@ -50,7 +51,8 @@ func _ensure_net() -> NetClient:
 
 
 ## 服务器把我拉进一局了：换到那一款小游戏。
-## 二期先按旧的单机场景跑（房里的结算还是老的）；第 3 步起这层变成「读快照 + 上报输入」。
+## shortcut: 只有森林接 join_room —— 能「接受邀请」的也只有这里那层浮层；
+## 哪天小游戏里也能收邀请，这层得挪到常驻的 Net 上。
 func _on_join_room() -> void:
 	if _net == null:
 		return
@@ -62,9 +64,40 @@ func _on_join_room() -> void:
 
 
 func _on_online_ready() -> void:
+	_go_online()
+
+
+## 联网之后森林里才有一套：存档镜像、别人的替身、邀请浮层、服务器的消息。
+## 登录成功和从小游戏转回来都走这里。
+func _go_online() -> void:
 	Save.remote = _net
 	_refresh_looks()
 	_net.world_changed.connect(_on_world)
+	_net.changed.connect(_on_net_changed)
+	_invite_panel.set_online(true)
+	_invite_panel.sync(_net.world, _net.invites)
+
+
+func _on_invite(to: String, kind: String) -> void:
+	_invite_panel.set_status("")
+	_net.request("invite", {"to": to, "kind": kind})
+
+
+func _on_answer(from: String, kind: String, accept: bool) -> void:
+	_invite_panel.set_status("")
+	_net.request("answer", {"from": from, "kind": kind, "accept": accept})
+
+
+## 邀请被拒（体力不够 / 对方下线 / 已经有一局在开）要说一声，不然按下去像没反应。
+func _on_net_changed() -> void:
+	var op := str(_net.last_result.get("op", ""))
+	if op != "invite" and op != "answer":
+		return
+	if bool(_net.last_result.get("ok", false)):
+		if op == "invite":
+			_invite_panel.set_status("已邀请 %s，等他答应" % _invite_panel.waiting_for())
+		return
+	_invite_panel.set_status(InvitePanel.error_text(str(_net.last_result.get("error", ""))))
 
 
 ## 联网时把自己（和同屏的 2P）报上去，别人才能看见
@@ -107,6 +140,7 @@ func _on_world() -> void:
 		if not _net.world.has(key):
 			(_ghosts[key] as Node).queue_free()
 			_ghosts.erase(key)
+	_invite_panel.sync(_net.world, _net.invites)
 
 
 func _animate_ghosts(delta: float) -> void:
