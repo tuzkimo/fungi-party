@@ -130,6 +130,34 @@ func test_jump_rises_and_lands() -> void:
 	check(top > 1.0, "跳得到 1.5 米高附近（实得 %f）" % top)
 	check(absf(r.y) < 0.001, "落回地面")
 
+## 撞了还能横着挪：否则被弹回 1.5 米、硬直 0.6 秒后又正撞同一个障碍，出不来。
+func test_steering_works_while_frozen() -> void:
+	var r := _human()
+	r.freeze = 0.3
+	r.steer = 1.0
+	var z := r.z
+	r.advance(0.1, RaceField.new(1), 0.0)
+	check(absf(r.z - z) < 0.001, "硬直期间不前进")
+	check(r.x < -0.1, "但能横着挪（x=%f）" % r.x)
+
+## 松果是矮东西：跳起来能过去（旧物理版也跳得过去）。
+func test_jumping_clears_a_pinecone() -> void:
+	var f := RaceField.new(7)
+	var crossing: RaceField.Crossing = f.crossings[0]
+	crossing.kind = RaceField.SQUIRREL
+	# 松鼠丢下松果后已经走开（不然撞的是松鼠本人）
+	var elapsed := crossing.time + Config.RACE_ANIMAL_WARN + 3.2
+	var leaping := _human()
+	leaping.z = crossing.z
+	leaping.y = 1.0
+	leaping.advance(1.0 / 60.0, f, elapsed)
+	check_eq(leaping.hits, 0, "跳着越过松果")
+
+	var grounded := _human()
+	grounded.z = crossing.z
+	grounded.advance(1.0 / 60.0, f, elapsed)
+	check_eq(grounded.hits, 1, "没跳就撞上松果")
+
 func test_dash_bursts_then_cools_down() -> void:
 	var r := _human()
 	var f := RaceField.new(1)

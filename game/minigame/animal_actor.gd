@@ -2,7 +2,7 @@ class_name AnimalActor
 extends Node3D
 
 ## 横穿赛道的小动物：先出一秒地面影子（从它要进场的那一侧），再本体进场。
-## 本体是 AnimatableBody3D + hazard 组，玩家和它发生的是真实物理碰撞。
+## 赛跑里已经没有物理体了，撞击由 RaceRacer 按 RaceField 的时间表判，这里只管画。
 
 const BEETLE_COLOR := Color(0.42, 0.24, 0.18)
 const DUNG_COLOR := Color(0.24, 0.20, 0.17)
@@ -11,13 +11,12 @@ const SQUIRREL_COLOR := Color(0.72, 0.44, 0.24)
 const BELLY_COLOR := Color(0.90, 0.80, 0.66)
 const SHADOW_COLOR := Color(0.05, 0.05, 0.06, 0.45)
 const SHADOW_EDGE := 0.7
-const BLOCK_SIZE := Vector3(1.3, 1.7, 1.2)
 const OFF_STAGE_X := 100.0
 
 var _kind := RaceField.BEETLE
 var _side := 1
 var _shadow: MeshInstance3D
-var _body: AnimatableBody3D
+var _body: Node3D
 
 
 func setup(kind: int, side: int, z: float) -> void:
@@ -39,19 +38,11 @@ func setup(kind: int, side: int, z: float) -> void:
 	_shadow.position.y = 0.02
 	add_child(_shadow)
 
-	_body = AnimatableBody3D.new()
+	_body = Node3D.new()
 	_body.name = "Body"
-	_body.add_to_group("hazard")
-	# 停在赛道外：visible=false 不会关碰撞，留在原点就是一道看不见的墙
+	# 进场前停在赛道外（影子阶段只看影子）
 	_body.position.x = OFF_STAGE_X
 	add_child(_body)
-
-	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = BLOCK_SIZE
-	shape.shape = box
-	shape.position.y = BLOCK_SIZE.y * 0.5
-	_body.add_child(shape)
 
 	match _kind:
 		RaceField.DUNG:

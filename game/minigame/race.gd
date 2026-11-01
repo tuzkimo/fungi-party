@@ -27,6 +27,8 @@ var _views: Array = []
 var _cameras: Array[Camera3D] = []
 ## 这台机器负责的座位：本机 0..count()-1，服务器那一局只有自己那一个
 var _seats: Array[int] = []
+## 四个座位的颜色（自己那几格是玩家色），圆点和头顶色块共用
+var _colors: Array = []
 var _animals: Array[AnimalActor] = []
 var _dropped: Array[bool] = []
 var _touch_held: Array[bool] = []
@@ -66,12 +68,14 @@ func _ready() -> void:
 	for i in _seats.size():
 		_touch_held.append(false)
 		_dash_requested.append(false)
+	_colors = RaceUI.seat_colors(_seats)
 
 	Controls.ensure()
 	_camera = $Camera3D
 	_ui = $UI
 
 	_spawn_views()
+	_ui.set_seat_colors(_colors)
 	_build_cameras()
 
 	var course := RaceCourse.new()
@@ -223,7 +227,7 @@ func _spawn_views() -> void:
 			var rival := RacerVisual.new()
 			rival.name = "Racer%d" % seat
 			add_child(rival)
-			rival.setup(RaceUI.RIVAL_COLORS[seat % RaceUI.RIVAL_COLORS.size()])
+			rival.setup(_colors[seat])
 			rival.apply(_round.racers[seat], 0.0)
 			_views.append(rival)
 
@@ -474,7 +478,8 @@ func _room_humans() -> int:
 ## 镜头锁死朝前：只平移，不转、不抖。双人各跟自己的座位。
 func _follow_cameras() -> void:
 	for i in _seats.size():
-		var target: RaceRacer = _round.racers[_seats[i]]
+		# 跟视图而不是跟模型：联机快照 20 Hz，模型值是一跳一跳的
+		var target: Vector3 = _views[_seats[i]].position
 		if _cameras.size() == 1:
 			_cameras[0].position = Vector3(target.x, CAMERA_HEIGHT, target.z - CAMERA_BACK)
 		else:

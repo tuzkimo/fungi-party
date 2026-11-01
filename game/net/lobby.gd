@@ -139,6 +139,8 @@ func _settle() -> void:
 		var save := (_read.call(str(name)) as Dictionary).duplicate(true)
 		save["coins"] = int(save.get("coins", 0)) + int(payouts[name])
 		_write.call(str(name), save)
+	# 写完了才算「结了账」：快照里的收益和存档里的币必须是同一份
+	room.paid = true
 
 
 func _clear_invites(name: String) -> void:

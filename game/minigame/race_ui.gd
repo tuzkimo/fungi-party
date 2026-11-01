@@ -56,6 +56,25 @@ func _ready() -> void:
 	_build_pause(root)
 
 
+## 四个座位的配色：自己负责的那几个座位用玩家色，其余按顺序吃敌人色。
+## 圆点和头顶色块共用这一份，免得同一个对手两种颜色。
+static func seat_colors(mine: Array) -> Array:
+	var out: Array = []
+	var rival := 0
+	for seat in Config.SEAT_COUNT:
+		if mine.has(seat):
+			out.append(PLAYER_COLORS[mine.find(seat) % PLAYER_COLORS.size()])
+		else:
+			out.append(RIVAL_COLORS[rival % RIVAL_COLORS.size()])
+			rival += 1
+	return out
+
+
+func set_seat_colors(colors: Array) -> void:
+	for i in mini(colors.size(), _dots.size()):
+		_dots[i].color = colors[i]
+
+
 ## 这一台机器上有几个座位：服务器那一局只有自己一个（本地 2P 在服务器上没有座位）。
 func _local_seats() -> int:
 	var net := NetClient.of(get_tree())
@@ -93,10 +112,7 @@ func _build_bar(root: Control) -> void:
 		var dot := ColorRect.new()
 		dot.name = "Dot%d" % i
 		dot.size = Vector2(DOT_SIZE, DOT_SIZE)
-		if i < _local_seats():
-			dot.color = PLAYER_COLORS[i]
-		else:
-			dot.color = RIVAL_COLORS[i - _local_seats()]
+		dot.color = RIVAL_COLORS[i % RIVAL_COLORS.size()]
 		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		dot.position.y = -1.0
 		_bar.add_child(dot)

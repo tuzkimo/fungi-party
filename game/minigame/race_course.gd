@@ -1,8 +1,8 @@
 class_name RaceCourse
 extends Node3D
 
-## 按 RaceField 把赛道建出来：地面、护栏、起终点拱门、每组障碍的碰撞与外观。
-## 只建静态几何，不知道玩家存在。
+## 按 RaceField 把赛道建出来：地面、护栏、起终点拱门、每组障碍。
+## 赛跑里没有物理体了（撞击由 RaceRacer 按数据判），所以这里只有外观，不再有碰撞。
 
 const GROUND_COLOR := Color(0.62, 0.48, 0.33)
 const RAIL_COLOR := Color(0.42, 0.30, 0.20)
@@ -20,7 +20,6 @@ const RAIL_WIDTH := 0.3
 const ARCH_HEIGHT := 3.4
 const GROUND_DEPTH := 0.2
 const END_MARGIN := 3.0
-const AIR_WALL_HEIGHT := 6.0
 
 
 func build(field: RaceField) -> void:
@@ -28,22 +27,9 @@ func build(field: RaceField) -> void:
 	var length := Config.RACE_TRACK_LENGTH
 	var half := Config.RACE_TRACK_HALF_WIDTH
 
-	var ground := StaticBody3D.new()
-	ground.name = "Ground"
-	add_child(ground)
-	_block(ground, Vector3(half * 2.0, GROUND_DEPTH, length + END_MARGIN * 2.0), Vector3(0.0, -GROUND_DEPTH * 0.5, length * 0.5), _solid(GROUND_COLOR))
-	# 空气墙：左右挡住跳跃（护栏只有 0.9m，跳得过去），两端挡住走出赛道外，
-	# 全部只做碰撞不画面，免得挡视野
+	_plain("Ground", Vector3(half * 2.0, GROUND_DEPTH, length + END_MARGIN * 2.0), Vector3(0.0, -GROUND_DEPTH * 0.5, length * 0.5), _solid(GROUND_COLOR))
 	for side in [-1.0, 1.0]:
-		_barrier(Vector3(0.3, AIR_WALL_HEIGHT, length + END_MARGIN * 2.0),
-			Vector3(side * (half + 0.15), AIR_WALL_HEIGHT * 0.5, length * 0.5))
-	for end_z in [-END_MARGIN + 0.4, length + END_MARGIN - 0.4]:
-		_barrier(Vector3(half * 2.0, AIR_WALL_HEIGHT, 0.8), Vector3(0.0, AIR_WALL_HEIGHT * 0.5, end_z))
-	for side in [-1.0, 1.0]:
-		var rail := StaticBody3D.new()
-		rail.name = "Rail"
-		add_child(rail)
-		_block(rail, Vector3(RAIL_WIDTH, RAIL_HEIGHT, length), Vector3(side * (half + RAIL_WIDTH * 0.5), RAIL_HEIGHT * 0.5, length * 0.5), _solid(RAIL_COLOR))
+		_plain("Rail", Vector3(RAIL_WIDTH, RAIL_HEIGHT, length), Vector3(side * (half + RAIL_WIDTH * 0.5), RAIL_HEIGHT * 0.5, length * 0.5), _solid(RAIL_COLOR))
 
 	_arch("StartArch", Vector3(0.0, 0.0, 0.0), ARCH_COLOR)
 	_arch("FinishArch", Vector3(0.0, 0.0, length), FINISH_COLOR)
@@ -53,9 +39,8 @@ func build(field: RaceField) -> void:
 	var low_mat := _solid(LOW_COLOR)
 	for i in field.groups.size():
 		var group: RaceField.Group = field.groups[i]
-		var body := StaticBody3D.new()
+		var body := Node3D.new()
 		body.name = "Group%d" % i
-		body.add_to_group("hazard")
 		add_child(body)
 		var height := TALL_HEIGHT if group.kind == RaceField.TALL else LOW_HEIGHT
 		var material := tall_mat if group.kind == RaceField.TALL else low_mat
@@ -88,7 +73,7 @@ func _plain(node_name: String, size: Vector3, pos: Vector3, material: Material) 
 	add_child(node)
 
 
-## 一块看得见也撞得到的方块：视觉与碰撞同尺寸。
+## 一块障碍的观感（碰撞由模型判，这里只有 mesh）。
 func _block(parent: Node3D, size: Vector3, pos: Vector3, material: Material) -> void:
 	var node := MeshInstance3D.new()
 	var mesh := BoxMesh.new()
@@ -97,26 +82,6 @@ func _block(parent: Node3D, size: Vector3, pos: Vector3, material: Material) -> 
 	node.material_override = material
 	node.position = pos
 	parent.add_child(node)
-
-	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = size
-	shape.shape = box
-	shape.position = pos
-	parent.add_child(shape)
-
-
-## 只有碰撞、没有外观的墙。
-func _barrier(size: Vector3, pos: Vector3) -> void:
-	var body := StaticBody3D.new()
-	body.name = "AirWall"
-	add_child(body)
-	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = size
-	shape.shape = box
-	shape.position = pos
-	body.add_child(shape)
 
 
 func _build_environment() -> void:

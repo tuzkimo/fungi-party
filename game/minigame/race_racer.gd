@@ -58,10 +58,14 @@ func advance(delta: float, field: RaceField, elapsed: float) -> void:
 		return
 	var d := minf(delta, MAX_DELTA)
 	if freeze > 0.0:
-		# 硬直期间不前进、不攒速度；x 也不动，否则会被拽回中线卡在障碍里
+		# 硬直只管住前进：x 也不动的话，被弹回 1.5 米、硬直 0.6 秒后正好又撞同一个障碍，出不来
 		freeze -= d
 		want_jump = false
 		want_dash = false
+		if human:
+			y = 0.0
+			vy = 0.0
+			_steer_lateral(d)
 		return
 
 	dash_cd = maxf(0.0, dash_cd - d)
@@ -100,7 +104,11 @@ func _advance_human(d: float, elapsed: float) -> void:
 		finished = true
 		finish_time = elapsed
 		return
-	# 镜头朝 +z 时画面右是 -x，所以摇杆的 x 要取反
+	_steer_lateral(d)
+
+
+## 镜头朝 +z 时画面右是 -x，所以摇杆的 x 要取反
+func _steer_lateral(d: float) -> void:
 	x = clampf(
 		x - clampf(steer, -1.0, 1.0) * Config.RACE_SIDE_SPEED * d,
 		-Config.RACE_TRACK_HALF_WIDTH, Config.RACE_TRACK_HALF_WIDTH
@@ -193,6 +201,9 @@ func _check_hits(field: RaceField, elapsed: float) -> void:
 			_bump()
 			return
 		if _pinecone_dropped(crossing, elapsed) and absf(x) < PINE_HALF:
+			# 松果是矮东西：跳起来能过去（和矮栏一个规则）
+			if y > RaceField.LOW_HEIGHT:
+				continue
 			_bump()
 			return
 

@@ -75,6 +75,23 @@ func test_over_when_the_podium_is_settled() -> void:
 	check(round.over, "前三名定了就收局，不干等最后一名")
 
 
+## 双人（本机 2P 或服务器上的两个人）：要等两个人都跑完。
+## 一个人先冲线、另一个人还在路上就把局收了，等于把 20 体力白花在「未完赛」上。
+func test_duo_waits_for_both_humans() -> void:
+	var round := RaceRound.new(7, 2)
+	_skip_countdown(round)
+	for seat in [0, 2]:
+		round.racers[seat].finished = true
+		round.racers[seat].finish_time = 10.0 + seat
+	round.tick(1.0 / 60.0)
+	check(not round.over, "1 号真人还在跑，不收局")
+	round.racers[1].finished = true
+	round.racers[1].finish_time = 20.0
+	round.tick(1.0 / 60.0)
+	check(round.over, "两个人都跑完就收局")
+	check_eq(round.winner, 0, "先冲线的是第一名")
+
+
 func test_time_limit_ends_the_race() -> void:
 	var round := RaceRound.new(7, 1)
 	_skip_countdown(round)

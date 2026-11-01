@@ -108,7 +108,20 @@ func test_payouts_only_after_the_round() -> void:
 		Config.COIN_BASE + Config.COIN_PER_BITE * 2 + Config.COIN_WIN_BONUS,
 		"结束之后按口数结账"
 	)
-	check_eq(int(room.snapshot()["earned"]["a"]), int(room.payouts()["a"]), "快照里带着这一局的收益")
+	check_eq(room.snapshot()["earned"], {}, "服务器还没结账：快照里的收益是空的")
+	room.paid = true
+	check_eq(int(room.snapshot()["earned"]["a"]), int(room.payouts()["a"]), "真结过账快照才带收益")
+
+
+## 「手上留着的钱」和「真写进存档的钱」不能是两回事：
+## 有人主动走人（不结账）、或者局不到 5 秒就被收掉时，快照里不许报一笔不存在的币。
+func test_payouts_only_after_the_server_pays() -> void:
+	var room := NetRoom.create("bomb", ["a"], 7)
+	room.over = true
+	check(not room.payouts().is_empty(), "模型算得出这一局该给多少")
+	check_eq(room.snapshot()["earned"], {}, "没写盘之前不播收益")
+	room.paid = true
+	check(room.snapshot()["earned"].has("a"), "结过账才播收益")
 
 
 ## ---- 传炸弹搬上服务器之后（第 4 步）----
@@ -251,6 +264,14 @@ func test_race_input_is_checked() -> void:
 	check_eq(room.input("zzz", {"move": 0.0}), false, "外人输入丢掉")
 	check_eq(room.input("a", {}), false, "什么都没带不算输入")
 
+
+## 网络来的数字先验有限性：NaN/INF 会让 clampf 原样穿过去，模型里就是永久不死之身。
+func test_race_move_must_be_finite() -> void:
+	var room := NetRoom.create("race", ["a"], 7)
+	var round: RaceRound = room.model
+	check_eq(room.input("a", {"move": NAN}), false, "NaN 不是横移")
+	check_eq(room.input("a", {"move": INF}), false, "INF 不是横移")
+	check(is_finite(round.racers[0].x), "模型里的横坐标还是好数（%f）" % round.racers[0].x)
 
 func test_race_tick_needs_no_press_array() -> void:
 	var room := NetRoom.create("race", ["a"], 7)

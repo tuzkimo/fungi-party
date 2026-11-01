@@ -108,6 +108,9 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
   纯模型（tick 顺序照抄本地场景的 `_process`）+ `NetRoom._build_model()` 一条；客户端那条路只读快照。
 - 局内快照**一帧只拍一次**再各人复制（`server_main` 的 `_push_session` / `_broadcast_session`）：
   传炸弹的快照会把「上次之后发生的事」清掉，重复拍等于第二个收到的人看不到事件。
+- 快照里的 `earned` 只在服务器**真写盘之后**才带（`NetRoom.paid`，`NetLobby._settle` 里置位）：
+  主动走人、开局 5 秒内被收掉的局一分不给，客户端也不许显示「+N 蘑菇币」。
+- 局内快照 20 Hz，直接贴上模型值会一顿一顿：跑者/相机这类快速移动的视图要插值（`RacerVisual.FOLLOW`）。
 - 客户端输入分两种形状：**按着**（教室 `press`）由 `NetRoom.tick()` 造数组喂模型；**点一下**（传炸弹 `throw`）
   在 `NetRoom.input()` 里立刻交给模型。加新游戏先想清楚它属于哪一种，别硬塞进 `press`。
 - 网络来的东西全是信任边界：包的字节、昵称、op 名、op 参数，都要在服务器侧校验，不校验就当 0 处理是错的。

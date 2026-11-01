@@ -15,6 +15,8 @@ var model: RefCounted = null
 var elapsed := 0.0
 var over := false
 var winner := -1
+## 这一局的币真的写进存档了没有：没写盘的局不许在快照里报收益
+var paid := false
 ## 这一局的随机种子：规则模型统一用它，两端算出来的随机序列才一样
 var session_seed := 0
 
@@ -97,6 +99,9 @@ func _race_input(seat: int, payload: Dictionary) -> bool:
 		var raw: Variant = payload["move"]
 		if typeof(raw) != TYPE_FLOAT and typeof(raw) != TYPE_INT:
 			return false
+		# clampf 会把 NaN/INF 原样放过去，模型里就是一个永远撞不到的跑者
+		if not is_finite(float(raw)):
+			return false
 		round.steer(seat, float(raw))
 		used = true
 	if payload.has("jump"):
@@ -162,7 +167,7 @@ func snapshot() -> Dictionary:
 		"winner": winner,
 		"seed": session_seed,
 		"game": model.snapshot() if model != null else {},
-		"earned": payouts(),
+		"earned": payouts() if paid else {},
 	}
 
 

@@ -31,7 +31,7 @@ func _init(seed_value: int = 1, humans_count: int = 1) -> void:
 		if seat < humans:
 			racer = RaceRacer.new(RaceRacer.Style.STEADY, seed_value + seat)
 			racer.human = true
-			racer.x = 0.0 if humans == 1 else HUMAN_X[seat]
+			racer.x = 0.0 if humans == 1 else HUMAN_X[mini(seat, HUMAN_X.size() - 1)]
 		else:
 			var rival := seat - humans
 			racer = RaceRacer.new(RIVAL_STYLES[rival], seed_value + seat * 13)
@@ -75,8 +75,14 @@ func tick(delta: float) -> void:
 
 
 ## 前三名定了就不用干等最后一名；到硬顶也收（有人卡住时不许一局挂到天荒地老）。
+## 两个真人时改成「等两个人都跑完」：一个人先冲线就把另一个判成未完赛，20 体力白花。
 func _decided() -> bool:
 	if elapsed >= Config.RACE_TIME_LIMIT:
+		return true
+	if humans > 1:
+		for seat in humans:
+			if not racers[seat].finished:
+				return false
 		return true
 	return RaceScore.decided(racers)
 

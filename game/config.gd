@@ -84,7 +84,8 @@ const RACE_LOW_WIDTH := 3.4
 const RACE_ANIMAL_COUNT := 6
 const RACE_ANIMAL_WARN := 1.0
 const RACE_ANIMAL_CLEAR := 8.0
-## 五名：同屏双人时场上两个人类 + 三个人机
+## 一局四个座位：真人占 0..n-1，人机往后补。多留一格是给旧存档/未来加座位兜底，
+## `RaceScore.coins` 会把越界名次夹到最后那一格
 const RACE_RANK_COINS := [70, 50, 35, 20, 20]
 const RACE_HIT_PENALTY := 5
 const RACE_TIME_LIMIT := 120.0
