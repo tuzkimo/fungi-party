@@ -17,9 +17,9 @@
   同屏 2P 也是世界里的一份（`账号|1`），不用单独登录。
   **邀请已通**：`invite` / `answer` 进 `game/net/lobby.gd`（同时只开一间房，谁玩谁付自己的体力），
   成局后两边各收一份 `SESSION` 换场景，局内输入走 `INPUT`、局内快照 20 Hz 回推。
-  **教室已搬上服务器**（`game/minigame/classroom_round.gd`，结算在服务器）。
+  **教室和传炸弹已搬上服务器**（`game/minigame/classroom_round.gd` / `bomb_round.gd`，结算在服务器）。
   **邀请的 UI 已通**：森林右上角「邀请」列出世界里的人、挑一款发邀请，别人邀请我时屏幕底下弹一条接受/拒绝
-  （`game/ui/invite_panel.gd`，只发信号，发 op 在 `main.gd`）。**还没做**：传炸弹 / 猫头鹰 / 赛跑搬上服务器、睡觉一天一次。
+  （`game/ui/invite_panel.gd`，只发信号，发 op 在 `main.gd`）。**还没做**：猫头鹰 / 赛跑搬上服务器、睡觉一天一次。
   接手联机先读 `docs/superpowers/plans/2026-10-25-v7-handoff.md`（现状、约束、下一步、坑都在那一份里）。
 - v5：角色可换 —— 红蘑菇之外加了海鲜菇（细长杆 + 小扁帽 + 四根黑棍手脚 + 腮红，按 `refs/海鲜菇角色设计图.png`），帐篷里免费换；体型与皮肤解耦，15 顶皮肤两个角色都能戴
 - 场景：`game/world/` 森林与 POI、`game/minigame/` 教室/赛跑/传炸弹/猫头鹰喂食、`game/skins/` 15 顶皮肤数据（`.tres`）与 `catalog.gd` 总表、`game/player/body/` 角色体型（红蘑菇 / 海鲜菇，`catalog.gd` 总表）、`game/ui/` HUD 与浮层
@@ -101,5 +101,9 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
   （8 人全量广播 1.1 Mbps；一个 Godot 无头进程常驻 94 MB，但一个 3D 房间就是几十 MB）。要更多先做距离裁剪。
 - 服务器上**只跑 RefCounted 规则模型，绝不实例化 3D 场景**。一款游戏搬上服务器 = 一个 `*_round.gd`
   纯模型（tick 顺序照抄本地场景的 `_process`）+ `NetRoom._build_model()` 一条；客户端那条路只读快照。
+- 局内快照**一帧只拍一次**再各人复制（`server_main` 的 `_push_session` / `_broadcast_session`）：
+  传炸弹的快照会把「上次之后发生的事」清掉，重复拍等于第二个收到的人看不到事件。
+- 客户端输入分两种形状：**按着**（教室 `press`）由 `NetRoom.tick()` 造数组喂模型；**点一下**（传炸弹 `throw`）
+  在 `NetRoom.input()` 里立刻交给模型。加新游戏先想清楚它属于哪一种，别硬塞进 `press`。
 - 网络来的东西全是信任边界：包的字节、昵称、op 名、op 参数，都要在服务器侧校验，不校验就当 0 处理是错的。
 - 提交信息用中文。
