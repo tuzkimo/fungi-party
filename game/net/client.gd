@@ -105,6 +105,11 @@ func me() -> String:
 	return player_name
 
 
+## 天色：联机时天色由服务器采纳，`Save.write()` 在镜像模式下只推这一个字段。
+func push_day_time(t: float) -> void:
+	request("patch_day_time", {"t": t})
+
+
 ## 局内输入：和 send_move 一样走独立通道，不排 op 队列——输入比 op 新，堵在后面就是白加延迟。
 func send_input(payload: Dictionary) -> void:
 	if state != State.READY:
