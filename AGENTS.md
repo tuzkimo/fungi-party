@@ -15,7 +15,10 @@
 - v7（进行中）：联机 —— 账号、存档、钱包、抽卡在服务器上（`game/net/`），启动菜单分「一个人玩 / 联网」；
   **共享森林已通**：每人每 0.1 秒报一次位置（`MOVE`），服务器每 0.1 秒广播一次世界（`WORLD`），别人是插值着走的替身（`game/world/remote_player.gd`），
   同屏 2P 也是世界里的一份（`账号|1`），不用单独登录。
-  **还没做**：邀请真人进同一局、四款小游戏搬到服务器跑。
+  **邀请已通**：`invite` / `answer` 进 `game/net/lobby.gd`（同时只开一间房，谁玩谁付自己的体力），
+  成局后两边各收一份 `SESSION` 换场景，局内输入走 `INPUT`、局内快照 20 Hz 回推。
+  **教室已搬上服务器**（`game/minigame/classroom_round.gd`，结算在服务器）。
+  **还没做**：传炸弹 / 猫头鹰 / 赛跑搬上服务器、邀请的 UI、睡觉一天一次。
   接手联机先读 `docs/superpowers/plans/2026-10-25-v7-handoff.md`（现状、约束、下一步、坑都在那一份里）。
 - v5：角色可换 —— 红蘑菇之外加了海鲜菇（细长杆 + 小扁帽 + 四根黑棍手脚 + 腮红，按 `refs/海鲜菇角色设计图.png`），帐篷里免费换；体型与皮肤解耦，15 顶皮肤两个角色都能戴
 - 场景：`game/world/` 森林与 POI、`game/minigame/` 教室/赛跑/传炸弹/猫头鹰喂食、`game/skins/` 15 顶皮肤数据（`.tres`）与 `catalog.gd` 总表、`game/player/body/` 角色体型（红蘑菇 / 海鲜菇，`catalog.gd` 总表）、`game/ui/` HUD 与浮层
@@ -85,7 +88,8 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
 - 非平凡逻辑先写测试，能抽纯函数的抽成 `static func`。
 - 联机：`Save.remote` 非空就是「存档在服务器上、本机只是镜像」。镜像能随便读，写只能走 op；
   `Save.write()` 在联机模式下只把天色推给服务器，别的字段改了不算数。
-- 客户端能发起的 op 只有 `NetOps.CLIENT_OPS` 那几条。加 op 之前先想清楚「这个数客户端说了算吗」；
+- 客户端能发起的 op 只有 `NetOps.CLIENT_OPS`（存档纯函数）和 `server_main.ROOM_OPS`（要房间/会话状态，
+  `invite` / `answer` / `leave_room`）那几条，两边都回 `OP_RESULT`。加 op 之前先想清楚「这个数客户端说了算吗」；
   `add_coins` 是一期小游戏还在本机跑时的临时口子，二期必须删。
 - `NetProtocol.VERSION` 一变，老客户端就连不上。客户端和服务端要一起发版。
 - 服务器上账号文件是唯一持久化的东西：写盘一律 `.tmp` + rename，昵称进文件名前必须过 `Accounts.valid_name()`。
@@ -93,6 +97,7 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
   替身只显示、不碰撞、不读输入；同屏 2P 用 `账号|1` 这个键，客户端要把自己那两份从世界快照里剔掉。
 - 人数上限 8、同时 1 个小游戏房：不是设计判断，是这台 2 核 2G / 5 Mbps 机器的实测天花板
   （8 人全量广播 1.1 Mbps；一个 Godot 无头进程常驻 94 MB，但一个 3D 房间就是几十 MB）。要更多先做距离裁剪。
-- 服务器上**只跑 RefCounted 规则模型，绝不实例化 3D 场景**。
+- 服务器上**只跑 RefCounted 规则模型，绝不实例化 3D 场景**。一款游戏搬上服务器 = 一个 `*_round.gd`
+  纯模型（tick 顺序照抄本地场景的 `_process`）+ `NetRoom._build_model()` 一条；客户端那条路只读快照。
 - 网络来的东西全是信任边界：包的字节、昵称、op 名、op 参数，都要在服务器侧校验，不校验就当 0 处理是错的。
 - 提交信息用中文。
