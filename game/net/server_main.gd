@@ -11,11 +11,16 @@ const DEFAULT_PORT := 7000
 const DEFAULT_SAVES := "user://accounts"
 ## 上限 8 人：5 Mbps 带宽下 8 人全量广播约 1.1 Mbps，留足余量给小游戏
 const DEFAULT_MAX := 8
+## 房间类 op：它们要看会话/房间状态，所以不走 NetOps（那是对存档的纯函数）
+const ROOM_OPS: Array[String] = ["invite", "answer"]
 
 var _peer: ENetMultiplayerPeer
 var _save_dir := DEFAULT_SAVES
 ## peer_id -> {name, nonce, salt, authed, since}
 var _sessions := {}
+## 邀请配对 + 同时只开一间房
+var _lobby: NetLobby = null
+var _room_timer := 0.0
 ## 世界时钟（三分之一个真实日）：天色由它给，三期接上客户端
 var _world_clock := Config.MORNING_TIME
 var _world_timer := 0.0
@@ -32,6 +37,8 @@ func _initialize() -> void:
 		quit(1)
 		return
 	_peer.peer_disconnected.connect(_on_disconnect)
+	_lobby = NetLobby.new(func(name: String) -> Dictionary:
+		return Accounts.read(_save_dir, name))
 	print("菌子派对服务器 协议 v%d 端口 %d 存档 %s" % [NetProtocol.VERSION, port, _save_dir])
 
 
@@ -47,6 +54,14 @@ func _process(_delta: float) -> bool:
 	if _world_timer >= 1.0 / Config.NET_WORLD_HZ:
 		_world_timer = 0.0
 		_broadcast_world()
+	_lobby.tick(_delta)
+	_room_timer += _delta
+	if _lobby.room != null and _room_timer >= 1.0 / Config.NET_ROOM_HZ:
+		_room_timer = 0.0
+		_broadcast_session()
+		if _lobby.room.over:
+			# 最后一帧已经带着 over 发出去了，房位腾给下一局
+			_lobby.room = null
 	return false
 
 
@@ -68,6 +83,8 @@ func _handle(from: int, packet: PackedByteArray) -> void:
 			_on_op(from, session, body)
 		NetProtocol.Msg.MOVE:
 			_on_move(session, body)
+		NetProtocol.Msg.INPUT:
+			_on_input(session, body)
 		_:
 			_send(from, NetProtocol.Msg.ERROR, {"reason": "kind"})
 
@@ -126,6 +143,9 @@ func _on_op(from: int, session: Dictionary, body: Dictionary) -> void:
 	if typeof(args) != TYPE_DICTIONARY:
 		_send(from, NetProtocol.Msg.OP_RESULT, {"op": op, "ok": false, "error": "args"})
 		return
+	if ROOM_OPS.has(op):
+		_on_room_op(from, player_name, op, args as Dictionary)
+		return
 	var result := NetOps.apply(Accounts.read(_save_dir, player_name), op, args as Dictionary)
 	if bool(result["ok"]):
 		Accounts.write(_save_dir, player_name, result["data"] as Dictionary)
@@ -165,6 +185,66 @@ func _on_move(session: Dictionary, body: Dictionary) -> void:
 	session["slots"] = slots
 
 
+## 邀请 / 回答邀请。这两条也要回 OP_RESULT：客户端的 _inflight 只认它，不回就是 10 秒后掉线。
+func _on_room_op(from: int, me: String, op: String, args: Dictionary) -> void:
+	var online := _online()
+	var now := _now()
+	var result: Dictionary
+	if op == "invite":
+		result = _lobby.invite(me, str(args.get("to", "")), str(args.get("kind", "")), online, now)
+	else:
+		result = _lobby.answer(
+			str(args.get("from", "")), me, str(args.get("kind", "")),
+			bool(args.get("accept", false)), online, now
+		)
+	var saves: Dictionary = result.get("saves", {})
+	for name in saves:
+		Accounts.write(_save_dir, str(name), saves[name] as Dictionary)
+	if not saves.is_empty():
+		_push_session(result)
+	_send(from, NetProtocol.Msg.OP_RESULT, {
+		"op": op,
+		"ok": bool(result["ok"]),
+		"error": str(result.get("error", "")),
+		"result": result.get("result", {}),
+		"save": saves.get(me, Accounts.read(_save_dir, me)),
+	})
+
+
+## 成局：房快照 + 各自扣完体力那份存档，各发一份（邀请方的那份只能这样送到）
+func _push_session(result: Dictionary) -> void:
+	var room: NetRoom = result["room"]
+	var saves: Dictionary = result["saves"]
+	for name in saves:
+		var id := _peer_of(str(name))
+		if id == 0:
+			continue
+		var body := room.snapshot()
+		body["save"] = saves[name]
+		_send(id, NetProtocol.Msg.SESSION, body)
+
+
+## 每 1/20 秒把这一局的快照发给局里的真人（人机没连接，跳过）
+func _broadcast_session() -> void:
+	var room := _lobby.room
+	if room == null:
+		return
+	var body := room.snapshot()
+	for seat in room.seats:
+		if bool(seat["npc"]):
+			continue
+		var id := _peer_of(str(seat["account"]))
+		if id != 0:
+			_send(id, NetProtocol.Msg.SESSION, body)
+
+
+## 局内输入：只看在不在局里，输入本身由规则模型在 tick 里消化；不回包。
+func _on_input(session: Dictionary, body: Dictionary) -> void:
+	if not bool(session.get("authed", false)) or _lobby.room == null:
+		return
+	_lobby.room.input(str(session["name"]), body)
+
+
 ## 每 1/10 秒给每个登录的人一份世界快照（各自一份：邀请是发给具体某个人的）。
 func _broadcast_world() -> void:
 	var players := {}
@@ -193,7 +273,27 @@ func _broadcast_world() -> void:
 			"clock": _world_clock,
 			"players": players,
 			"me": str(session["name"]),
+			"invites": _lobby.invites_for(str(session["name"]), _online(), _now()),
 		})
+
+
+## 此刻登录着的人：邀请校验和广播都用得着
+func _online() -> PackedStringArray:
+	var out := PackedStringArray()
+	for id in _sessions:
+		var session: Dictionary = _sessions[id]
+		if bool(session.get("authed", false)):
+			out.append(str(session["name"]))
+	return out
+
+
+## 账号 → 连接。不在线返回 0（peer id 不会是 0）。
+func _peer_of(player_name: String) -> int:
+	for id in _sessions:
+		var session: Dictionary = _sessions[id]
+		if bool(session.get("authed", false)) and str(session["name"]) == player_name:
+			return int(id)
+	return 0
 
 
 func _send(to: int, kind: int, body: Dictionary) -> void:
@@ -220,8 +320,10 @@ func _drop_silent_peers() -> void:
 
 func _on_disconnect(id: int) -> void:
 	if _sessions.has(id):
-		print("%s 断开" % str(_sessions[id].get("name", "?")))
+		var player_name := str(_sessions[id].get("name", "?"))
+		print("%s 断开" % player_name)
 		_sessions.erase(id)
+		_lobby.drop(player_name)
 
 
 func _now() -> float:

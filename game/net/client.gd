@@ -9,6 +9,8 @@ extends Node
 signal logged_in
 signal world_changed
 signal changed
+## 服务器把我拉进一局了：现在的场景该换成这一款小游戏
+signal join_room
 signal failed(reason: String)
 
 const CONNECT_TIMEOUT := 10.0
@@ -32,11 +34,17 @@ var last_result := {}
 var world := {}
 ## 服务器给的世界时钟（0~1 的一天）
 var clock := Config.MORNING_TIME
+## 谁在邀请我：[{from, kind}]，跟着 WORLD 一起来
+var invites := []
+## 我所在的这一局（服务器发的快照）；空 = 不在局里
+var session := {}
 
 var _queue: Array[Dictionary] = []
 var _inflight := ""
 var _waiting := 0.0
 var _connecting := 0.0
+## join_room 只在「从不在局里变成在局里」那一下发一次
+var _in_room := false
 
 
 ## 登录（名字不存在就是注册，服务器自己认）。结果走 logged_in / failed。
@@ -61,6 +69,9 @@ func close() -> void:
 	_queue.clear()
 	_inflight = ""
 	data = {}
+	invites = []
+	session = {}
+	_in_room = false
 
 
 func ready() -> bool:
@@ -94,6 +105,13 @@ func me() -> String:
 	return player_name
 
 
+## 局内输入：和 send_move 一样走独立通道，不排 op 队列——输入比 op 新，堵在后面就是白加延迟。
+func send_input(payload: Dictionary) -> void:
+	if state != State.READY:
+		return
+	_send(NetProtocol.Msg.INPUT, payload)
+
+
 func _process(delta: float) -> void:
 	if _peer == null:
 		return
@@ -118,7 +136,8 @@ func _process(delta: float) -> void:
 
 
 func _drain() -> void:
-	while _peer.get_available_packet_count() > 0:
+	# 处理一条消息时游戏可能就 close() 了（信号是同步回调的），循环条件里得再看一眼
+	while _peer != null and _peer.get_available_packet_count() > 0:
 		var env := NetProtocol.unpack(_peer.get_packet())
 		if not bool(env["ok"]):
 			_dead(str(env["reason"]))
@@ -137,7 +156,10 @@ func _drain() -> void:
 				world.erase(str(body.get("me", player_name)))
 				world.erase("%s|1" % str(body.get("me", player_name)))
 				clock = float(body.get("clock", clock))
+				invites = body.get("invites", [])
 				world_changed.emit()
+			NetProtocol.Msg.SESSION:
+				_on_session(body)
 			NetProtocol.Msg.ERROR:
 				_dead(str(body.get("reason", "error")))
 
@@ -161,6 +183,21 @@ func _on_welcome(body: Dictionary) -> void:
 		player_name = str(body.get("name", ""))
 	state = State.READY
 	logged_in.emit()
+
+
+## 一局的快照：座位、时钟、结算。`save` 有就顺手刷镜像（成局时体力是服务器扣的）。
+func _on_session(body: Dictionary) -> void:
+	if body.has("save") and typeof(body["save"]) == TYPE_DICTIONARY:
+		data = Save.normalize(body["save"])
+		changed.emit()
+	session = body
+	if bool(body.get("over", false)):
+		# 这局收了：快照留着给演出用，但下次被拉进局要能再触发 join_room
+		_in_room = false
+		return
+	if not _in_room:
+		_in_room = true
+		join_room.emit()
 
 
 func _on_result(body: Dictionary) -> void:

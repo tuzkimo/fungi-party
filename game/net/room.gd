@@ -15,6 +15,8 @@ var model: RefCounted = null
 var elapsed := 0.0
 var over := false
 var winner := -1
+## 这一局的随机种子：规则模型统一用它，两端算出来的随机序列才一样
+var session_seed := 0
 
 ## 每号座位这一 tick 收到的输入；客户端只说「我按着」，规则在这里算
 var _inputs: Array[Dictionary] = []
@@ -36,6 +38,20 @@ static func create(kind_value: String, humans: Array[String]) -> NetRoom:
 		room.seats.append({"account": humans[i] if human else "", "npc": not human})
 		room._inputs.append({})
 	return room
+
+
+## kind → 客户端该进哪个场景。kind 表在这一个地方，服务器和客户端都读它。
+static func scene_path(kind_value: String) -> String:
+	match kind_value:
+		"classroom":
+			return Config.CLASSROOM_PATH
+		"bomb":
+			return Config.BOMB_PATH
+		"owl":
+			return Config.OWL_PATH
+		"race":
+			return Config.RACE_PATH
+	return ""
 
 
 func seat_of(account: String) -> int:
@@ -67,4 +83,5 @@ func snapshot() -> Dictionary:
 		"elapsed": elapsed,
 		"over": over,
 		"winner": winner,
+		"seed": session_seed,
 	}

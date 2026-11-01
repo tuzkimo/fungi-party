@@ -12,6 +12,8 @@ var _host := "127.0.0.1"
 var _port := 7099
 var _name := "冒烟"
 var _password := "password1"
+## join_room 信号收到过的人（信号回调改不了局部变量，记在这里）
+var _joined := {}
 
 
 func _initialize() -> void:
@@ -60,6 +62,7 @@ func _run() -> void:
 
 	await _same_account_two_devices()
 	await _world_check()
+	await _invite_check()
 	print("SMOKE OK")
 	quit(0)
 
@@ -88,6 +91,53 @@ func _world_check() -> void:
 		_die("A 看不见 B")
 	print("共享森林：A 看见 %d 份（含 2P），B 看见 A 和 A 的 2P" % _client.world.size())
 	other.close()
+
+
+## 邀请：两个人进同一局，各扣自己的体力；有人掉线这一局就收了。
+func _invite_check() -> void:
+	var guest := NetClient.new()
+	guest.failed.connect(_on_failed)
+	root.add_child(guest)
+	var guest_name := "%sC" % _name
+	guest.connect_to(_host, _port, guest_name, _password)
+	await guest.logged_in
+	# 信号只在「从不在局里变成在局里」那一下发，两个人都得收到
+	_client.join_room.connect(func() -> void: _joined[_name] = true)
+	guest.join_room.connect(func() -> void: _joined[guest_name] = true)
+
+	await _op("invite", {"to": guest_name, "kind": "classroom"})
+	if not bool(_client.last_result.get("ok", false)):
+		_die("邀请被拒：%s" % str(_client.last_result.get("error", "")))
+	await create_timer(0.5).timeout
+	if guest.invites.size() != 1:
+		_die("对方没收到邀请：%s" % str(guest.invites))
+	if str(guest.invites[0].get("from", "")) != _name or str(guest.invites[0].get("kind", "")) != "classroom":
+		_die("邀请内容不对：%s" % str(guest.invites[0]))
+
+	guest.request("answer", {"from": _name, "kind": "classroom", "accept": true})
+	await guest.changed
+	await create_timer(0.3).timeout
+	for who in [guest, _client]:
+		if str(who.session.get("kind", "")) != "classroom":
+			_die("%s 没进到这一局：%s" % [who.me(), str(who.session)])
+	if not _joined.has(_name) or not _joined.has(guest_name):
+		_die("join_room 信号没发：%s" % str(_joined))
+	var seats: Array = _client.session.get("seats", [])
+	if seats.size() != Config.SEAT_COUNT:
+		_die("座位数不对：%d" % seats.size())
+	if str(seats[0].get("account", "")) != _name or str(seats[1].get("account", "")) != guest_name:
+		_die("座位顺序不对（发起的坐 0 号）：%s" % str(seats))
+	var cost := Config.STAMINA_COST_CLASSROOM
+	if int(_client.data["stamina"]) != Config.STAMINA_MAX - cost:
+		_die("邀请方体力没扣：%d" % int(_client.data["stamina"]))
+	if int(guest.data["stamina"]) != Config.STAMINA_MAX - cost:
+		_die("被邀请方体力没扣：%d" % int(guest.data["stamina"]))
+
+	guest.close()
+	await create_timer(0.5).timeout
+	if not bool(_client.session.get("over", false)):
+		_die("对方掉线后这一局没收：%s" % str(_client.session))
+	print("邀请：两人进同一间教室，各扣 %d 体力，掉线收局" % cost)
 
 
 ## 两台设备同一个账号：后一台的镜像是旧的，钱必须还是服务器的账本说了算。

@@ -26,6 +26,7 @@ func _ready() -> void:
 	_first = Player.of_seat(get_tree(), 0)
 	_spawn_second()
 	_net = _ensure_net()
+	_net.join_room.connect(_on_join_room)
 	if _net.ready():
 		# 从小游戏转回来：联网会话还在，不用再登录
 		Save.remote = _net
@@ -46,6 +47,18 @@ func _ensure_net() -> NetClient:
 	net.name = "Net"
 	get_tree().root.add_child(net)
 	return net
+
+
+## 服务器把我拉进一局了：换到那一款小游戏。
+## 二期先按旧的单机场景跑（房里的结算还是老的）；第 3 步起这层变成「读快照 + 上报输入」。
+func _on_join_room() -> void:
+	if _net == null:
+		return
+	var path := NetRoom.scene_path(str(_net.session.get("kind", "")))
+	if path == "":
+		push_error("服务器给的 kind 不认识：%s" % str(_net.session.get("kind", "")))
+		return
+	get_tree().change_scene_to_file(path)
 
 
 func _on_online_ready() -> void:

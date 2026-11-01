@@ -11,3 +11,4 @@ docs/screenshots/*.import
 *.keystore
 *.jks
 signing/
+.superpowers/

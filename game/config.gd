@@ -179,3 +179,9 @@ const NET_GHOST_LERP := 12.0
 ## 位置合理性：一个人 10 Hz 最快能走多远（跑速 6 m/s，留一倍余量）
 const NET_MOVE_MAX_STEP := 1.2
 const NET_WORLD_HZ := 10.0
+## 局内快照频率：反应类比森林密，20 Hz 够看清对面在干什么
+const NET_ROOM_HZ := 20.0
+## 一条邀请活多久：发出去没人理就作废，免得几天后点了个过期邀请
+const NET_INVITE_SECONDS := 20.0
+## 一局的硬顶：二期还没有结算，到点无条件收房，别让一间废房占满「同时 1 房」
+const NET_ROOM_MAX_SECONDS := 300.0
