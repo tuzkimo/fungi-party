@@ -15,7 +15,8 @@
 - v7（进行中）：联机 —— 账号、存档、钱包、抽卡在服务器上（`game/net/`），启动菜单分「一个人玩 / 联网」；
   **共享森林已通**：每人每 0.1 秒报一次位置（`MOVE`），服务器每 0.1 秒广播一次世界（`WORLD`），别人是插值着走的替身（`game/world/remote_player.gd`），
   同屏 2P 也是世界里的一份（`账号|1`），不用单独登录。
-  **还没做**：邀请真人进同一局、四款小游戏搬到服务器跑（`docs/superpowers/plans/2026-10-25-v7-online-skeleton.md` 末尾有下一步）
+  **还没做**：邀请真人进同一局、四款小游戏搬到服务器跑。
+  接手联机先读 `docs/superpowers/plans/2026-10-25-v7-handoff.md`（现状、约束、下一步、坑都在那一份里）。
 - v5：角色可换 —— 红蘑菇之外加了海鲜菇（细长杆 + 小扁帽 + 四根黑棍手脚 + 腮红，按 `refs/海鲜菇角色设计图.png`），帐篷里免费换；体型与皮肤解耦，15 顶皮肤两个角色都能戴
 - 场景：`game/world/` 森林与 POI、`game/minigame/` 教室/赛跑/传炸弹/猫头鹰喂食、`game/skins/` 15 顶皮肤数据（`.tres`）与 `catalog.gd` 总表、`game/player/body/` 角色体型（红蘑菇 / 海鲜菇，`catalog.gd` 总表）、`game/ui/` HUD 与浮层
 
@@ -29,7 +30,7 @@ godot --path . --script res://tools/shot_body.gd               # 角色渲染成
 godot --path . --script res://tools/shot_ingame.gd             # 进森林截一张 shots/ingame.png
 godot --path . --script res://tools/shot_party.gd              # 二号位加入后截一张 shots/party.png
 godot --headless --path . --script res://tools/soak_party.gd   # 四款小游戏的双人分支无头过一遍（时间加速 10 倍）
-godot --headless --path . --script res://game/net/server_main.gd -- --port 7000 --saves build/accounts  # 本机起服务器
+godot --headless --path . --script res://game/net/server_main.gd -- --port 7000 --saves build/accounts  # 本机起服务器（上限 8 人）
 bash scripts/net_smoke.sh                                      # 联机冒烟：起真服务器 + 客户端注册/抽卡/重连验存档
 godot --path . --script res://tools/net_login_shot.gd -- --port 7000   # 桌面看一眼启动菜单和登录（shots/login*.png）
 godot --path . --script res://tools/net_world_shot.gd -- --port 7000   # 桌面看一眼共享森林里的替身（shots/world.png）
@@ -90,5 +91,8 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
 - 服务器上账号文件是唯一持久化的东西：写盘一律 `.tmp` + rename，昵称进文件名前必须过 `Accounts.valid_name()`。
 - 森林里别人的位置走 `MOVE`（不进 op 队列，位置比 op 新），世界快照走 `WORLD`，两边都由 `NetClient` 收发；
   替身只显示、不碰撞、不读输入；同屏 2P 用 `账号|1` 这个键，客户端要把自己那两份从世界快照里剔掉。
+- 人数上限 8、同时 1 个小游戏房：不是设计判断，是这台 2 核 2G / 5 Mbps 机器的实测天花板
+  （8 人全量广播 1.1 Mbps；一个 Godot 无头进程常驻 94 MB，但一个 3D 房间就是几十 MB）。要更多先做距离裁剪。
+- 服务器上**只跑 RefCounted 规则模型，绝不实例化 3D 场景**。
 - 网络来的东西全是信任边界：包的字节、昵称、op 名、op 参数，都要在服务器侧校验，不校验就当 0 处理是错的。
 - 提交信息用中文。

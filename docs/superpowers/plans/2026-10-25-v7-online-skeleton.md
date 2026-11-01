@@ -139,7 +139,10 @@
 - [x] 步骤 3：部署脚本与 systemd unit（服务端二进制放 `/opt/fungi/`，存档 `/var/lib/fungi/saves`）
 - [x] 步骤 4：提交
 
-## 下一步（已做/没做，接着干从这里接）
+## 下一步
+
+**看 `docs/superpowers/plans/2026-10-25-v7-handoff.md`**：人数/带宽/内存的实测上限、要做的七件事、
+已知的坑都在那一份里（这里不再重复，免得两处说法打架）。下面是那份文件之前写的历史版本，留作参考。
 
 已做：共享森林。`MOVE`/`WORLD` 两条消息 + `RemotePlayer` 替身 + 同屏 2P 也进世界（键 `账号|1`）。
 `bash scripts/net_smoke.sh` 里 `_world_check()` 守着它，`tools/net_world_shot.gd` 能截图看。

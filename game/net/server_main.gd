@@ -2,14 +2,15 @@ extends SceneTree
 
 ## 无头服务器：一根 ENet 监听，收原始字节包（不走节点 RPC），一个连接一份会话。
 ##
-##   godot --headless --path . --script res://game/net/server_main.gd -- --port 7000 --saves /var/lib/fungi/saves --max 32
+##   godot --headless --path . --script res://game/net/server_main.gd -- --port 7000 --saves /var/lib/fungi/saves --max 8
 ##
 ## 服务器只认白名单 op，算完立刻落盘再回包 —— 客户端拿到的永远是服务器上那份。
 
 const AUTH_TIMEOUT_SECONDS := 30.0
 const DEFAULT_PORT := 7000
 const DEFAULT_SAVES := "user://accounts"
-const DEFAULT_MAX := 32
+## 上限 8 人：5 Mbps 带宽下 8 人全量广播约 1.1 Mbps，留足余量给小游戏
+const DEFAULT_MAX := 8
 
 var _peer: ENetMultiplayerPeer
 var _save_dir := DEFAULT_SAVES
@@ -198,6 +199,8 @@ func _broadcast_world() -> void:
 func _send(to: int, kind: int, body: Dictionary) -> void:
 	var packet := NetProtocol.pack(kind, body)
 	if packet.is_empty():
+		# 超长包会被静默丢掉，看起来像「服务器突然不广播了」：宁可刷日志也别装没事
+		push_error("打包失败：kind %d 超过 %d 字节，这封没发出去" % [kind, NetProtocol.MAX_PACKET])
 		return
 	_peer.set_target_peer(to)
 	_peer.put_packet(packet)
@@ -225,7 +228,7 @@ func _now() -> float:
 	return float(Time.get_ticks_msec()) / 1000.0
 
 
-## `-- --port 7000 --saves /x --max 32`
+## `-- --port 7000 --saves /x --max 8`
 func _parse_args(args: PackedStringArray) -> Dictionary:
 	var out := {}
 	var i := 0
