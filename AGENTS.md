@@ -17,9 +17,9 @@
   同屏 2P 也是世界里的一份（`账号|1`），不用单独登录。
   **邀请已通**：`invite` / `answer` 进 `game/net/lobby.gd`（同时只开一间房，谁玩谁付自己的体力），
   成局后两边各收一份 `SESSION` 换场景，局内输入走 `INPUT`、局内快照 20 Hz 回推。
-  **教室、传炸弹、猫头鹰已搬上服务器**（`game/minigame/classroom_round.gd` / `bomb_round.gd` / `owl_round.gd`，结算在服务器）。
+  **教室、传炸弹、猫头鹰、赛跑已搬上服务器**（`game/minigame/classroom_round.gd` / `bomb_round.gd` / `owl_round.gd` / `race_round.gd`，结算在服务器）。
   **邀请的 UI 已通**：森林右上角「邀请」列出世界里的人、挑一款发邀请，别人邀请我时屏幕底下弹一条接受/拒绝
-  （`game/ui/invite_panel.gd`，只发信号，发 op 在 `main.gd`）。**还没做**：赛跑搬上服务器、睡觉一天一次。
+  （`game/ui/invite_panel.gd`，只发信号，发 op 在 `main.gd`）。**还没做**：睡觉一天一次。
   接手联机先读 `docs/superpowers/plans/2026-10-25-v7-handoff.md`（现状、约束、下一步、坑都在那一份里）。
 - v5：角色可换 —— 红蘑菇之外加了海鲜菇（细长杆 + 小扁帽 + 四根黑棍手脚 + 腮红，按 `refs/海鲜菇角色设计图.png`），帐篷里免费换；体型与皮肤解耦，15 顶皮肤两个角色都能戴
 - 场景：`game/world/` 森林与 POI、`game/minigame/` 教室/赛跑/传炸弹/猫头鹰喂食、`game/skins/` 15 顶皮肤数据（`.tres`）与 `catalog.gd` 总表、`game/player/body/` 角色体型（红蘑菇 / 海鲜菇，`catalog.gd` 总表）、`game/ui/` HUD 与浮层
@@ -33,6 +33,7 @@ bash scripts/test.sh                                           # 无头测试（
 godot --path . --script res://tools/shot_body.gd               # 角色渲染成 shots/body_*.png（真窗口，看外观用）
 godot --path . --script res://tools/shot_ingame.gd             # 进森林截一张 shots/ingame.png
 godot --path . --script res://tools/shot_party.gd              # 二号位加入后截一张 shots/party.png
+godot --path . --script res://tools/shot_race.gd               # 赛跑：倒数 / 跑动 / 结算面板各截一张 shots/race_*.png
 godot --headless --path . --script res://tools/soak_party.gd   # 四款小游戏的双人分支无头过一遍（时间加速 10 倍）
 godot --headless --path . --script res://game/net/server_main.gd -- --port 7000 --saves build/accounts  # 本机起服务器（上限 8 人）
 bash scripts/net_smoke.sh                                      # 联机冒烟：起真服务器 + 客户端注册/抽卡/重连验存档
@@ -65,6 +66,10 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
 - 可调数字集中在 `game/config.gd` 的 `const`。
 - 角色逻辑不引用 mesh 节点路径；外观只在 `game/player/mushroom_mesh.gd` 改。
 - 教室是自包含单场景，节点间直接 `$` 引用；森林侧的跨场景引用（摊位/玩家）每帧惰性 `get_first_node_in_group`，别在 `_ready` 里查。
+- 赛跑的跑者全在 `game/minigame/race_racer.gd`（RefCounted）：离线和联机同一份，真人摇杆只管左右、前进自动跑，
+  「跳」不是物理而是「y 高过矮栏（`RaceField.LOW_HEIGHT`）就跨过去」，高栏照撞。别再往赛跑里塞 `CharacterBody3D`。
+- 赛跑一局的座位 / 倒数 / 冲线 / 币都在 `RaceRound`：本机 tick 它，服务器那一局只把快照写进去再照旧渲染。
+  真人输入分两种形状 —— 横移按着（`steer`），跳跃 / 冲刺点一下（`jump` / `dash` 立刻进模型，不排到 tick）。
 - 体力与天色只有 `game/systems/day.gd` 一套公式；别处不许再算天色。扣体力只在小游戏 `_ready` 一处。
 - 皮肤外观只有一个入口 `MushroomMesh.use_skin()`；存档里的皮肤 id 一律走 `SkinCatalog.by_id()`，查不到就回落默认外观。
 - 体型只有一套入口：`MushroomMesh` 是门面，几何在 `game/player/body/`（基类 `mushroom_body.gd` + 每体型一个子类）。加角色 = 加一个 `body_xxx.gd` + `BodyCatalog` 一条，别往 `build()` 里加 if。

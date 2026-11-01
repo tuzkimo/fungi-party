@@ -12,8 +12,8 @@ const ARCH_COLOR := Color(0.78, 0.30, 0.26)
 const FINISH_COLOR := Color(0.94, 0.86, 0.32)
 const LINE_COLOR := Color(0.96, 0.96, 0.92)
 
-const TALL_HEIGHT := 2.2
-const LOW_HEIGHT := 0.6
+const TALL_HEIGHT := RaceField.TALL_HEIGHT
+const LOW_HEIGHT := RaceField.LOW_HEIGHT
 const BLOCK_DEPTH := 0.5
 const RAIL_HEIGHT := 0.9
 const RAIL_WIDTH := 0.3

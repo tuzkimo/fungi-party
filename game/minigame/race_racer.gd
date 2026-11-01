@@ -1,8 +1,9 @@
 class_name RaceRacer
 extends RefCounted
 
-## 人机跑法：纯逻辑模型，不碰节点也不走物理。
-## 每帧决定纵向前进与横向目标；撞击用和玩家同一份 field 数据判定。
+## 赛跑里的每一个跑者：纯逻辑模型，不碰节点也不走物理。
+## 真人和人机共用同一套前进、横移与撞击判定：真人摇杆只管左右（前进自动跑），人机自己找缝。
+## 「跳」不是物理：y 够高就跨过矮栏（RaceField.LOW_HEIGHT），高栏照样撞。
 
 enum Style { STEADY, HUGGER, DASHER }
 
@@ -25,12 +26,21 @@ const WOBBLE := [0.2, 0.35, 0.3]
 
 var z := 0.0
 var x := 0.0
+## 纵向高度：只有真人会跳，人机一直是 0
+var y := 0.0
+var vy := 0.0
 var hits := 0
 var finished := false
 var finish_time := 0.0
 var dash_left := 0.0
 var dash_cd := 0.0
 var freeze := 0.0
+
+## 真人那一路的输入：RaceRound 每 tick 写进来，模型自己算
+var human := false
+var steer := 0.0
+var want_jump := false
+var want_dash := false
 
 var _style: int
 var _wobble_phase := 0.0
@@ -50,9 +60,54 @@ func advance(delta: float, field: RaceField, elapsed: float) -> void:
 	if freeze > 0.0:
 		# 硬直期间不前进、不攒速度；x 也不动，否则会被拽回中线卡在障碍里
 		freeze -= d
+		want_jump = false
+		want_dash = false
 		return
 
 	dash_cd = maxf(0.0, dash_cd - d)
+	if human:
+		_advance_human(d, elapsed)
+	else:
+		_advance_ai(d, field, elapsed)
+	if finished:
+		return
+	_check_hits(field, elapsed)
+
+
+## 真人：摇杆只管左右，往前是自动的 —— 跨网不用补偿加速度，手感也不会被延迟放大。
+func _advance_human(d: float, elapsed: float) -> void:
+	if want_dash and dash_cd <= 0.0 and dash_left <= 0.0:
+		dash_left = Config.RACE_DASH_SECONDS
+		dash_cd = Config.RACE_DASH_COOLDOWN
+	want_dash = false
+	var speed := Config.RACE_BASE_SPEED
+	if dash_left > 0.0:
+		speed = Config.RACE_DASH_SPEED
+		dash_left = maxf(0.0, dash_left - d)
+
+	if want_jump and y <= 0.0:
+		vy = Movement.jump_velocity(Config.GRAVITY, Config.JUMP_HEIGHT)
+	want_jump = false
+	if y > 0.0 or vy != 0.0:
+		vy -= Config.GRAVITY * d
+		y += vy * d
+		if y <= 0.0:
+			y = 0.0
+			vy = 0.0
+
+	z += speed * d
+	if z >= Config.RACE_TRACK_LENGTH:
+		finished = true
+		finish_time = elapsed
+		return
+	# 镜头朝 +z 时画面右是 -x，所以摇杆的 x 要取反
+	x = clampf(
+		x - clampf(steer, -1.0, 1.0) * Config.RACE_SIDE_SPEED * d,
+		-Config.RACE_TRACK_HALF_WIDTH, Config.RACE_TRACK_HALF_WIDTH
+	)
+
+
+func _advance_ai(d: float, field: RaceField, elapsed: float) -> void:
 	var speed := Config.RACE_BASE_SPEED
 	if dash_left > 0.0:
 		speed = Config.RACE_DASH_SPEED
@@ -70,8 +125,6 @@ func advance(delta: float, field: RaceField, elapsed: float) -> void:
 	if _style == Style.DASHER and dash_left <= 0.0 and dash_cd <= 0.0 and not _blocked(field):
 		dash_left = Config.RACE_DASH_SECONDS
 		dash_cd = DASHER_COOLDOWN
-
-	_check_hits(field, elapsed)
 
 
 func _side_speed() -> float:
@@ -127,6 +180,9 @@ func _pinecone_dropped(crossing: RaceField.Crossing, elapsed: float) -> bool:
 func _check_hits(field: RaceField, elapsed: float) -> void:
 	for group in field.groups:
 		if absf(group.z - z) < _range(group.z) and absf(x - group.gap_x) > group.gap_width * 0.5:
+			# 跳起来能跨过矮栏；高栏不在此列
+			if group.kind == RaceField.LOW and y > RaceField.LOW_HEIGHT:
+				continue
 			_bump()
 			return
 	for crossing in field.crossings:
@@ -147,8 +203,9 @@ func _range(group_z: float) -> float:
 
 
 func _bump() -> void:
-	
 	hits += 1
 	z = maxf(0.0, z - Config.RACE_HIT_PUSH)
 	freeze = Config.RACE_HIT_FREEZE
 	dash_left = 0.0
+	y = 0.0
+	vy = 0.0

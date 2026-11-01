@@ -10,6 +10,10 @@ const BEETLE := 0
 const DUNG := 1
 const SQUIRREL := 2
 
+## 障碍高度：矮栏跳得过去（races 的 y 判定用它），高栏跳不过
+const LOW_HEIGHT := 0.6
+const TALL_HEIGHT := 2.2
+
 const FIRST_GROUP_Z := 22.0
 const TRACK_END_MARGIN := 25.0
 const EMPTY_SPACING := 0.1

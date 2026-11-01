@@ -45,8 +45,9 @@ func test_invitable_skips_the_second_player() -> void:
 ## 只有服务器上真在跑的那几款能邀请：其余几款发过去会被拒。
 func test_only_modelled_games_are_offered() -> void:
 	var kinds := InvitePanel.kinds()
-	check(kinds.has("classroom"), "教室能邀请（%s）" % str(kinds))
-	check(not kinds.has("race"), "赛跑还在客户端跑，不能邀请")
+	for kind in NetLobby.MODELLED:
+		check(kinds.has(kind), "%s 搬上服务器了就能邀请" % kind)
+	check(kinds.has("race"), "赛跑也能邀请了")
 
 
 func test_sync_lists_one_button_per_player_and_game() -> void:

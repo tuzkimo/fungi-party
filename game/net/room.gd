@@ -79,11 +79,41 @@ func input(account: String, payload: Dictionary) -> bool:
 			return false
 		(model as BombRound).request_throw(seat, side)
 		return true
+	if kind == "race":
+		return _race_input(seat, payload)
 	var held: Variant = payload.get("press", false)
 	if typeof(held) != TYPE_BOOL:
 		return false
 	_inputs[seat] = {"press": held}
 	return true
+
+
+## 赛跑的输入有两种形状：横移留着下一 tick 用，跳跃/冲刺是「点一下」——立刻交给模型。
+## 网络来的值一律先验类型，验不过就当这条输入不存在。
+func _race_input(seat: int, payload: Dictionary) -> bool:
+	var round := model as RaceRound
+	var used := false
+	if payload.has("move"):
+		var raw: Variant = payload["move"]
+		if typeof(raw) != TYPE_FLOAT and typeof(raw) != TYPE_INT:
+			return false
+		round.steer(seat, float(raw))
+		used = true
+	if payload.has("jump"):
+		var jump: Variant = payload["jump"]
+		if typeof(jump) != TYPE_BOOL:
+			return false
+		if bool(jump):
+			round.jump(seat)
+		used = true
+	if payload.has("dash"):
+		var dash: Variant = payload["dash"]
+		if typeof(dash) != TYPE_BOOL:
+			return false
+		if bool(dash):
+			round.dash(seat)
+		used = true
+	return used
 
 
 ## 推这一局：时钟 + 规则模型。模型说结束就结束。
@@ -96,6 +126,9 @@ func tick(delta: float) -> void:
 	if kind == "bomb":
 		# 传炸弹的输入在 input() 里已经交给模型了，这里只推时间
 		(model as BombRound).tick(delta)
+	elif kind == "race":
+		# 赛跑的横移和跳/冲也都已经进了模型，这里只推时间
+		(model as RaceRound).tick(delta)
 	else:
 		var press: Array[bool] = []
 		for i in seats.size():
@@ -146,6 +179,8 @@ func _build_model() -> void:
 			var owl := OwlRound.new(session_seed)
 			owl.humans = human_count()
 			model = owl
+		"race":
+			model = RaceRound.new(session_seed, human_count())
 
 
 func human_count() -> int:

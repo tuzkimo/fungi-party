@@ -65,6 +65,7 @@ func _run() -> void:
 	await _invite_check()
 	await _bomb_check()
 	await _owl_check()
+	await _race_check()
 	print("SMOKE OK")
 	quit(0)
 
@@ -271,6 +272,57 @@ func _owl_check() -> void:
 		_die("猫头鹰收局没结账：%d -> %d" % [coins_before, int(_client.data["coins"])])
 	print("猫头鹰：两人同局各扣 %d 体力，服务器判吃口，收局结账 %d 币" % [
 		Config.STAMINA_COST_OWL, int(_client.data["coins"]) - coins_before
+	])
+
+
+## 赛跑：邀请 → 两边各扣 20 → 服务器推赛道、判摇杆 → 对方掉线收局。
+## 一局 220 米要几十秒，看门狗不够，所以不等着跑完。
+func _race_check() -> void:
+	var guest := NetClient.new()
+	guest.failed.connect(_on_failed)
+	root.add_child(guest)
+	var guest_name := "%sF" % _name
+	guest.connect_to(_host, _port, guest_name, _password)
+	await guest.logged_in
+	var coins_before := int(_client.data["coins"])
+	await _op("invite", {"to": guest_name, "kind": "race"})
+	if not bool(_client.last_result.get("ok", false)):
+		_die("赛跑邀请被拒：%s" % str(_client.last_result.get("error", "")))
+	await create_timer(0.3).timeout
+	guest.request("answer", {"from": _name, "kind": "race", "accept": true})
+	await guest.changed
+	await create_timer(0.4).timeout
+	for who in [guest, _client]:
+		if str(who.session.get("kind", "")) != "race":
+			_die("%s 没进到赛跑：%s" % [who.me(), str(who.session)])
+	if int(guest.data["stamina"]) != Config.STAMINA_MAX - Config.STAMINA_COST_RACE:
+		_die("被邀请方体力没扣：%d" % int(guest.data["stamina"]))
+
+	var game: Dictionary = _client.session.get("game", {})
+	if game.is_empty() or (game.get("racers", []) as Array).size() != Config.SEAT_COUNT:
+		_die("没收到赛跑快照：%s" % str(_client.session))
+
+	# 倒数在模型里：等它走完再推摇杆，服务器把 0 号座位推走了就说明 INPUT 到了。
+	await create_timer(RaceRound.COUNTDOWN + 0.5).timeout
+	var judged := false
+	for i in 80:
+		_client.send_input({"move": -1.0})
+		await create_timer(0.1).timeout
+		var states: Array = (_client.session.get("game", {}) as Dictionary).get("racers", [])
+		if not states.is_empty() and float((states[0] as Dictionary).get("x", -9.0)) > 0.0:
+			judged = true
+			break
+	if not judged:
+		_die("推了 8 秒摇杆，服务器一次都没算（INPUT 没接上）")
+
+	# 结算门槛是 5 秒：等够再走，否则这局不结账
+	await create_timer(Config.NET_SETTLE_MIN_SECONDS).timeout
+	guest.close()
+	await create_timer(0.6).timeout
+	if not bool(_client.session.get("over", false)):
+		_die("对方掉线后这一局没收：%s" % str(_client.session))
+	print("赛跑：两人同局各扣 %d 体力，服务器判摇杆，收局结账 %d 币" % [
+		Config.STAMINA_COST_RACE, int(_client.data["coins"]) - coins_before
 	])
 
 

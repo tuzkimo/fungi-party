@@ -77,7 +77,6 @@ func test_classroom_room_has_a_model() -> void:
 	var room := NetRoom.create("classroom", ["a"], 7)
 	check(room.model is ClassroomRound, "教室房带规则模型")
 	check_eq(float(room.snapshot()["game"].get("countdown", -1.0)), ClassroomRound.COUNTDOWN, "快照里有局内状态")
-	check(NetRoom.create("race", ["a"], 7).model == null, "还没搬上服务器的游戏没有模型")
 
 
 func test_room_tick_drives_the_model() -> void:
@@ -119,7 +118,6 @@ func test_bomb_room_has_a_model() -> void:
 	var room := NetRoom.create("bomb", ["a", "b"], 7)
 	check(room.model is BombRound, "传炸弹房带规则模型")
 	check_eq((room.model as BombRound).humans, 2, "两个真人都在模型里")
-	check(NetRoom.create("race", ["a"], 7).model == null, "还没搬上服务器的游戏没有模型")
 
 
 func test_bomb_throw_input_goes_straight_to_the_model() -> void:
@@ -224,3 +222,40 @@ func test_owl_payouts_after_the_match() -> void:
 	check(room.over, "模型结束了房间也结束")
 	check_eq(room.winner, 0, "分数最高的那个是赢家")
 	check_eq(int(room.payouts()["a"]), OwlRound.coins(0), "按名次结账")
+
+
+## ---- 赛跑搬上服务器之后（第 6 步）----
+
+
+func test_race_room_has_a_model() -> void:
+	var room := NetRoom.create("race", ["a", "b"], 7)
+	check(room.model is RaceRound, "赛跑房带规则模型")
+	check_eq((room.model as RaceRound).humans, 2, "两个真人都在模型里")
+	var game: Dictionary = room.snapshot()["game"]
+	check_eq((game["racers"] as Array).size(), Config.SEAT_COUNT, "快照里四个跑者")
+
+
+## 赛跑的输入是「摇杆 + 点一下」：横移留着，跳跃和冲刺一收到就交给模型。
+func test_race_input_is_checked() -> void:
+	var room := NetRoom.create("race", ["a"], 7)
+	var round: RaceRound = room.model
+	check(room.input("a", {"move": -1.0}), "横移收下")
+	check_eq(round.racers[0].steer, -1.0, "横移进了模型")
+	check_eq(room._inputs[0], {}, "横移不排进 tick 队列（模型已经拿到了）")
+	check_eq(room.input("a", {"move": "left"}), false, "字符串不是横移")
+	check_eq(room.input("a", {"move": true}), false, "布尔不是横移")
+	check_eq(room.input("a", {"jump": 1}), false, "整数不是跳跃")
+	check_eq(room.input("a", {"dash": "now"}), false, "字符串不是冲刺")
+	check(room.input("a", {"jump": true}), "真布尔能跳")
+	check(room.input("a", {"dash": true}), "真布尔能冲")
+	check_eq(room.input("zzz", {"move": 0.0}), false, "外人输入丢掉")
+	check_eq(room.input("a", {}), false, "什么都没带不算输入")
+
+
+func test_race_tick_needs_no_press_array() -> void:
+	var room := NetRoom.create("race", ["a"], 7)
+	for i in 240:
+		room.tick(1.0 / 20.0)
+	var game: Dictionary = room.snapshot()["game"]
+	check(float(game["countdown"]) <= 0.0, "倒数走完了")
+	check(float((game["racers"] as Array)[0]["z"]) > 1.0, "服务器上真人也在跑")

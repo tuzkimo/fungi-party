@@ -44,7 +44,7 @@ func _ready() -> void:
 	root.theme = UIStyle.theme()
 	add_child(root)
 
-	for i in Party.count():
+	for i in _local_seats():
 		_times.append(0.0)
 		_ranks.append(1)
 
@@ -56,9 +56,15 @@ func _ready() -> void:
 	_build_pause(root)
 
 
+## 这一台机器上有几个座位：服务器那一局只有自己一个（本地 2P 在服务器上没有座位）。
+func _local_seats() -> int:
+	var net := NetClient.of(get_tree())
+	return 1 if net != null and net.in_room("race") else Party.count()
+
+
 ## 一人一行；双人时第二行贴在右半边左上角。
 func _build_huds(root: Control) -> void:
-	for i in Party.count():
+	for i in _local_seats():
 		var hud := Label.new()
 		hud.name = "Hud%d" % i
 		hud.position = Vector2(28.0, 52.0)
@@ -83,14 +89,14 @@ func _build_bar(root: Control) -> void:
 	_bar.offset_bottom = 42.0
 	root.add_child(_bar)
 
-	for i in Party.count() + RIVAL_COLORS.size():
+	for i in Config.SEAT_COUNT:
 		var dot := ColorRect.new()
 		dot.name = "Dot%d" % i
 		dot.size = Vector2(DOT_SIZE, DOT_SIZE)
-		if i < Party.count():
+		if i < _local_seats():
 			dot.color = PLAYER_COLORS[i]
 		else:
-			dot.color = RIVAL_COLORS[i - Party.count()]
+			dot.color = RIVAL_COLORS[i - _local_seats()]
 		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		dot.position.y = -1.0
 		_bar.add_child(dot)
@@ -98,10 +104,10 @@ func _build_bar(root: Control) -> void:
 
 
 func _build_dash(root: Control) -> void:
-	for i in Party.count():
+	for i in _local_seats():
 		var dash := DashButton.new()
 		dash.name = "Dash%d" % i
-		if Party.joined():
+		if _local_seats() > 1:
 			# 贴着中线左边/右边的那个跳跃键，压在它头上
 			var side := -1.0 if i == 0 else 1.0
 			_place(dash, Control.PRESET_CENTER_BOTTOM, Vector2(
@@ -237,13 +243,11 @@ func hide_countdown() -> void:
 	_countdown.visible = false
 
 
-## player_z：每个玩家的前进距离；ranks：每个玩家当前名次（1 基）。
-func set_progress(player_z: Array, rivals: Array, ranks: Array) -> void:
+## zs：四个跑者的前进距离（座位序）；ranks：这台机器的每个座位当前名次（1 基）。
+func set_progress(zs: Array, ranks: Array) -> void:
 	_ranks = ranks
-	for i in player_z.size():
-		_dots[i].position.x = _dot_x(float(player_z[i]))
-	for i in rivals.size():
-		_dots[player_z.size() + i].position.x = _dot_x(rivals[i].z)
+	for i in mini(zs.size(), _dots.size()):
+		_dots[i].position.x = _dot_x(float(zs[i]))
 	_refresh_hud()
 
 

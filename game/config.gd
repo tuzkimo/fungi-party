@@ -71,6 +71,8 @@ const RACE_BASE_SPEED := 6.0
 const RACE_DASH_SPEED := 12.0
 const RACE_DASH_SECONDS := 0.3
 const RACE_DASH_COOLDOWN := 3.0
+## 真人的横向速度：摇杆只管左右，前进是自动的（见 RaceRacer._advance_human）
+const RACE_SIDE_SPEED := 6.0
 const RACE_HIT_PUSH := 1.5
 const RACE_HIT_FREEZE := 0.6
 const RACE_GROUP_MIN_GAP := 16.5

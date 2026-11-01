@@ -12,9 +12,13 @@ const SCENES: Array[String] = [
 	"res://game/minigame/race.tscn",
 ]
 const FRAMES := 1800
+## 赛跑没人推摇杆就会一直撞在同一面墙上，只能等 RACE_TIME_LIMIT 收局，帧数得多给
+const RACE_FRAMES := 9600
+const RACE_PATH := "res://game/minigame/race.tscn"
 
 var _index := -1
 var _frames := 0
+var _frames_target := FRAMES
 var _failures := 0
 ## 进场景前的币：小游戏结算要是没进钱包，这里就露馅（传炸弹就是这么漏过一次）
 var _coins_before := 0
@@ -35,6 +39,7 @@ func _advance() -> void:
 		print("双人浸泡：四个场景都过了一遍，失败 %d" % _failures)
 		quit(1 if _failures > 0 else 0)
 		return
+	_frames_target = RACE_FRAMES if SCENES[_index] == RACE_PATH else FRAMES
 	# 每个场景都会扣一次体力：先补满，否则一局都开不起来就被踢回森林
 	Save.write(Save.PATH, {"stamina": Config.STAMINA_MAX})
 	_coins_before = int(Save.read(Save.PATH)["coins"])
@@ -50,16 +55,20 @@ func _check() -> void:
 		printerr("FAIL: %s 没停在场上，当前是 %s" % [SCENES[_index], current])
 		_failures += 1
 	else:
-		print("  %s 跑完 %d 帧" % [SCENES[_index], FRAMES])
+		print("  %s 跑完 %d 帧" % [SCENES[_index], _frames])
 	var gained := int(Save.read(Save.PATH)["coins"]) - _coins_before
 	if SCENES[_index] == "res://game/minigame/bomb.tscn" and gained <= 0:
 		printerr("FAIL: 传炸弹跑完一局，钱包一分没涨（结算没进存档）")
+		_failures += 1
+	# 赛跑名次靠后 + 撞得多确实可能是 0 币，所以只看「真跑到结算了」
+	if current == RACE_PATH and not bool(current_scene.get("_settled")):
+		printerr("FAIL: 赛跑 %d 帧还没跑到结算面板" % _frames)
 		_failures += 1
 
 
 func _process(_delta: float) -> bool:
 	_frames += 1
-	if _frames < FRAMES:
+	if _frames < _frames_target:
 		return false
 	_advance()
 	return false

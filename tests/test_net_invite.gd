@@ -36,7 +36,6 @@ func test_cost_matches_config() -> void:
 func test_invite_rejects() -> void:
 	var lobby := _lobby(_fresh())
 	check_eq(str(lobby.invite("甲", "乙", "nope", ONLINE, NOW)["error"]), "kind", "不认识的 kind")
-	check_eq(str(lobby.invite("甲", "乙", "race", ONLINE, NOW)["error"]), "kind", "还没搬上服务器的游戏不能开局")
 	check_eq(str(lobby.invite("甲", "甲", "classroom", ONLINE, NOW)["error"]), "self", "不能邀请自己")
 	check_eq(str(lobby.invite("甲", "丁", "classroom", ONLINE, NOW)["error"]), "offline", "对方不在线")
 	var tired := {"甲": {"stamina": 5}, "乙": {"stamina": 100}}
@@ -232,6 +231,18 @@ func test_owl_can_open_a_room() -> void:
 	check_eq(lobby.room.kind, "owl", "房是猫头鹰")
 	check(lobby.room.model is OwlRound, "房里跑猫头鹰的模型")
 	check_eq(int((r["saves"] as Dictionary)["乙"]["stamina"]), 100 - Config.STAMINA_COST_OWL, "各扣猫头鹰的体力")
+
+
+## 赛跑也搬上服务器了：邀请/接受/各扣 20 体力都走同一条路。
+func test_race_can_open_a_room() -> void:
+	var saves := _fresh()
+	var lobby := _lobby(saves)
+	check(bool(lobby.invite("甲", "乙", "race", ONLINE, NOW)["ok"]), "赛跑能开局")
+	var r := lobby.answer("甲", "乙", "race", true, ONLINE, NOW)
+	check(bool(r["ok"]), "接受之后成局")
+	check_eq(lobby.room.kind, "race", "房是赛跑")
+	check(lobby.room.model is RaceRound, "房里跑赛跑的模型")
+	check_eq(int((r["saves"] as Dictionary)["乙"]["stamina"]), 100 - Config.STAMINA_COST_RACE, "各扣赛跑的体力")
 
 
 ## 炸弹按名次结账：两个人还都活着时主动退出，不能白拿第一名的币。

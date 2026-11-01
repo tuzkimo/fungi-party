@@ -1,10 +1,10 @@
 extends Node3D
 
-## 赛跑编排：按种子建赛道、摆玩家、喂输入、跟相机。
-## 自包含单场景：节点间直接引用。每局新种子（RaceField.new(randi())），绝不写死。
-## 同屏双人时两个 RacePlayer 各跑各的：屏幕左右各一半，每人一台相机跟着自己跑。
+## 赛跑编排：按种子建赛道、摆四个跑者、喂输入、跟相机。
+## 规则（前进 / 横移 / 跳 / 撞 / 冲线 / 币）全在 RaceRound 里：
+## 本机局由这里 tick；服务器那一局只把快照写进 _round 再照旧渲染，不自己推进、不扣体力、不结账。
+## 同屏双人时两个座位各占半边屏，每人一台相机跟着自己跑。
 
-const COUNTDOWN_SECONDS := 3.0
 const START_FLASH := 0.5
 const CAMERA_HEIGHT := 3.5
 const CAMERA_BACK := 7.0
@@ -14,31 +14,32 @@ const CAMERA_LOOK := Vector3(0.0, 0.8, 10.0)
 const DUO_CAMERA_HEIGHT := 4.4
 const DUO_CAMERA_BACK := 9.5
 const DUO_FOV := 78.0
-## 两个人在起跑线各站一条道，别叠在一起
-const DUO_X := [-1.6, 1.6]
-const RIVAL_STYLES := [RaceRacer.Style.STEADY, RaceRacer.Style.HUGGER, RaceRacer.Style.DASHER]
 const RIVAL_NAMES := ["稳中型", "贴边型", "冲动型"]
-const RIVAL_X := [-2.5, 0.0, 2.5]
-const RIVAL_Z_STEP := 0.6
 const PINE_SIZE := 0.6
 const PINE_COLOR := Color(0.42, 0.30, 0.16)
 
-var _field := RaceField.new(randi())
-var _players: Array[RacePlayer] = []
-var _cameras: Array[Camera3D] = []
+var _round: RaceRound = null
 var _camera: Camera3D
 var _ui: RaceUI
 var _touch: TouchControls
-var _rivals: Array[RaceRacer] = []
-var _rival_visuals: Array[RacerVisual] = []
+## 四个座位的视图（自己负责的是 RacePlayer，其余是染色的 RacerVisual）
+var _views: Array = []
+var _cameras: Array[Camera3D] = []
+## 这台机器负责的座位：本机 0..count()-1，服务器那一局只有自己那一个
+var _seats: Array[int] = []
 var _animals: Array[AnimalActor] = []
 var _dropped: Array[bool] = []
 var _touch_held: Array[bool] = []
 var _dash_requested: Array[bool] = []
-var _elapsed := 0.0
-var _countdown := COUNTDOWN_SECONDS
-var _start_flash := 0.0
+var _start_flash := -1.0
+var _countdown_text := ""
 var _settled := false
+
+## 服务器把我拉进这一局了就是非空：这时规则在服务器跑，本机只画快照
+var _net: NetClient = null
+var _my_seat := 0
+var _sent_steer := 0.0
+var _steer_sent := false
 
 
 func _bail_to_forest() -> void:
@@ -46,25 +47,38 @@ func _bail_to_forest() -> void:
 
 
 func _ready() -> void:
-	if not Save.spend_stamina(Config.STAMINA_COST_RACE):
-		# 体力不够就别开始，直接回森林；_ready 里换场景要延后，
-		# 这期间 UI 还没建好，别再 tick
-		set_physics_process(false)
-		call_deferred("_bail_to_forest")
-		return
+	_net = _joinable_room()
+	if _net == null:
+		if not Save.spend_stamina(Config.STAMINA_COST_RACE):
+			# 体力不够就别开始，直接回森林；_ready 里换场景要延后
+			set_physics_process(false)
+			call_deferred("_bail_to_forest")
+			return
+		_round = RaceRound.new(randi(), Party.count())
+		for seat in Party.count():
+			_seats.append(seat)
+	else:
+		# 这一局是服务器的：体力在成局那一下已经扣过，本地 2P 没有座位
+		_my_seat = _net.seat_index()
+		_seats.append(_my_seat)
+		_round = RaceRound.new(int(_net.session.get("seed", 1)), _room_humans())
+		_apply_game(_net.session.get("game", {}))
+	for i in _seats.size():
+		_touch_held.append(false)
+		_dash_requested.append(false)
+
 	Controls.ensure()
 	_camera = $Camera3D
 	_ui = $UI
 
-	_spawn_players()
+	_spawn_views()
 	_build_cameras()
 
 	var course := RaceCourse.new()
 	course.name = "Course"
 	add_child(course)
-	course.build(_field)
+	course.build(_round.field)
 
-	_spawn_rivals()
 	_spawn_animals()
 	_follow_cameras()
 
@@ -74,62 +88,149 @@ func _ready() -> void:
 	_ui.dash_pressed.connect(_on_dash)
 
 	var layout := PackedStringArray()
-	for group in _field.groups:
+	for group in _round.field.groups:
 		layout.append("%.1f/%d" % [group.z, group.kind])
 	print("赛道布局：%s" % " ".join(layout))
 
 
 func _on_dash(player: int) -> void:
-	_dash_requested[player] = true
+	if player < _dash_requested.size():
+		_dash_requested[player] = true
 
 
 func _physics_process(delta: float) -> void:
-	if _countdown > 0.0:
-		# 倒数期间不喂输入、不计时，人机也不动；按下的冲刺作废
-		for i in _dash_requested.size():
-			_dash_requested[i] = false
-		_countdown -= delta
-		if _countdown > 0.0:
-			_ui.show_countdown(str(ceili(_countdown)))
-		else:
-			_ui.show_countdown("开始！")
-			_start_flash = START_FLASH
-		return
-	if _start_flash > 0.0:
-		_start_flash -= delta
-		if _start_flash <= 0.0:
-			_ui.hide_countdown()
 	if _settled:
 		return
-
-	_elapsed += delta
-	_feed()
-	_update_actors(delta)
-	for player in _players:
-		if player.finished and player.finish_time <= 0.0:
-			player.finish_time = _elapsed
-	_follow_cameras()
-	_update_hud()
-	_settle_if_over()
-
-
-## 人按座位号站位：单人还是老位置（中线），双人各占一条。
-func _spawn_players() -> void:
-	var duo := Party.joined()
-	for seat in Party.count():
-		var player := RacePlayer.new()
-		player.name = "Player%d" % seat
-		player.seat = seat
-		add_child(player)
-		player.position = Vector3(DUO_X[seat] if duo else 0.0, 0.0, 0.0)
-		_players.append(player)
-		_touch_held.append(false)
-		_dash_requested.append(false)
+	if _net != null:
+		_net_step(delta)
+		return
+	if _round.started():
+		_feed_local()
+	_round.tick(delta)
+	_sync(delta)
+	if _round.over:
+		_settle()
 
 
-## 单人：原来那台跟在脑后的相机。双人：左右各一个 SubViewport，共用同一份 World3D。
+## 服务器那一局：把快照写进本地模型再照旧渲染，只上报摇杆和跳/冲。
+func _net_step(delta: float) -> void:
+	# 掉线了：规则全在服务器上，本机没法接着算，回森林（否则画面冻在原地）
+	if not _net.ready():
+		set_physics_process(false)
+		call_deferred("_bail_to_forest")
+		return
+	var game: Dictionary = _net.session.get("game", {})
+	if not game.is_empty():
+		_apply_game(game)
+	# 服务器收局不一定是模型判的（有人走人、掉线、到硬顶）：session 上置了 over 也算
+	_round.over = _round.over or bool(_net.session.get("over", false))
+	_feed_net()
+	_sync(delta)
+	if _round.over:
+		_settle()
+
+
+## 把服务器快照写进本地模型（只写不推，规则全在服务器）
+func _apply_game(game: Dictionary) -> void:
+	if game.is_empty():
+		return
+	_round.countdown = float(game.get("countdown", _round.countdown))
+	_round.elapsed = float(game.get("elapsed", _round.elapsed))
+	_round.over = bool(game.get("over", false))
+	_round.winner = int(game.get("winner", -1))
+	var states: Array = game.get("racers", [])
+	for i in mini(states.size(), _round.racers.size()):
+		var state: Dictionary = states[i]
+		var racer: RaceRacer = _round.racers[i]
+		racer.x = float(state.get("x", racer.x))
+		racer.y = float(state.get("y", racer.y))
+		racer.z = float(state.get("z", racer.z))
+		racer.steer = float(state.get("steer", racer.steer))
+		racer.hits = int(state.get("hits", racer.hits))
+		racer.finished = bool(state.get("finished", racer.finished))
+		racer.finish_time = float(state.get("finish_time", racer.finish_time))
+		racer.dash_left = float(state.get("dash_left", racer.dash_left))
+		racer.dash_cd = float(state.get("dash_cd", racer.dash_cd))
+		racer.freeze = float(state.get("freeze", racer.freeze))
+
+
+## 本机：键盘只喂一号位，触屏每个座位一组摇杆 + 跳跃键，冲刺键在 UI 上。
+func _feed_local() -> void:
+	var move := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var jump := Input.is_action_just_pressed("jump")
+	var dash := Input.is_action_just_pressed("run")
+	_find_touch()
+	for i in _seats.size():
+		var seat: int = _seats[i]
+		var mine_move := move if i == 0 else Vector2.ZERO
+		var mine_jump := jump if i == 0 else false
+		var mine_dash := dash if i == 0 else false
+		if _touch != null:
+			if _touch.move(i).length() > 0.05:
+				mine_move = _touch.move(i)
+			var held := _touch.held(i)
+			if held and not _touch_held[i]:
+				mine_jump = true
+			_touch_held[i] = held
+		if _dash_requested[i]:
+			mine_dash = true
+		_dash_requested[i] = false
+		_round.steer(seat, mine_move.x)
+		if mine_jump:
+			_round.jump(seat)
+		if mine_dash:
+			_round.dash(seat)
+
+
+## 服务器那一局：摇杆只在变了才发（20 Hz 没必要），跳和冲是点一下就发。
+func _feed_net() -> void:
+	var move := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var jump := Input.is_action_just_pressed("jump")
+	var dash := Input.is_action_just_pressed("run") or _dash_requested[0]
+	_dash_requested[0] = false
+	_find_touch()
+	if _touch != null:
+		if _touch.move(0).length() > 0.05:
+			move = _touch.move(0)
+		var held := _touch.held(0)
+		if held and not _touch_held[0]:
+			jump = true
+		_touch_held[0] = held
+	if not _round.started():
+		return
+	if not _steer_sent or absf(move.x - _sent_steer) > 0.01:
+		_sent_steer = move.x
+		_steer_sent = true
+		_net.send_input({"move": move.x})
+	if jump:
+		_net.send_input({"jump": true})
+	if dash:
+		_net.send_input({"dash": true})
+
+
+## 四个座位各一个视图：自己负责的座位用自己的体型和皮肤，其余（人机 / 别人）是染色蘑菇。
+func _spawn_views() -> void:
+	for seat in Config.SEAT_COUNT:
+		if _seats.has(seat):
+			var player := RacePlayer.new()
+			player.name = "Player%d" % seat
+			add_child(player)
+			# 服务器那一局座位号是服务器给的，形象还是本机 0 号那一身
+			player.setup_player(seat if _net == null else 0)
+			player.apply(_round.racers[seat], 0.0)
+			_views.append(player)
+		else:
+			var rival := RacerVisual.new()
+			rival.name = "Racer%d" % seat
+			add_child(rival)
+			rival.setup(RaceUI.RIVAL_COLORS[seat % RaceUI.RIVAL_COLORS.size()])
+			rival.apply(_round.racers[seat], 0.0)
+			_views.append(rival)
+
+
+## 一个座位就是整块屏（服务器那一局、本机单人）。双人：左右各一个 SubViewport，共用同一份 World3D。
 func _build_cameras() -> void:
-	if not Party.joined():
+	if _seats.size() == 1:
 		_camera.position = Vector3(0.0, CAMERA_HEIGHT, -CAMERA_BACK)
 		_camera.look_at(CAMERA_LOOK)
 		_cameras.append(_camera)
@@ -147,7 +248,7 @@ func _build_cameras() -> void:
 	row.set_anchors_preset(Control.PRESET_FULL_RECT)
 	row.add_theme_constant_override("separation", 0)
 	layer.add_child(row)
-	for i in _players.size():
+	for i in _seats.size():
 		var holder := SubViewportContainer.new()
 		holder.name = "View%d" % i
 		holder.stretch = true
@@ -171,23 +272,9 @@ func _build_cameras() -> void:
 		_cameras.append(cam)
 
 
-func _spawn_rivals() -> void:
-	for i in RIVAL_STYLES.size():
-		var racer := RaceRacer.new(RIVAL_STYLES[i], randi())
-		racer.x = RIVAL_X[i]
-		racer.z = RIVAL_Z_STEP * float(i + 1)
-		_rivals.append(racer)
-		var visual := RacerVisual.new()
-		visual.name = "Rival%d" % i
-		add_child(visual)
-		visual.setup(RaceUI.RIVAL_COLORS[i])
-		visual.apply(racer)
-		_rival_visuals.append(visual)
-
-
 func _spawn_animals() -> void:
-	for i in _field.crossings.size():
-		var crossing: RaceField.Crossing = _field.crossings[i]
+	for i in _round.field.crossings.size():
+		var crossing: RaceField.Crossing = _round.field.crossings[i]
 		var animal := AnimalActor.new()
 		animal.name = "Animal%d" % i
 		add_child(animal)
@@ -197,26 +284,31 @@ func _spawn_animals() -> void:
 		_dropped.append(false)
 
 
-func _update_actors(delta: float) -> void:
-	for i in _rivals.size():
-		_rivals[i].advance(delta, _field, _elapsed)
-		_rival_visuals[i].apply(_rivals[i])
+func _sync(delta: float) -> void:
+	for seat in Config.SEAT_COUNT:
+		_views[seat].apply(_round.racers[seat], delta)
+	_update_actors()
+	_update_hud()
+	_follow_cameras()
+	_update_countdown(delta)
+
+
+func _update_actors() -> void:
 	for i in _animals.size():
-		var crossing: RaceField.Crossing = _field.crossings[i]
-		_animals[i].advance(_elapsed - crossing.time)
+		var crossing: RaceField.Crossing = _round.field.crossings[i]
+		_animals[i].advance(_round.elapsed - crossing.time)
 		_drop_pinecone(i, crossing)
 
 
-## 松鼠横穿到一半时把松果丢在中线，整局留在原地。
+## 松鼠横穿到一半时把松果丢在中线，整局留在原地（现在只是画，撞击由模型判）。
 func _drop_pinecone(index: int, crossing: RaceField.Crossing) -> void:
 	if _dropped[index] or crossing.kind != RaceField.SQUIRREL:
 		return
-	if _elapsed < crossing.time + Config.RACE_ANIMAL_WARN + RaceField.WALK_IN:
+	if _round.elapsed < crossing.time + Config.RACE_ANIMAL_WARN + RaceField.WALK_IN:
 		return
 	_dropped[index] = true
-	var pine := StaticBody3D.new()
+	var pine := Node3D.new()
 	pine.name = "Pinecone%d" % index
-	pine.add_to_group("hazard")
 	pine.position = Vector3(0.0, PINE_SIZE * 0.5, crossing.z)
 	add_child(pine)
 
@@ -230,35 +322,6 @@ func _drop_pinecone(index: int, crossing: RaceField.Crossing) -> void:
 	mesh.material_override = material
 	pine.add_child(mesh)
 
-	var shape := CollisionShape3D.new()
-	var shape_box := BoxShape3D.new()
-	shape_box.size = Vector3.ONE * PINE_SIZE
-	shape.shape = shape_box
-	pine.add_child(shape)
-
-
-## 键盘只喂一号位；触屏每个玩家一组摇杆 + 跳跃键，冲刺键在 UI 上。
-func _feed() -> void:
-	var move := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	var jump := Input.is_action_just_pressed("jump")
-	var dash := Input.is_action_just_pressed("run")
-	_find_touch()
-	for i in _players.size():
-		var mine_move := move if i == 0 else Vector2.ZERO
-		var mine_jump := jump if i == 0 else false
-		var mine_dash := dash if i == 0 else false
-		if _touch != null:
-			if _touch.move(i).length() > 0.05:
-				mine_move = _touch.move(i)
-			var held := _touch.held(i)
-			if held and not _touch_held[i]:
-				mine_jump = true
-			_touch_held[i] = held
-		if _dash_requested[i]:
-			mine_dash = true
-		_dash_requested[i] = false
-		_players[i].feed(mine_move, mine_jump, mine_dash)
-
 
 func _find_touch() -> void:
 	if _touch == null:
@@ -266,110 +329,119 @@ func _find_touch() -> void:
 
 
 func _update_hud() -> void:
-	var order := RaceScore.ranking(_entries())
+	var order := RaceScore.ranking(_round.racers)
 	var ranks := []
-	for i in _players.size():
-		ranks.append(order.find(i) + 1)
-	_ui.set_progress(_player_z(), _rivals, ranks)
-	_ui.set_time(_finish_times())
-	for i in _players.size():
+	var times := []
+	var zs := []
+	for racer in _round.racers:
+		zs.append(racer.z)
+	for i in _seats.size():
+		var seat: int = _seats[i]
+		var racer: RaceRacer = _round.racers[seat]
+		ranks.append(order.find(seat) + 1)
+		times.append(racer.finish_time if racer.finished else _round.elapsed)
+	_ui.set_progress(zs, ranks)
+	_ui.set_time(times)
+	for i in _seats.size():
+		var racer: RaceRacer = _round.racers[_seats[i]]
 		var ratio := 1.0
-		if _players[i].dash_cd > 0.0:
-			ratio = 1.0 - _players[i].dash_cd / Config.RACE_DASH_COOLDOWN
+		if racer.dash_cd > 0.0:
+			ratio = 1.0 - racer.dash_cd / Config.RACE_DASH_COOLDOWN
 		_ui.set_dash_ready(i, ratio)
 
 
-## 名次判定的输入：先所有人，再所有人机（RaceScore 只认 finished / finish_time / z）。
-func _entries() -> Array:
-	var entries: Array = []
-	for player in _players:
-		entries.append({
-			"finished": player.finished, "finish_time": player.finish_time, "z": player.position.z
-		})
-	for rival in _rivals:
-		entries.append(rival)
-	return entries
+## 倒数：剩几秒 → 「开始！」闪一下 → 藏起来。服务器那一局的 remain 也是快照给的。
+func _update_countdown(delta: float) -> void:
+	if _round.countdown > 0.0:
+		var text := str(ceili(_round.countdown))
+		if text != _countdown_text:
+			_countdown_text = text
+			_ui.show_countdown(text)
+	elif _start_flash < 0.0:
+		_ui.show_countdown("开始！")
+		_start_flash = START_FLASH
+	elif _start_flash > 0.0:
+		_start_flash = maxf(0.0, _start_flash - delta)
+		if _start_flash == 0.0:
+			_ui.hide_countdown()
 
 
-func _player_z() -> Array:
-	var out := []
-	for player in _players:
-		out.append(player.position.z)
-	return out
-
-
-func _finish_times() -> Array:
-	var out := []
-	for player in _players:
-		out.append(player.finish_time if player.finished else _elapsed)
-	return out
-
-
-## 两个人都跑完（或超时）才结算；单人沿用「前三名定了就结算」，不用干等最后一名。
-func _settle_if_over() -> void:
-	var entries := _entries()
-	var done := true
-	for player in _players:
-		done = done and player.finished
-	if not done and _elapsed < Config.RACE_TIME_LIMIT:
-		if Party.joined() or not RaceScore.decided(entries):
-			return
+## 结算：服务器那局币是服务器结的（快照里带 earned），本机局自己进钱包。
+func _settle() -> void:
 	_settled = true
-	for player in _players:
-		player.feed(Vector2.ZERO, false, false)
-
-	var order := RaceScore.ranking(entries)
-	var earned := 0
+	var order := RaceScore.ranking(_round.racers)
 	var ranks := []
+	var times := []
 	var hits := []
-	for i in _players.size():
-		var rank: int = order.find(i)
+	var earned := 0
+	for i in _seats.size():
+		var seat: int = _seats[i]
+		var racer: RaceRacer = _round.racers[seat]
+		var rank := order.find(seat)
 		ranks.append(rank + 1)
-		hits.append(_players[i].hits)
-		earned += RaceScore.coins(rank, _players[i].hits)
-	Save.add_coins(earned)
-	_ui.show_result(ranks, _finish_times(), hits, earned, _standings(entries, order))
+		times.append(racer.finish_time if racer.finished else _round.elapsed)
+		hits.append(racer.hits)
+		earned += RaceScore.coins(rank, racer.hits)
+	if _net != null:
+		earned = int((_net.session.get("earned", {}) as Dictionary).get(_net.player_name, 0))
+	else:
+		Save.add_coins(earned)
+	_ui.show_result(ranks, times, hits, earned, _standings(order))
 
 
 ## 结算面板上的名次表：按名次排好，名字 + 时间（没跑完的写未完赛）。
-func _standings(entries: Array, order: Array) -> Array:
+func _standings(order: Array) -> Array:
 	var rows := []
 	for index in order:
-		var racer: Variant = entries[index]
+		var racer: RaceRacer = _round.racers[index]
 		rows.append({
-			"name": _racer_name(index),
-			"finished": bool(racer["finished"]),
-			"time": float(racer["finish_time"]),
+			"name": _seat_name(index),
+			"finished": racer.finished,
+			"time": racer.finish_time,
 		})
 	return rows
 
 
-## 0..count()-1 是玩家，往后的下标对应人机。
-func _racer_name(index: int) -> String:
-	if Party.human(index):
-		return Party.name_of(index)
-	return RIVAL_NAMES[index - Party.count()]
+## 0..count()-1 是本机玩家，其余按「人机 / 服务器上的别人」取名。
+func _seat_name(seat: int) -> String:
+	if _net != null:
+		var seats: Array = _net.session.get("seats", [])
+		if seat < seats.size() and not bool((seats[seat] as Dictionary).get("npc", false)):
+			return str((seats[seat] as Dictionary).get("account", ""))
+	elif Party.human(seat):
+		return Party.name_of(seat)
+	var rival := seat - _round.humans
+	return RIVAL_NAMES[rival] if rival >= 0 and rival < RIVAL_NAMES.size() else "人机"
 
 
-## 返回键：先弹暂停面板（再按一次继续），不直接把整个应用退掉。
+## 返回键：本机局先弹暂停面板（再按一次继续）；服务器那一局暂停不了，直接回森林。
 func _notification(what: int) -> void:
 	if what != NOTIFICATION_WM_GO_BACK_REQUEST or _settled:
+		return
+	if _net != null:
+		_to_forest()
 		return
 	if get_tree().paused:
 		get_tree().paused = false
 		_ui.hide_pause()
 	else:
-		_ui.show_pause()
 		get_tree().paused = true
+		_ui.show_pause()
 
 
 func _restart() -> void:
 	get_tree().paused = false
+	_release_room()
+	if _net != null:
+		# 服务器那一局没法在本机重开：新一局要从森林重新邀请
+		get_tree().change_scene_to_file(Config.FOREST_PATH)
+		return
 	get_tree().reload_current_scene()
 
 
 func _to_forest() -> void:
 	get_tree().paused = false
+	_release_room()
 	get_tree().change_scene_to_file(Config.FOREST_PATH)
 
 
@@ -378,10 +450,31 @@ func _quit() -> void:
 	get_tree().quit()
 
 
-## 镜头锁死朝前：只平移，不转、不抖。
+## 主动离开这一局：让服务器把房腾出来（否则「同时一间房」会被一次旧局占住）
+func _release_room() -> void:
+	if _net != null:
+		_net.request("leave_room", {})
+
+
+## 服务器那份 session 是不是「我该进这条赛道」：只在 _ready 判一次，
+## 局结束（over）之后还得继续按服务器那套画，不能又退回本机自己算。
+func _joinable_room() -> NetClient:
+	var net := NetClient.of(get_tree())
+	return net if net != null and net.in_room("race") else null
+
+
+func _room_humans() -> int:
+	var out := 0
+	for seat_state in _net.session.get("seats", []):
+		if not bool((seat_state as Dictionary).get("npc", false)):
+			out += 1
+	return maxi(out, 1)
+
+
+## 镜头锁死朝前：只平移，不转、不抖。双人各跟自己的座位。
 func _follow_cameras() -> void:
-	for i in _players.size():
-		var target := _players[i].position
+	for i in _seats.size():
+		var target: RaceRacer = _round.racers[_seats[i]]
 		if _cameras.size() == 1:
 			_cameras[0].position = Vector3(target.x, CAMERA_HEIGHT, target.z - CAMERA_BACK)
 		else:
