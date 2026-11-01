@@ -117,6 +117,16 @@ func send_input(payload: Dictionary) -> void:
 	_send(NetProtocol.Msg.INPUT, payload)
 
 
+## 局内事件只该被消费一次：快照 20 Hz、场景 60 Hz，不抹掉的话同一批会被重放三遍（音效连发、飞行重启）。
+## 会话字典是本机镜像，吃掉不算改存档。
+func take_events() -> Array:
+	var game: Dictionary = session.get("game", {})
+	var out: Array = game.get("events", [])
+	if not out.is_empty():
+		game.erase("events")
+	return out
+
+
 func _process(delta: float) -> void:
 	if _peer == null:
 		return

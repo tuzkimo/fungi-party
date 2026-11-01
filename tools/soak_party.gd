@@ -16,6 +16,8 @@ const FRAMES := 1800
 var _index := -1
 var _frames := 0
 var _failures := 0
+## 进场景前的币：小游戏结算要是没进钱包，这里就露馅（传炸弹就是这么漏过一次）
+var _coins_before := 0
 
 
 func _initialize() -> void:
@@ -35,6 +37,7 @@ func _advance() -> void:
 		return
 	# 每个场景都会扣一次体力：先补满，否则一局都开不起来就被踢回森林
 	Save.write(Save.PATH, {"stamina": Config.STAMINA_MAX})
+	_coins_before = int(Save.read(Save.PATH)["coins"])
 	change_scene_to_file(SCENES[_index])
 
 
@@ -48,6 +51,10 @@ func _check() -> void:
 		_failures += 1
 	else:
 		print("  %s 跑完 %d 帧" % [SCENES[_index], FRAMES])
+	var gained := int(Save.read(Save.PATH)["coins"]) - _coins_before
+	if SCENES[_index] == "res://game/minigame/bomb.tscn" and gained <= 0:
+		printerr("FAIL: 传炸弹跑完一局，钱包一分没涨（结算没进存档）")
+		_failures += 1
 
 
 func _process(_delta: float) -> bool:

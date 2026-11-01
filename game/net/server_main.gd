@@ -205,8 +205,8 @@ func _on_room_op(from: int, me: String, op: String, args: Dictionary) -> void:
 				bool(args.get("accept", false)), online, now
 			)
 		_:
-			# leave_room：主动回森林，房腾出来（收益照结算）
-			_lobby.leave(me)
+			# leave_room：主动回森林，房腾出来（主动退出不结账，见 NetLobby.leave）
+			_lobby.leave(me, false)
 			result = {"ok": true}
 	var saves: Dictionary = result.get("saves", {})
 	for name in saves:

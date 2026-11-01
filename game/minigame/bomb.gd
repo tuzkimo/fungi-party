@@ -92,6 +92,8 @@ func _ready() -> void:
 	_ui.forest_pressed.connect(_to_forest)
 	_ui.quit_pressed.connect(_quit)
 	_ui.throw_pressed.connect(_on_throw_pressed)
+	# _init 自己塞的那条 ignite 先扔掉：本机一局重新放点火动画，服务器那一局等服务器的 ignite 事件
+	_round.events.clear()
 	if _net != null:
 		# 服务器那一局没有本机倒数（引信在服务器上已经在烧）：投掷键直接可用
 		_countdown = 0.0
@@ -100,7 +102,6 @@ func _ready() -> void:
 		# 倒数期间两个投掷键不接收触摸
 		_ui.set_armed(false)
 		# 开局那颗：模型已经点燃了，视觉上让它从篝火飞过去
-		_round.events.clear()
 		_launch_from_fire(_round.holder)
 
 
@@ -138,6 +139,11 @@ func _physics_process(delta: float) -> void:
 func _net_step(delta: float) -> void:
 	if _settled:
 		return
+	# 掉线了：服务器那一局的规则全在服务器上，本机没法接着算，回森林
+	if not _net.ready():
+		set_physics_process(false)
+		call_deferred("_bail_to_forest")
+		return
 	var game: Dictionary = _net.session.get("game", {})
 	if not game.is_empty():
 		_apply_game(game)
@@ -161,7 +167,7 @@ func _apply_game(game: Dictionary) -> void:
 	_round.death_order = (game.get("death_order", []) as Array).duplicate()
 	_round.over = bool(game.get("over", false))
 	_round.elapsed = float(game.get("elapsed", _round.elapsed))
-	for event in game.get("events", []):
+	for event in _net.take_events():
 		_round.events.append(event)
 
 
@@ -328,6 +334,8 @@ func _settle() -> void:
 		ranks.append(rank + 1)
 		earned += BombScore.coins(rank)
 	print("结算：%s 名，撑了 %d 秒，+%d 蘑菇币" % [str(ranks), int(_elapsed), earned])
+	# 币进本机钱包（联机但没被邀请时走 add_coins 那条 op）；服务器那一局的币在上面结过账了
+	Save.add_coins(earned)
 	_ui.show_result(
 		ranks, _elapsed, earned,
 		BombScore.rows(_round.death_order, _round.alive, _names, Party.count())

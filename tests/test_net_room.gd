@@ -160,3 +160,19 @@ func test_bomb_payouts_after_the_round() -> void:
 	room.tick(1.0 / 20.0)
 	check(room.over, "模型结束了房间也结束")
 	check_eq(int(room.payouts()["a"]), int(Config.BOMB_RANK_COINS[0]), "活到最后按第一名结账")
+
+
+## ---- 评审挑出来的输入校验（第 4 步修）----
+
+
+func test_bomb_throw_input_is_checked() -> void:
+	var room := NetRoom.create("bomb", ["a"], 7)
+	var round: BombRound = room.model
+	round.holder = 0
+	round.lock = 0.0
+	round.flight = 0.0
+	check_eq(room.input("a", {"throw": {}}), false, "不是数字的投掷丢掉")
+	check_eq(room.input("a", {"throw": "1"}), false, "字符串也不算方向")
+	check_eq(room.input("a", {"throw": 0}), false, "0 不是合法方向")
+	check_eq(round.holder, 0, "炸弹没动")
+	check(room.input("a", {"throw": 1.0}), "浮点数也是数字")

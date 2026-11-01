@@ -220,3 +220,32 @@ func test_bomb_can_open_a_room() -> void:
 	check_eq(lobby.room.kind, "bomb", "房是传炸弹")
 	check(lobby.room.model is BombRound, "房里跑传炸弹的模型")
 	check_eq(int((r["saves"] as Dictionary)["乙"]["stamina"]), 100 - Config.STAMINA_COST_BOMB, "各扣传炸弹的体力")
+
+
+## 炸弹按名次结账：两个人还都活着时主动退出，不能白拿第一名的币。
+func test_leave_room_does_not_pay() -> void:
+	var saves := _fresh()
+	var lobby := _lobby(saves)
+	lobby.invite("甲", "乙", "bomb", ONLINE, NOW)
+	lobby.answer("甲", "乙", "bomb", true, ONLINE, NOW)
+	for i in 120:
+		lobby.tick(1.0 / 20.0)
+	lobby.leave("甲", false)
+	for i in 5:
+		lobby.tick(1.0 / 20.0)
+	check_eq(int(saves["甲"]["coins"]), 0, "主动退出的人不结账")
+	check_eq(int(saves["乙"]["coins"]), 0, "留下的人也不白拿第一名")
+
+
+## 掉线（不是主动退出）还是照老规矩结账：网络抖一下不该把这一局的币吞掉。
+func test_disconnect_still_pays() -> void:
+	var saves := _fresh()
+	var lobby := _lobby(saves)
+	lobby.invite("甲", "乙", "bomb", ONLINE, NOW)
+	lobby.answer("甲", "乙", "bomb", true, ONLINE, NOW)
+	for i in 120:
+		lobby.tick(1.0 / 20.0)
+	lobby.leave("甲")
+	for i in 5:
+		lobby.tick(1.0 / 20.0)
+	check(int(saves["甲"]["coins"]) > 0, "掉线的人照样结账")

@@ -108,10 +108,13 @@ func invites_for(name: String, online: PackedStringArray, now: float) -> Array:
 
 
 ## 这个人下线或者主动回森林：他发出和收到的邀请都作废；他在局里就把这一局收了。
-func leave(name: String) -> void:
+## settle = false 是「主动走」：炸弹按名次结账，两人还都活着时退出等于白拿第一名的币，所以一分不给。
+func leave(name: String, settle: bool = true) -> void:
 	_clear_invites(name)
 	if room != null and room.seat_of(name) >= 0:
 		room.over = true
+		if not settle:
+			settled = true
 
 
 ## 推进这一局；模型说结束（或者到了硬顶）就结账，只结一次。

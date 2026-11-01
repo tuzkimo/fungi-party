@@ -70,11 +70,14 @@ func input(account: String, payload: Dictionary) -> bool:
 	if over or seat < 0:
 		return false
 	if kind == "bomb":
-		# 传炸弹是「点一下往哪边扔」，不是按着：一收到就交给模型，不留到 tick
-		var side := signi(int(payload.get("throw", 0)))
-		_inputs[seat] = {"throw": side}
-		if model != null:
-			(model as BombRound).request_throw(seat, side)
+		# 传炸弹是「点一下往哪边扔」，不是按着：合法的方向一收到就交给模型，不留到 tick
+		var raw: Variant = payload.get("throw", 0)
+		if typeof(raw) != TYPE_INT and typeof(raw) != TYPE_FLOAT:
+			return false
+		var side := signi(int(raw))
+		if side == 0:
+			return false
+		(model as BombRound).request_throw(seat, side)
 		return true
 	_inputs[seat] = {"press": bool(payload.get("press", false))}
 	return true
