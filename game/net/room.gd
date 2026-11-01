@@ -97,7 +97,11 @@ func tick(delta: float) -> void:
 		var press: Array[bool] = []
 		for i in seats.size():
 			press.append(false if bool(seats[i]["npc"]) else bool((_inputs[i] as Dictionary).get("press", false)))
-		model.tick(delta, press)
+		if kind == "owl":
+			# 猫头鹰一局三关：关间停顿和关卡推进在模型里（本地那一份在 owl.gd 的 Phase 机里）
+			(model as OwlRound).tick_match(delta, press)
+		else:
+			model.tick(delta, press)
 	over = bool(model.over)
 	winner = int(model.winner)
 
@@ -135,6 +139,10 @@ func _build_model() -> void:
 			var bomb := BombRound.new(session_seed)
 			bomb.humans = human_count()
 			model = bomb
+		"owl":
+			var owl := OwlRound.new(session_seed)
+			owl.humans = human_count()
+			model = owl
 
 
 func human_count() -> int:

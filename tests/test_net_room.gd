@@ -77,7 +77,7 @@ func test_classroom_room_has_a_model() -> void:
 	var room := NetRoom.create("classroom", ["a"], 7)
 	check(room.model is ClassroomRound, "教室房带规则模型")
 	check_eq(float(room.snapshot()["game"].get("countdown", -1.0)), ClassroomRound.COUNTDOWN, "快照里有局内状态")
-	check(NetRoom.create("owl", ["a"], 7).model == null, "还没搬上服务器的游戏没有模型")
+	check(NetRoom.create("race", ["a"], 7).model == null, "还没搬上服务器的游戏没有模型")
 
 
 func test_room_tick_drives_the_model() -> void:
@@ -119,7 +119,7 @@ func test_bomb_room_has_a_model() -> void:
 	var room := NetRoom.create("bomb", ["a", "b"], 7)
 	check(room.model is BombRound, "传炸弹房带规则模型")
 	check_eq((room.model as BombRound).humans, 2, "两个真人都在模型里")
-	check(NetRoom.create("owl", ["a"], 7).model == null, "还没搬上服务器的游戏没有模型")
+	check(NetRoom.create("race", ["a"], 7).model == null, "还没搬上服务器的游戏没有模型")
 
 
 func test_bomb_throw_input_goes_straight_to_the_model() -> void:
@@ -176,3 +176,36 @@ func test_bomb_throw_input_is_checked() -> void:
 	check_eq(room.input("a", {"throw": 0}), false, "0 不是合法方向")
 	check_eq(round.holder, 0, "炸弹没动")
 	check(room.input("a", {"throw": 1.0}), "浮点数也是数字")
+
+
+## ---- 猫头鹰搬上服务器之后（第 5 步）----
+
+
+func test_owl_room_has_a_model() -> void:
+	var room := NetRoom.create("owl", ["a", "b"], 7)
+	check(room.model is OwlRound, "猫头鹰房带规则模型")
+	check_eq((room.model as OwlRound).humans, 2, "两个真人都在模型里")
+
+
+## 三关的推进在模型里：房间推一次就该看见关卡、时钟和四个座位。
+func test_owl_room_drives_the_whole_match() -> void:
+	var room := NetRoom.create("owl", ["a"], 7)
+	check(room.input("a", {"press": true}), "本局的人能按")
+	check_eq(room._inputs[0].keys(), ["press"], "客户端多塞的字段一个都不留")
+	room.tick(1.0 / 20.0)
+	var game: Dictionary = room.snapshot()["game"]
+	check_eq(int(game["level"]), 0, "第一关")
+	check(float(game["time_left"]) < Config.OWL_SECONDS[0], "时钟在走")
+	check_eq((game["seats"] as Array).size(), OwlRound.SEATS, "四个座位都在局里")
+
+
+func test_owl_payouts_after_the_match() -> void:
+	var room := NetRoom.create("owl", ["a"], 7)
+	var round: OwlRound = room.model
+	round.mouths[0].score = 9
+	round.mouths[1].score = 7
+	round.match_over = true
+	room.tick(1.0 / 20.0)
+	check(room.over, "模型结束了房间也结束")
+	check_eq(room.winner, 0, "分数最高的那个是赢家")
+	check_eq(int(room.payouts()["a"]), OwlRound.coins(0), "按名次结账")

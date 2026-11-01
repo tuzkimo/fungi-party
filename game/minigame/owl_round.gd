@@ -36,6 +36,20 @@ var level_over := false
 var events: Array = []
 ## 前 humans 个座位是人在玩（同屏双人 = 2），其余是人机。
 var humans := 1
+## 三关跑完没有。本地场景的 Phase 机管这一段，服务器看这两个字段（tick_match 推）
+var match_over := false
+## 关间停顿还剩多久：> 0 就是「第 N 关」那一屏
+var break_left := 0.0
+
+## 一局的结束状态给 NetRoom 读（和 ClassroomRound 同形）
+var over: bool:
+	get:
+		return match_over
+
+## 名次第一的那个座位
+var winner: int:
+	get:
+		return int(ranking(scores()).front()) if mouths.size() > 0 else -1
 
 var _rng := RandomNumberGenerator.new()
 
@@ -178,6 +192,64 @@ func _refresh_open() -> void:
 		mouth.open = (
 			not mouth.out and mouth.lead >= 0.0 and mouth.flying > 0.0 and mouth.flying <= mouth.lead
 		)
+
+
+## 服务器那一局：整套三关一起推（本地那一份在 owl.gd 的 Phase 机里）。
+## 人全出局就 OWL_FAST_FORWARD 倍快进；一关打完停 OWL_BREAK_SECONDS 再进下一关；最后一关打完收局。
+func tick_match(delta: float, presses: Array) -> void:
+	if match_over:
+		return
+	if break_left > 0.0:
+		break_left = maxf(0.0, break_left - delta)
+		if break_left <= 0.0:
+			start_level(level + 1)
+		return
+	tick(delta * (Config.OWL_FAST_FORWARD if players_out() else 1.0), presses)
+	if not level_over:
+		return
+	for m in mouths:
+		m.open = false
+	if level >= Config.OWL_SECONDS.size() - 1:
+		match_over = true
+		return
+	break_left = Config.OWL_BREAK_SECONDS
+
+
+## 四个座位的分数，按座位序
+func scores() -> Array:
+	var out := []
+	for mouth in mouths:
+		out.append(mouth.score)
+	return out
+
+
+## tick 之间给服务器看的全貌。客户端只写这些字段，不自己推规则。
+func snapshot() -> Dictionary:
+	var seat_states := []
+	for mouth in mouths:
+		seat_states.append({
+			"score": mouth.score,
+			"out": mouth.out,
+			"open": mouth.open,
+			"flying": mouth.flying,
+			"fall": mouth.fall,
+			"poop": mouth.poop,
+		})
+	return {
+		"level": level,
+		"time_left": time_left,
+		"level_over": level_over,
+		"break_left": break_left,
+		"over": match_over,
+		"seats": seat_states,
+	}
+
+
+## 这一局某个座位挣了几个币（名次 → 币的表在 coins）
+func coins_for(seat: int) -> int:
+	if seat < 0 or seat >= mouths.size():
+		return 0
+	return coins(ranking(scores()).find(seat))
 
 
 ## 分数从高到低；同分按座位序（玩家在前），名次因此不会每次重掷。

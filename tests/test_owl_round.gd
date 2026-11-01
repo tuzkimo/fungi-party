@@ -277,3 +277,71 @@ func test_players_out_needs_everyone() -> void:
 	check(not r.players_out(), "一个人出局还算在玩")
 	r.mouths[1].out = true
 	check(r.players_out(), "两个人都出局才快进")
+
+
+## ---- 服务器那一局（第 5 步）：三关的推进在模型里，客户端只管画 ----
+
+
+## 本地场景的阶段机（owl.gd 的 Phase）在服务器上只有一份：这里一关打完停 OWL_BREAK_SECONDS 再进下一关。
+func test_match_breaks_between_levels() -> void:
+	var r := _round(5)
+	r.time_left = 0.01
+	r.tick_match(0.02, _presses(false))
+	check(r.level_over, "第一关时间到")
+	check_eq(r.level, 0, "停顿期间还停在这一关")
+	check(is_equal_approx(r.break_left, Config.OWL_BREAK_SECONDS), "关间停顿是 OWL_BREAK_SECONDS")
+	r.tick_match(Config.OWL_BREAK_SECONDS + 0.1, _presses(false))
+	check_eq(r.level, 1, "停顿走完进第二关")
+	check(not r.level_over, "新一关重新开始")
+	check_eq(r.time_left, Config.OWL_SECONDS[1], "第二关从头计时")
+
+
+func test_match_over_after_the_last_level() -> void:
+	var r := _round(5)
+	r.start_level(Config.OWL_SECONDS.size() - 1)
+	r.time_left = 0.01
+	r.tick_match(0.02, _presses(false))
+	check(r.level_over, "最后一关时间到")
+	check(r.match_over, "三关跑完这一局结束")
+	check_eq(r.winner, OwlRound.ranking(r.scores()).front(), "赢家是分最高的那个")
+
+
+func test_match_fast_forwards_when_players_are_out() -> void:
+	var r := _round(5)
+	r.mouths[SEAT].out = true
+	var before := r.time_left
+	r.tick_match(1.0, _presses(false))
+	check(
+		is_equal_approx(r.time_left, before - Config.OWL_FAST_FORWARD),
+		"人全出局就 2.5 倍快进"
+	)
+
+
+func test_snapshot_carries_the_whole_board() -> void:
+	var r := _round(5)
+	r.mouths[1].score = 3
+	r.mouths[2].out = true
+	r.break_left = 0.5
+	var snap: Dictionary = r.snapshot()
+	for key in ["level", "time_left", "level_over", "break_left", "over", "seats"]:
+		check(snap.has(key), "快照带 %s" % key)
+	check_eq(snap["level"], 0, "第几关照实带")
+	check(is_equal_approx(float(snap["break_left"]), 0.5), "关间停顿的剩余时间也带")
+	var seats: Array = snap["seats"]
+	check_eq(seats.size(), OwlRound.SEATS, "四个座位都在快照里")
+	for key in ["score", "out", "open", "flying", "fall", "poop"]:
+		check((seats[0] as Dictionary).has(key), "座位带 %s" % key)
+	check_eq(int((seats[1] as Dictionary)["score"]), 3, "分数照实带出来")
+	check(bool((seats[2] as Dictionary)["out"]), "出局的标出来")
+
+
+func test_coins_by_rank_at_the_end() -> void:
+	var r := _round(5)
+	r.mouths[0].score = 9
+	r.mouths[1].score = 7
+	r.mouths[2].score = 5
+	r.mouths[3].score = 1
+	check_eq(r.coins_for(0), OwlRound.coins(0), "分最高拿第一名那份")
+	check_eq(r.coins_for(3), OwlRound.coins(3), "最后一名拿垫底那份")
+	check_eq(r.coins_for(-1), 0, "越界座位不给币")
+	check_eq(r.winner, 0, "赢家是分最高的那个")
