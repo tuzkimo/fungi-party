@@ -40,6 +40,8 @@ var humans := 1
 var match_over := false
 ## 关间停顿还剩多久：> 0 就是「第 N 关」那一屏
 var break_left := 0.0
+## 开场倒数（只给服务器那一局用：房间是在接受邀请那一刻建的，两台设备的加载快慢不一样）
+var countdown := Config.OWL_COUNTDOWN
 
 ## 一局的结束状态给 NetRoom 读（和 ClassroomRound 同形）
 var over: bool:
@@ -199,6 +201,9 @@ func _refresh_open() -> void:
 func tick_match(delta: float, presses: Array) -> void:
 	if match_over:
 		return
+	if countdown > 0.0:
+		countdown = maxf(0.0, countdown - delta)
+		return
 	if break_left > 0.0:
 		break_left = maxf(0.0, break_left - delta)
 		if break_left <= 0.0:
@@ -237,6 +242,7 @@ func snapshot() -> Dictionary:
 		})
 	return {
 		"level": level,
+		"countdown": countdown,
 		"time_left": time_left,
 		"level_over": level_over,
 		"break_left": break_left,

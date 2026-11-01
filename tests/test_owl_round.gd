@@ -283,8 +283,24 @@ func test_players_out_needs_everyone() -> void:
 
 
 ## 本地场景的阶段机（owl.gd 的 Phase）在服务器上只有一份：这里一关打完停 OWL_BREAK_SECONDS 再进下一关。
+## 三关的开场也归服务器：房间是「接受邀请」那一刻建的，慢的那台还没换完场景，
+## 钟就已经在走了。倒数放在模型里，客户端只画数字（教室同款）。
+func test_match_waits_for_the_countdown() -> void:
+	var r := _round(5)
+	r.tick_match(1.0, _presses(false))
+	check(is_equal_approx(r.countdown, Config.OWL_COUNTDOWN - 1.0), "倒数在走")
+	check_eq(r.time_left, Config.OWL_SECONDS[0], "倒数期间第一关的钟不走")
+	check(is_equal_approx(float(r.snapshot()["countdown"]), r.countdown), "快照带倒数")
+	r.tick_match(Config.OWL_COUNTDOWN, _presses(false))
+	check_eq(r.countdown, 0.0, "三秒后开始")
+	check_eq(r.time_left, Config.OWL_SECONDS[0], "刚数完这一帧还不扣时间")
+	r.tick_match(0.5, _presses(false))
+	check(r.time_left < Config.OWL_SECONDS[0], "开始之后钟才走")
+
+
 func test_match_breaks_between_levels() -> void:
 	var r := _round(5)
+	r.countdown = 0.0
 	r.time_left = 0.01
 	r.tick_match(0.02, _presses(false))
 	check(r.level_over, "第一关时间到")
@@ -298,6 +314,7 @@ func test_match_breaks_between_levels() -> void:
 
 func test_match_over_after_the_last_level() -> void:
 	var r := _round(5)
+	r.countdown = 0.0
 	r.start_level(Config.OWL_SECONDS.size() - 1)
 	r.time_left = 0.01
 	r.tick_match(0.02, _presses(false))
@@ -308,6 +325,7 @@ func test_match_over_after_the_last_level() -> void:
 
 func test_match_fast_forwards_when_players_are_out() -> void:
 	var r := _round(5)
+	r.countdown = 0.0
 	r.mouths[SEAT].out = true
 	var before := r.time_left
 	r.tick_match(1.0, _presses(false))

@@ -79,7 +79,10 @@ func input(account: String, payload: Dictionary) -> bool:
 			return false
 		(model as BombRound).request_throw(seat, side)
 		return true
-	_inputs[seat] = {"press": bool(payload.get("press", false))}
+	var held: Variant = payload.get("press", false)
+	if typeof(held) != TYPE_BOOL:
+		return false
+	_inputs[seat] = {"press": held}
 	return true
 
 

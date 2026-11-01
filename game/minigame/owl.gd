@@ -158,6 +158,7 @@ func _net_step(delta: float) -> void:
 ## 把服务器快照写进本地模型（只写不推，规则全在服务器）
 func _apply_game(game: Dictionary) -> void:
 	_round.level = int(game.get("level", _round.level))
+	_round.countdown = float(game.get("countdown", _round.countdown))
 	_round.time_left = float(game.get("time_left", _round.time_left))
 	_round.level_over = bool(game.get("level_over", false))
 	_round.break_left = float(game.get("break_left", 0.0))
@@ -184,8 +185,11 @@ func _send_press() -> void:
 
 
 ## 关间停顿：服务器只给「还剩多久 / 现在是第几关」，那一屏的字本机拼
+## 服务器只给数：开场倒数 / 关间停顿 / 正在打，中间那行字本机拼
 func _show_break() -> void:
-	if _round.break_left > 0.0:
+	if _round.countdown > 0.0:
+		_ui.show_countdown(str(ceili(_round.countdown)))
+	elif _round.break_left > 0.0:
 		_ui.show_countdown("第 %d 关" % (_round.level + 2))
 	elif not _round.match_over:
 		_ui.hide_countdown()

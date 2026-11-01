@@ -195,8 +195,23 @@ func test_owl_room_drives_the_whole_match() -> void:
 	room.tick(1.0 / 20.0)
 	var game: Dictionary = room.snapshot()["game"]
 	check_eq(int(game["level"]), 0, "第一关")
-	check(float(game["time_left"]) < Config.OWL_SECONDS[0], "时钟在走")
+	check(float(game["countdown"]) < Config.OWL_COUNTDOWN, "开场倒数在走")
+	for i in 80:
+		room.tick(1.0 / 20.0)
+	game = room.snapshot()["game"]
+	check(float(game["time_left"]) < Config.OWL_SECONDS[0], "倒数走完钟才走")
 	check_eq((game["seats"] as Array).size(), OwlRound.SEATS, "四个座位都在局里")
+
+
+## press 也是网络来的：类型不对就当没按，别让服务器每收一条坏包打一条运行时错误。
+func test_press_input_is_checked() -> void:
+	var room := NetRoom.create("owl", ["a"], 7)
+	check_eq(room.input("a", {"press": "yes"}), false, "字符串不是按着")
+	check_eq(room.input("a", {"press": {}}), false, "字典不是按着")
+	check_eq(room.input("a", {"press": null}), false, "null 不是按着")
+	check_eq(room._inputs[0], {}, "被拒的输入一个字都不留")
+	check(room.input("a", {"press": true}), "真布尔收下")
+	check_eq(room._inputs[0], {"press": true}, "只留 press")
 
 
 func test_owl_payouts_after_the_match() -> void:
