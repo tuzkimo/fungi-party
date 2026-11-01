@@ -20,11 +20,16 @@ var pending := {}
 ## 同时只开一间：二期这台机器只够森林 + 1 房
 var room: NetRoom = null
 
-var _read: Callable  # (name: String) -> Dictionary
+## 这一局结过账了没有：一次结束只结算一次
+var settled := false
+
+var _read: Callable   # (name: String) -> Dictionary
+var _write: Callable  # (name: String, data: Dictionary) -> void
 
 
-func _init(read_save: Callable) -> void:
+func _init(read_save: Callable, write_save: Callable) -> void:
 	_read = read_save
+	_write = write_save
 
 
 static func cost_of(kind: String) -> int:
@@ -70,10 +75,10 @@ func answer(from: String, to: String, kind: String, accept: bool, online: Packed
 	var theirs := Day.spend_cost(_stamina(from), cost)
 	if not bool(mine["ok"]) or not bool(theirs["ok"]):
 		return {"ok": false, "error": "stamina"}
-	room = NetRoom.create(kind, [from, to])
+	room = NetRoom.create(kind, [from, to], randi())
 	if room == null:
 		return {"ok": false, "error": "room"}
-	room.session_seed = randi()
+	settled = false
 	_clear_invites(from)
 	_clear_invites(to)
 	var saves := {}
@@ -98,21 +103,32 @@ func invites_for(name: String, online: PackedStringArray, now: float) -> Array:
 	return out
 
 
-## 这个人下线：他发出和收到的邀请都作废；他在局里就把这一局收了。
-func drop(name: String) -> void:
+## 这个人下线或者主动回森林：他发出和收到的邀请都作废；他在局里就把这一局收了。
+func leave(name: String) -> void:
 	_clear_invites(name)
 	if room != null and room.seat_of(name) >= 0:
 		room.over = true
 
 
-## 推进这一局。
-## shortcut: 二期还没有结算，只有超过硬顶才收房；第 3 步起由模型自己置 over。
+## 推进这一局；模型说结束（或者到了硬顶）就结账，只结一次。
 func tick(delta: float) -> void:
-	if room == null or room.over:
+	if room == null:
 		return
 	room.tick(delta)
 	if room.elapsed >= Config.NET_ROOM_MAX_SECONDS:
 		room.over = true
+	if room.over and not settled:
+		_settle()
+
+
+## 按各人的口数把币写进存档（规则在 NetRoom.payouts / 模型里，这里只搬）。
+func _settle() -> void:
+	settled = true
+	var payouts := room.payouts()
+	for name in payouts:
+		var save := (_read.call(str(name)) as Dictionary).duplicate(true)
+		save["coins"] = int(save.get("coins", 0)) + int(payouts[name])
+		_write.call(str(name), save)
 
 
 func _clear_invites(name: String) -> void:

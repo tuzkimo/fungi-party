@@ -2,7 +2,7 @@ class_name NetRoom
 extends RefCounted
 
 ## 一局的骨架：座位表、时钟、规则模型。服务器只跑这里的 RefCounted 东西，绝不实例化 3D 场景。
-## 座位秩序沿用全项目的规矩：真人占 0..n-1（本地优先，由调用方排好），人机从 n 往后补。
+## 座位秩序沿用全项目的规矩：真人占 0..n-1（由调用方排好），人机从 n 往后补。
 
 ## 四款小游戏，和 game/minigame/ 下的场景一一对应
 const KINDS: Array[String] = ["classroom", "bomb", "owl", "race"]
@@ -23,7 +23,7 @@ var _inputs: Array[Dictionary] = []
 
 
 ## 人数超员、账号重复、kind 不认识都返回 null：调用方记日志拒掉，不要「尽量建」。
-static func create(kind_value: String, humans: Array[String]) -> NetRoom:
+static func create(kind_value: String, humans: Array[String], seed_value: int = 0) -> NetRoom:
 	if not KINDS.has(kind_value) or humans.is_empty() or humans.size() > Config.SEAT_COUNT:
 		return null
 	var seen := {}
@@ -33,10 +33,12 @@ static func create(kind_value: String, humans: Array[String]) -> NetRoom:
 		seen[h] = true
 	var room := NetRoom.new()
 	room.kind = kind_value
+	room.session_seed = seed_value
 	for i in Config.SEAT_COUNT:
 		var human := i < humans.size()
 		room.seats.append({"account": humans[i] if human else "", "npc": not human})
 		room._inputs.append({})
+	room._build_model()
 	return room
 
 
@@ -62,18 +64,39 @@ func seat_of(account: String) -> int:
 
 
 ## 输入只认本局的人，外人返回 false 让调用方记日志。过期的输入（已结束）直接丢。
+## 客户端多塞的字段一律不留：这里只挑规则用得着的那几个。
 func input(account: String, payload: Dictionary) -> bool:
 	var seat := seat_of(account)
 	if over or seat < 0:
 		return false
-	_inputs[seat] = payload
+	_inputs[seat] = {"press": bool(payload.get("press", false))}
 	return true
 
 
+## 推这一局：时钟 + 规则模型。模型说结束就结束。
 func tick(delta: float) -> void:
 	if over:
 		return
 	elapsed += maxf(delta, 0.0)
+	if model == null:
+		return
+	var press: Array[bool] = []
+	for i in seats.size():
+		press.append(false if bool(seats[i]["npc"]) else bool((_inputs[i] as Dictionary).get("press", false)))
+	model.tick(delta, press)
+	over = bool(model.over)
+	winner = int(model.winner)
+
+
+## 这一局每个真人的收益（人机不算账）。没结束就是空。
+func payouts() -> Dictionary:
+	var out := {}
+	if not over or model == null:
+		return out
+	for i in seats.size():
+		if not bool(seats[i]["npc"]):
+			out[str(seats[i]["account"])] = model.coins_for(i)
+	return out
 
 
 func snapshot() -> Dictionary:
@@ -84,4 +107,21 @@ func snapshot() -> Dictionary:
 		"over": over,
 		"winner": winner,
 		"seed": session_seed,
+		"game": model.snapshot() if model != null else {},
+		"earned": payouts(),
 	}
+
+
+## 按 kind 建规则模型。只建服务器上跑得动的东西（RefCounted，不碰节点）。
+func _build_model() -> void:
+	match kind:
+		"classroom":
+			model = ClassroomRound.new(session_seed, human_count())
+
+
+func human_count() -> int:
+	var out := 0
+	for seat in seats:
+		if not bool(seat["npc"]):
+			out += 1
+	return out

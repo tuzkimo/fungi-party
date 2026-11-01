@@ -19,7 +19,13 @@ var _teacher: Teacher
 var _seats: Array[SeatVisual] = []
 var _settled := false
 var _countdown := COUNTDOWN_SECONDS
-var _start_flash := 0.0
+## 「开始！」闪一下的剩余时间：<0 还没闪，=0 闪完了
+var _start_flash := -1.0
+## 服务器把我拉进这一局了就是非空：这时规则在服务器跑，本机只画快照
+var _net: NetClient = null
+var _my_seat := 0
+var _sent_press := false
+var _seen_caught := 0
 
 @onready var _camera: Camera3D = $Camera3D
 @onready var _ui: ClassroomUI = $UI
@@ -30,10 +36,15 @@ func _bail_to_forest() -> void:
 
 
 func _ready() -> void:
-	if not Save.spend_stamina(Config.STAMINA_COST_CLASSROOM):
-		# 体力不够就别开始，直接回森林；_ready 里换场景要延后
-		call_deferred("_bail_to_forest")
-		return
+	_net = _joinable_room()
+	if _net == null:
+		if not Save.spend_stamina(Config.STAMINA_COST_CLASSROOM):
+			# 体力不够就别开始，直接回森林；_ready 里换场景要延后
+			call_deferred("_bail_to_forest")
+			return
+	else:
+		# 这一局是服务器的：体力在成局那一下已经扣过，这里不重复扣
+		_my_seat = _room_seat()
 	Controls.ensure()
 	_camera.look_at(Vector3(0.0, 0.8, -1.5))
 	_build_room()
@@ -59,8 +70,8 @@ func _ready() -> void:
 	for seat in Party.count():
 		_seats[seat].apply_look(seat)
 
-	_ui.again_pressed.connect(func() -> void: get_tree().reload_current_scene())
-	_ui.forest_pressed.connect(func() -> void: get_tree().change_scene_to_file(Config.FOREST_PATH))
+	_ui.again_pressed.connect(_on_again)
+	_ui.forest_pressed.connect(_on_forest)
 
 
 func _input(event: InputEvent) -> void:
@@ -77,19 +88,10 @@ func _notification(what: int) -> void:
 
 
 func _process(delta: float) -> void:
-	if _countdown > 0.0:
-		_countdown -= delta
-		if _countdown > 0.0:
-			_ui.show_countdown(str(ceili(_countdown)))
-		else:
-			_ui.show_countdown("开始！")
-			_start_flash = START_FLASH
-	elif _start_flash > 0.0:
-		_start_flash -= delta
-		if _start_flash <= 0.0:
-			_ui.hide_countdown()
+	if _net != null:
+		_net_step(delta)
 	else:
-		_play(delta)
+		_local_step(delta)
 
 	for i in _seats.size():
 		var seat: StealEat.Seat = _round.seats[i]
@@ -100,6 +102,103 @@ func _process(delta: float) -> void:
 
 	if _round.over and not _settled:
 		_settle()
+
+
+func _local_step(delta: float) -> void:
+	if _countdown > 0.0:
+		_countdown = maxf(0.0, _countdown - delta)
+		_show_countdown(_countdown, delta)
+	elif _start_flash != 0.0:
+		_show_countdown(_countdown, delta)
+	else:
+		_play(delta)
+
+
+## 服务器一局：把快照写进本地模型再照旧渲染，只上报「我按着」，不自己推进规则。
+func _net_step(delta: float) -> void:
+	var game: Dictionary = _net.session.get("game", {})
+	if not game.is_empty():
+		_countdown = float(game.get("countdown", 0.0))
+		_apply_game(game)
+	_show_countdown(_countdown, delta)
+	# 一台上一个人：整块屏都是自己的，不用分左右半
+	_sent_press = _eat.pressing() or Input.is_action_pressed("jump")
+	if _sent_press != _press[_my_seat]:
+		_press[_my_seat] = _sent_press
+		_net.send_input({"press": _sent_press})
+
+
+## 倒数的显示本地一局和服务器一局长得一样：剩几秒 → 「开始！」闪一下 → 藏起来
+func _show_countdown(remaining: float, delta: float) -> void:
+	if remaining > 0.0:
+		_ui.show_countdown(str(ceili(remaining)))
+	elif _start_flash < 0.0:
+		_ui.show_countdown("开始！")
+		_start_flash = START_FLASH
+	elif _start_flash > 0.0:
+		_start_flash = maxf(0.0, _start_flash - delta)
+		if _start_flash == 0.0:
+			_ui.hide_countdown()
+
+
+## 把服务器快照写进本地这几个对象（只写不推，规则全在服务器）
+func _apply_game(game: Dictionary) -> void:
+	_round.time_left = float(game.get("time_left", _round.time_left))
+	_round.over = bool(game.get("over", false))
+	_round.winner = int(game.get("winner", -1))
+	var states: Array = game.get("seats", [])
+	for i in mini(states.size(), _round.seats.size()):
+		var state: Dictionary = states[i]
+		var seat: StealEat.Seat = _round.seats[i]
+		seat.bites = int(state.get("bites", 0))
+		seat.fill = float(state.get("fill", 0.0))
+		seat.caught = int(state.get("caught", 0))
+		seat.stun = float(state.get("stun", 0.0))
+		seat.out = bool(state.get("out", false))
+	var gaze: Dictionary = game.get("gaze", {})
+	_gaze.phase = int(gaze.get("phase", Gaze.Phase.AWAY))
+	_gaze.target = int(gaze.get("target", 0))
+	_gaze.time_left = float(gaze.get("left", 0.0))
+	_teacher.apply(_gaze, 0.1)
+	var mine: StealEat.Seat = _round.seats[_my_seat]
+	if mine.caught > _seen_caught:
+		_seen_caught = mine.caught
+		_ui.flash()
+
+
+## 服务器那份 session 是不是「我该进这间教室」：只在 _ready 判一次，
+## 局结束（over）之后还得继续按服务器那套画，不能又退回本地自己算。
+func _joinable_room() -> NetClient:
+	var net := get_tree().root.get_node_or_null("Net") as NetClient
+	if net == null or not net.ready():
+		return null
+	if str(net.session.get("kind", "")) != "classroom" or bool(net.session.get("over", false)):
+		return null
+	return net
+
+
+func _room_seat() -> int:
+	var seats: Array = _net.session.get("seats", [])
+	for i in seats.size():
+		if str(seats[i].get("account", "")) == _net.player_name:
+			return i
+	return 0
+
+
+func _on_again() -> void:
+	_release_room()
+	get_tree().reload_current_scene()
+
+
+func _on_forest() -> void:
+	_release_room()
+	get_tree().change_scene_to_file(Config.FOREST_PATH)
+
+
+## 主动离开这一局：让服务器把房腾出来（否则「同时一间房」会被一次旧局占住）
+func _release_room() -> void:
+	if _net != null:
+		_net.request("leave_room", {})
 
 
 func _play(delta: float) -> void:
@@ -125,6 +224,20 @@ func _play(delta: float) -> void:
 
 ## 每个玩家的成绩：UI 只认这个。
 func _player_rows() -> Array:
+	if _net != null:
+		var rows := []
+		var seats: Array = _net.session.get("seats", [])
+		for i in mini(seats.size(), _round.seats.size()):
+			if bool(seats[i].get("npc", false)):
+				continue
+			var mine: StealEat.Seat = _round.seats[i]
+			rows.append({
+				"name": str(seats[i].get("account", "")),
+				"bites": mine.bites,
+				"caught": mine.caught,
+				"win": _round.winner == i,
+			})
+		return rows
 	var rows := []
 	for seat in Party.count():
 		var mine: StealEat.Seat = _round.seats[seat]
@@ -138,6 +251,8 @@ func _player_rows() -> Array:
 
 
 func _stunned() -> Array:
+	if _net != null:
+		return [(_round.seats[_my_seat] as StealEat.Seat).stun > 0.0]
 	var out := []
 	for seat in Party.count():
 		out.append((_round.seats[seat] as StealEat.Seat).stun > 0.0)
@@ -147,6 +262,11 @@ func _stunned() -> Array:
 ## 结算：每个玩家各自算币，都进同一个钱包（一台手机一份存档，不拆）。
 func _settle() -> void:
 	_settled = true
+	if _net != null:
+		# 币是服务器结的，这里只放演出
+		var earned_online := int((_net.session.get("earned", {}) as Dictionary).get(_net.player_name, 0))
+		_ui.show_result(_player_rows(), earned_online)
+		return
 	var earned := 0
 	for seat in Party.count():
 		var mine: StealEat.Seat = _round.seats[seat]

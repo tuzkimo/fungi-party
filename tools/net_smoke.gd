@@ -133,11 +133,34 @@ func _invite_check() -> void:
 	if int(guest.data["stamina"]) != Config.STAMINA_MAX - cost:
 		_die("被邀请方体力没扣：%d" % int(guest.data["stamina"]))
 
+	# 教室这一局的规则在服务器上跑：快照要带局内状态，按下去得算数
+	await create_timer(0.3).timeout
+	var game: Dictionary = _client.session.get("game", {})
+	if game.is_empty() or (game.get("seats", []) as Array).size() != Config.SEAT_COUNT:
+		_die("没收到教室快照：%s" % str(_client.session))
+	if game.get("gaze", {}).is_empty():
+		_die("教室快照里没有视线")
+	await create_timer(ClassroomRound.COUNTDOWN + 0.3).timeout
+	_client.send_input({"press": true})
+	guest.send_input({"press": true})
+	await create_timer(2.5).timeout
+	var states: Array = (_client.session.get("game", {}) as Dictionary).get("seats", [])
+	var moved := 0
+	for i in 2:
+		moved += int((states[i] as Dictionary)["bites"]) + int((states[i] as Dictionary)["caught"])
+	if moved == 0:
+		_die("两个人按了 2.5 秒，服务器没算出一口也没抓到人：%s" % str(states))
+
+	var coins_before := int(_client.data["coins"])
 	guest.close()
 	await create_timer(0.5).timeout
 	if not bool(_client.session.get("over", false)):
 		_die("对方掉线后这一局没收：%s" % str(_client.session))
-	print("邀请：两人进同一间教室，各扣 %d 体力，掉线收局" % cost)
+	if int(_client.data["coins"]) <= coins_before:
+		_die("收局没结账：%d -> %d" % [coins_before, int(_client.data["coins"])])
+	print("邀请：两人进同一间教室各扣 %d 体力，服务器判吃口，收局结账 %d 币" % [
+		cost, int(_client.data["coins"]) - coins_before
+	])
 
 
 ## 两台设备同一个账号：后一台的镜像是旧的，钱必须还是服务器的账本说了算。

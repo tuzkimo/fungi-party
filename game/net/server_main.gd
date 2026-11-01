@@ -12,7 +12,7 @@ const DEFAULT_SAVES := "user://accounts"
 ## 上限 8 人：5 Mbps 带宽下 8 人全量广播约 1.1 Mbps，留足余量给小游戏
 const DEFAULT_MAX := 8
 ## 房间类 op：它们要看会话/房间状态，所以不走 NetOps（那是对存档的纯函数）
-const ROOM_OPS: Array[String] = ["invite", "answer"]
+const ROOM_OPS: Array[String] = ["invite", "answer", "leave_room"]
 
 var _peer: ENetMultiplayerPeer
 var _save_dir := DEFAULT_SAVES
@@ -34,11 +34,17 @@ func _initialize() -> void:
 	var err := _peer.create_server(port, int(opts.get("max", DEFAULT_MAX)))
 	if err != OK:
 		printerr("监听失败：%s（端口 %d）" % [error_string(err), port])
+		# 把 _peer 抹掉，否则 _process 还会拿着一个没起来的 host 继续 poll
+		_peer = null
 		quit(1)
 		return
 	_peer.peer_disconnected.connect(_on_disconnect)
-	_lobby = NetLobby.new(func(name: String) -> Dictionary:
-		return Accounts.read(_save_dir, name))
+	_lobby = NetLobby.new(
+		func(name: String) -> Dictionary:
+			return Accounts.read(_save_dir, name),
+		func(name: String, data: Dictionary) -> void:
+			Accounts.write(_save_dir, name, data)
+	)
 	print("菌子派对服务器 协议 v%d 端口 %d 存档 %s" % [NetProtocol.VERSION, port, _save_dir])
 
 
@@ -190,13 +196,18 @@ func _on_room_op(from: int, me: String, op: String, args: Dictionary) -> void:
 	var online := _online()
 	var now := _now()
 	var result: Dictionary
-	if op == "invite":
-		result = _lobby.invite(me, str(args.get("to", "")), str(args.get("kind", "")), online, now)
-	else:
-		result = _lobby.answer(
-			str(args.get("from", "")), me, str(args.get("kind", "")),
-			bool(args.get("accept", false)), online, now
-		)
+	match op:
+		"invite":
+			result = _lobby.invite(me, str(args.get("to", "")), str(args.get("kind", "")), online, now)
+		"answer":
+			result = _lobby.answer(
+				str(args.get("from", "")), me, str(args.get("kind", "")),
+				bool(args.get("accept", false)), online, now
+			)
+		_:
+			# leave_room：主动回森林，房腾出来（收益照结算）
+			_lobby.leave(me)
+			result = {"ok": true}
 	var saves: Dictionary = result.get("saves", {})
 	for name in saves:
 		Accounts.write(_save_dir, str(name), saves[name] as Dictionary)
@@ -229,13 +240,19 @@ func _broadcast_session() -> void:
 	var room := _lobby.room
 	if room == null:
 		return
-	var body := room.snapshot()
+	var base := room.snapshot()
 	for seat in room.seats:
 		if bool(seat["npc"]):
 			continue
 		var id := _peer_of(str(seat["account"]))
-		if id != 0:
-			_send(id, NetProtocol.Msg.SESSION, body)
+		if id == 0:
+			continue
+		var body := base
+		if room.over:
+			# 结算已经落盘：每人配一份刚入账的存档，客户端 HUD 才看得见币
+			body = room.snapshot()
+			body["save"] = Accounts.read(_save_dir, str(seat["account"]))
+		_send(id, NetProtocol.Msg.SESSION, body)
 
 
 ## 局内输入：只看在不在局里，输入本身由规则模型在 tick 里消化；不回包。
@@ -323,7 +340,7 @@ func _on_disconnect(id: int) -> void:
 		var player_name := str(_sessions[id].get("name", "?"))
 		print("%s 断开" % player_name)
 		_sessions.erase(id)
-		_lobby.drop(player_name)
+		_lobby.leave(player_name)
 
 
 func _now() -> float:

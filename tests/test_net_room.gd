@@ -68,3 +68,45 @@ func test_snapshot_fields() -> void:
 	check_eq(snap["seats"].size(), Config.SEAT_COUNT, "快照座位数对得上")
 	check_eq(snap["over"], false, "开局没结束")
 	check_eq(snap["winner"], -1, "开局没赢家")
+
+
+## ---- 教室搬上服务器之后（第 3 步）----
+
+
+func test_classroom_room_has_a_model() -> void:
+	var room := NetRoom.create("classroom", ["a"], 7)
+	check(room.model is ClassroomRound, "教室房带规则模型")
+	check_eq(float(room.snapshot()["game"].get("countdown", -1.0)), ClassroomRound.COUNTDOWN, "快照里有局内状态")
+	check(NetRoom.create("bomb", ["a"], 7).model == null, "还没搬上服务器的游戏没有模型")
+
+
+func test_room_tick_drives_the_model() -> void:
+	var room := NetRoom.create("classroom", ["a"], 7)
+	room.input("a", {"press": true})
+	for i in 200:
+		room.tick(1.0 / 60.0)
+	var game: Dictionary = room.snapshot()["game"]
+	check(float(game["countdown"]) <= 0.0, "3 秒倒数走完")
+	check(float(game["time_left"]) < Config.ROUND_SECONDS, "回合时间在走")
+	check_eq((game["seats"] as Array).size(), Config.SEAT_COUNT, "四个座位都在局里")
+
+
+func test_input_keeps_only_press() -> void:
+	var room := NetRoom.create("classroom", ["a"], 7)
+	check(room.input("a", {"press": true, "junk": "x".repeat(100)}), "本局的人能按")
+	check_eq(room._inputs[0].keys(), ["press"], "客户端多塞的字段一个都不留")
+
+
+func test_payouts_only_after_the_round() -> void:
+	var room := NetRoom.create("classroom", ["a"], 7)
+	check(room.payouts().is_empty(), "没结束不结账")
+	var round: ClassroomRound = room.model
+	round.eat.seats[0].bites = 2
+	round.eat.winner = 0
+	room.over = true
+	check_eq(
+		int(room.payouts()["a"]),
+		Config.COIN_BASE + Config.COIN_PER_BITE * 2 + Config.COIN_WIN_BONUS,
+		"结束之后按口数结账"
+	)
+	check_eq(int(room.snapshot()["earned"]["a"]), int(room.payouts()["a"]), "快照里带着这一局的收益")

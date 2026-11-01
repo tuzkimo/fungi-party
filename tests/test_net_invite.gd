@@ -7,12 +7,20 @@ const NOW := 1000.0
 
 
 func _lobby(saves: Dictionary) -> NetLobby:
-	return NetLobby.new(func(name: String) -> Dictionary:
-		return (saves.get(name, {}) as Dictionary).duplicate(true))
+	return NetLobby.new(
+		func(name: String) -> Dictionary:
+			return (saves.get(name, {}) as Dictionary).duplicate(true),
+		func(name: String, data: Dictionary) -> void:
+			saves[name] = data
+	)
 
 
 func _fresh() -> Dictionary:
-	return {"甲": {"stamina": 100}, "乙": {"stamina": 100}, "丙": {"stamina": 100}}
+	return {
+		"甲": {"stamina": 100, "coins": 0},
+		"乙": {"stamina": 100, "coins": 0},
+		"丙": {"stamina": 100, "coins": 0},
+	}
 
 
 func test_cost_matches_config() -> void:
@@ -135,19 +143,19 @@ func test_formation_voids_other_invites() -> void:
 	check_eq(lobby.pending.size(), 0, "甲进了房，丙发给他的那条邀请也清了")
 
 
-func test_drop_clears_invites() -> void:
+func test_leaving_clears_invites() -> void:
 	var lobby := _lobby(_fresh())
 	lobby.invite("甲", "乙", "race", ONLINE, NOW)
 	lobby.invite("乙", "甲", "race", ONLINE, NOW)
-	lobby.drop("甲")
+	lobby.leave("甲")
 	check_eq(lobby.pending.size(), 0, "掉线的人发出的和收到的邀请都作废")
 
 
-func test_drop_ends_the_room() -> void:
+func test_leaving_ends_the_room() -> void:
 	var lobby := _lobby(_fresh())
 	lobby.invite("甲", "乙", "bomb", ONLINE, NOW)
 	lobby.answer("甲", "乙", "bomb", true, ONLINE, NOW)
-	lobby.drop("乙")
+	lobby.leave("乙")
 	check(lobby.room != null, "房里的人掉线房还在（等人机顶上）")
 	check_eq(lobby.room.over, true, "但这一局已经收了")
 
@@ -167,3 +175,32 @@ func test_scene_path_for_every_kind() -> void:
 		check(NetRoom.scene_path(kind) != "", "%s 有场景" % kind)
 	check_eq(NetRoom.scene_path("nope"), "", "不认识的 kind 没有场景")
 	check_eq(NetRoom.scene_path("classroom"), Config.CLASSROOM_PATH, "教室场景路径")
+
+
+## 教室这一局结束就照口数结账，落盘一次（服务器调 NetLobby.tick）。
+func test_round_settles_the_coins_once() -> void:
+	var saves := _fresh()
+	var lobby := _lobby(saves)
+	lobby.invite("甲", "乙", "classroom", ONLINE, NOW)
+	lobby.answer("甲", "乙", "classroom", true, ONLINE, NOW)
+	var round: ClassroomRound = lobby.room.model
+	round.eat.seats[0].bites = 3
+	round.eat.winner = 0
+	lobby.leave("乙")
+	lobby.tick(0.1)
+	var earned := Config.COIN_BASE + Config.COIN_PER_BITE * 3 + Config.COIN_WIN_BONUS
+	check_eq(int(saves["甲"]["coins"]), earned, "走了也按吃到的口数结账")
+	lobby.tick(0.1)
+	check_eq(int(saves["甲"]["coins"]), earned, "结账只结一次")
+	check(lobby.settled, "记下已经结过账了")
+
+
+## 不是教室（还没搬上服务器）的局没有模型，不收钱也不算账。
+func test_unmodelled_room_settles_nothing() -> void:
+	var saves := _fresh()
+	var lobby := _lobby(saves)
+	lobby.invite("甲", "乙", "race", ONLINE, NOW)
+	lobby.answer("甲", "乙", "race", true, ONLINE, NOW)
+	lobby.tick(0.1)
+	check(lobby.room != null, "房还在")
+	check_eq(int(saves["甲"]["coins"]), 0, "没搬的游戏不结账")
