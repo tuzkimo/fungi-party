@@ -226,11 +226,13 @@ func _on_room_op(from: int, me: String, op: String, args: Dictionary) -> void:
 func _push_session(result: Dictionary) -> void:
 	var room: NetRoom = result["room"]
 	var saves: Dictionary = result["saves"]
+	# 快照只拍一次：传炸弹的快照会把「上次之后发生的事」清掉，每人一份不能靠重复拍
+	var base := room.snapshot()
 	for name in saves:
 		var id := _peer_of(str(name))
 		if id == 0:
 			continue
-		var body := room.snapshot()
+		var body := base.duplicate(true)
 		body["save"] = saves[name]
 		_send(id, NetProtocol.Msg.SESSION, body)
 
@@ -247,10 +249,9 @@ func _broadcast_session() -> void:
 		var id := _peer_of(str(seat["account"]))
 		if id == 0:
 			continue
-		var body := base
+		var body := base.duplicate(true)
 		if room.over:
 			# 结算已经落盘：每人配一份刚入账的存档，客户端 HUD 才看得见币
-			body = room.snapshot()
 			body["save"] = Accounts.read(_save_dir, str(seat["account"]))
 		_send(id, NetProtocol.Msg.SESSION, body)
 

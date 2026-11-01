@@ -69,6 +69,13 @@ func input(account: String, payload: Dictionary) -> bool:
 	var seat := seat_of(account)
 	if over or seat < 0:
 		return false
+	if kind == "bomb":
+		# 传炸弹是「点一下往哪边扔」，不是按着：一收到就交给模型，不留到 tick
+		var side := signi(int(payload.get("throw", 0)))
+		_inputs[seat] = {"throw": side}
+		if model != null:
+			(model as BombRound).request_throw(seat, side)
+		return true
 	_inputs[seat] = {"press": bool(payload.get("press", false))}
 	return true
 
@@ -80,10 +87,14 @@ func tick(delta: float) -> void:
 	elapsed += maxf(delta, 0.0)
 	if model == null:
 		return
-	var press: Array[bool] = []
-	for i in seats.size():
-		press.append(false if bool(seats[i]["npc"]) else bool((_inputs[i] as Dictionary).get("press", false)))
-	model.tick(delta, press)
+	if kind == "bomb":
+		# 传炸弹的输入在 input() 里已经交给模型了，这里只推时间
+		(model as BombRound).tick(delta)
+	else:
+		var press: Array[bool] = []
+		for i in seats.size():
+			press.append(false if bool(seats[i]["npc"]) else bool((_inputs[i] as Dictionary).get("press", false)))
+		model.tick(delta, press)
 	over = bool(model.over)
 	winner = int(model.winner)
 
@@ -117,6 +128,10 @@ func _build_model() -> void:
 	match kind:
 		"classroom":
 			model = ClassroomRound.new(session_seed, human_count())
+		"bomb":
+			var bomb := BombRound.new(session_seed)
+			bomb.humans = human_count()
+			model = bomb
 
 
 func human_count() -> int:

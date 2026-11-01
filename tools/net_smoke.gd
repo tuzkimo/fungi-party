@@ -5,7 +5,7 @@ extends SceneTree
 ##
 ##   godot --headless --path . --script res://tools/net_smoke.gd -- --host 127.0.0.1 --port 7099 --name 冒烟
 
-const WATCHDOG_SECONDS := 30.0
+const WATCHDOG_SECONDS := 60.0
 
 var _client: NetClient
 var _host := "127.0.0.1"
@@ -63,6 +63,7 @@ func _run() -> void:
 	await _same_account_two_devices()
 	await _world_check()
 	await _invite_check()
+	await _bomb_check()
 	print("SMOKE OK")
 	quit(0)
 
@@ -161,6 +162,69 @@ func _invite_check() -> void:
 	print("邀请：两人进同一间教室各扣 %d 体力，服务器判吃口，收局结账 %d 币" % [
 		cost, int(_client.data["coins"]) - coins_before
 	])
+
+
+## 传炸弹：邀请 → 两边各扣 25 → 服务器判炸弹 → 主动离开收局，各拿各的币。
+## 不等着自然打完：一整局要几十秒，看门狗不够。
+func _bomb_check() -> void:
+	var guest := NetClient.new()
+	guest.failed.connect(_on_failed)
+	root.add_child(guest)
+	var guest_name := "%sD" % _name
+	guest.connect_to(_host, _port, guest_name, _password)
+	await guest.logged_in
+	var coins_before := int(_client.data["coins"])
+	await _op("invite", {"to": guest_name, "kind": "bomb"})
+	if not bool(_client.last_result.get("ok", false)):
+		_die("传炸弹邀请被拒：%s" % str(_client.last_result.get("error", "")))
+	await create_timer(0.3).timeout
+	guest.request("answer", {"from": _name, "kind": "bomb", "accept": true})
+	await guest.changed
+	await create_timer(0.4).timeout
+	for who in [guest, _client]:
+		if str(who.session.get("kind", "")) != "bomb":
+			_die("%s 没进到传炸弹：%s" % [who.me(), str(who.session)])
+	if int(guest.data["stamina"]) != Config.STAMINA_MAX - Config.STAMINA_COST_BOMB:
+		_die("被邀请方体力没扣：%d" % int(guest.data["stamina"]))
+
+	# 规则在服务器上：快照带局内状态，两个人看到的是同一局
+	var game: Dictionary = _client.session.get("game", {})
+	if game.is_empty() or not game.has("holder") or (game.get("alive", []) as Array).size() != 4:
+		_die("没收到传炸弹快照：%s" % str(_client.session))
+
+	# 人坐的位子不会自己出手（只有人机才会自动扔）：看到真人扔的，就说明本机 INPUT 到了服务器。
+	# 飞行只有 0.2 秒、快照 20 Hz，所以两边都看：thrower 字段 + 这一帧里的事件。
+	var threw := false
+	for i in 150:
+		_client.send_input({"throw": -1})
+		guest.send_input({"throw": 1})
+		await create_timer(0.1).timeout
+		var state: Dictionary = _client.session.get("game", {})
+		if int(state.get("thrower", -1)) in [0, 1] or _human_throw(state.get("events", [])):
+			threw = true
+			break
+	if not threw:
+		_die("两个人扔了 15 秒，服务器一次都没算（INPUT 没接上）")
+
+	# 结算门槛是 5 秒：等够再走，否则这局不结账
+	await create_timer(Config.NET_SETTLE_MIN_SECONDS).timeout
+	guest.close()
+	await create_timer(0.6).timeout
+	if not bool(_client.session.get("over", false)):
+		_die("对方掉线后这一局没收：%s" % str(_client.session))
+	if int(_client.data["coins"]) <= coins_before:
+		_die("传炸弹收局没结账：%d -> %d" % [coins_before, int(_client.data["coins"])])
+	print("传炸弹：两人同局各扣 %d 体力，服务器判投掷，收局结账 %d 币" % [
+		Config.STAMINA_COST_BOMB, int(_client.data["coins"]) - coins_before
+	])
+
+
+## 事件里有没有「真人扔的」：人机的 from 是 2/3，真人是 0/1。
+func _human_throw(events: Array) -> bool:
+	for event in events:
+		if str((event as Dictionary).get("kind", "")) == "throw" and int((event as Dictionary).get("from", -1)) in [0, 1]:
+			return true
+	return false
 
 
 ## 两台设备同一个账号：后一台的镜像是旧的，钱必须还是服务器的账本说了算。

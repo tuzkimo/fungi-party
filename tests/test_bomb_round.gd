@@ -196,3 +196,45 @@ func test_second_human_waits_like_a_human() -> void:
 	r.fuse = 3.0
 	_run_until(r, 5.0)
 	check(r.death_order.size() >= 1, "一直不按也会被炸死")
+
+
+## ---- 搬上服务器要用的口子（第 4 步）----
+
+
+func test_snapshot_carries_the_whole_round() -> void:
+	var r := BombRound.new(31)
+	r.holder = 0
+	r.lock = 0.0
+	r.flight = 0.0
+	check(r.request_throw(0, -1), "先扔一下")
+	var snap: Dictionary = r.snapshot()
+	for key in ["holder", "thrower", "target", "flight", "fuse", "alive", "death_order", "over", "winner", "elapsed", "events"]:
+		check(snap.has(key), "快照带 %s" % key)
+	check_eq(int(snap["thrower"]), 0, "快照里看得到是谁扔的")
+	check_eq(int(snap["target"]), 1, "快照里看得到扔给谁")
+	check_eq((snap["alive"] as Array).size(), 4, "快照带存活名单")
+
+
+func test_snapshot_drains_events() -> void:
+	# 事件是「上次快照之后发生的事」：发完就清，否则客户端每 1/20 秒重放一遍音效
+	var r := BombRound.new(32)
+	r.snapshot()
+	r.holder = 0
+	r.lock = 0.0
+	r.flight = 0.0
+	r.request_throw(0, -1)
+	var first: Dictionary = r.snapshot()
+	check_eq((first["events"] as Array).size(), 1, "刚才那一下扔出来在快照里")
+	var second: Dictionary = r.snapshot()
+	check_eq((second["events"] as Array).size(), 0, "发过的事件不再重发")
+
+
+func test_coins_and_winner_after_the_round() -> void:
+	var r := BombRound.new(33)
+	check_eq(r.winner, -1, "没结束没有赢家")
+	r.alive = [2]
+	r.death_order = [0, 1, 3]
+	r.over = true
+	check_eq(r.winner, 2, "活到最后的那个是赢家")
+	check_eq(r.coins_for(2), int(Config.BOMB_RANK_COINS[0]), "赢家拿第一名的币")
+	check_eq(r.coins_for(0), int(Config.BOMB_RANK_COINS[3]), "最先死的拿最后一档")

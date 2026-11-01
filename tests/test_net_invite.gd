@@ -36,7 +36,7 @@ func test_cost_matches_config() -> void:
 func test_invite_rejects() -> void:
 	var lobby := _lobby(_fresh())
 	check_eq(str(lobby.invite("甲", "乙", "nope", ONLINE, NOW)["error"]), "kind", "不认识的 kind")
-	check_eq(str(lobby.invite("甲", "乙", "bomb", ONLINE, NOW)["error"]), "kind", "还没搬上服务器的游戏不能开局")
+	check_eq(str(lobby.invite("甲", "乙", "owl", ONLINE, NOW)["error"]), "kind", "还没搬上服务器的游戏不能开局")
 	check_eq(str(lobby.invite("甲", "甲", "classroom", ONLINE, NOW)["error"]), "self", "不能邀请自己")
 	check_eq(str(lobby.invite("甲", "丁", "classroom", ONLINE, NOW)["error"]), "offline", "对方不在线")
 	var tired := {"甲": {"stamina": 5}, "乙": {"stamina": 100}}
@@ -208,3 +208,15 @@ func test_aborted_round_pays_nothing() -> void:
 	lobby.tick(0.1)
 	check_eq(int(saves["甲"]["coins"]), 0, "一秒都不到的局不结账")
 	check(lobby.settled, "但还是记下结过账了")
+
+
+## 传炸弹搬上服务器之后：它也能开局，扣 25 体力。
+func test_bomb_can_open_a_room() -> void:
+	var saves := _fresh()
+	var lobby := _lobby(saves)
+	check(bool(lobby.invite("甲", "乙", "bomb", ONLINE, NOW)["ok"]), "传炸弹能开局")
+	var r := lobby.answer("甲", "乙", "bomb", true, ONLINE, NOW)
+	check(bool(r["ok"]), "接受之后成局")
+	check_eq(lobby.room.kind, "bomb", "房是传炸弹")
+	check(lobby.room.model is BombRound, "房里跑传炸弹的模型")
+	check_eq(int((r["saves"] as Dictionary)["乙"]["stamina"]), 100 - Config.STAMINA_COST_BOMB, "各扣传炸弹的体力")

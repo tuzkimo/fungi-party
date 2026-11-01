@@ -27,6 +27,10 @@ var queued := [0, 0, 0, 0]
 var over := false
 var elapsed := 0.0
 var events: Array = []
+## 活到最后那个座位；没结束是 -1
+var winner: int:
+	get:
+		return int(alive[0]) if over and alive.size() == 1 else -1
 ## 前 humans 个座位是人在玩（同屏双人 = 2），其余是人机。
 var humans := 1
 
@@ -76,6 +80,31 @@ func tick(delta: float) -> void:
 
 ## seat：谁按的。side：-1 左 / +1 右。硬直期间只记方向（硬直一结束自动扔）；
 ## 空中 / 已死 / 炸弹不在自己手上直接拒绝 —— 按别人的键替不了别人扔。
+## 服务器每 1/20 秒拿走一份：带局内状态 + 上一次快照之后发生的事（客户端靠事件放音效和飞行演出）。
+## events 发完就清——不清的话客户端每帧重放一遍「扔出」「爆炸」。
+func snapshot() -> Dictionary:
+	var out := {
+		"holder": holder,
+		"thrower": thrower,
+		"target": target,
+		"flight": flight,
+		"fuse": fuse,
+		"alive": alive.duplicate(),
+		"death_order": death_order.duplicate(),
+		"over": over,
+		"winner": winner,
+		"elapsed": elapsed,
+		"events": events,
+	}
+	events = []
+	return out
+
+
+## 这一局某个座位挣了几个币（规则在 BombScore，这里只搬参数）
+func coins_for(seat: int) -> int:
+	return BombScore.coins(BombScore.rank_of(seat, death_order, alive))
+
+
 func request_throw(seat: int, side: int) -> bool:
 	if over or not is_human(seat) or not alive.has(seat):
 		return false

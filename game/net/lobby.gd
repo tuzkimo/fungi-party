@@ -9,7 +9,7 @@ extends RefCounted
 
 ## 已经搬上服务器的几款：只有这些能开局。其余几款还在客户端跑单机逻辑，
 ## 邀进去等于扣两次体力、还白占着「同时 1 房」。每搬完一款往这里加一条。
-const MODELLED: Array[String] = ["classroom"]
+const MODELLED: Array[String] = ["classroom", "bomb"]
 
 ## kind → 开局体力。和 NetRoom.KINDS 一一对应。
 const COSTS := {

@@ -77,7 +77,7 @@ func test_classroom_room_has_a_model() -> void:
 	var room := NetRoom.create("classroom", ["a"], 7)
 	check(room.model is ClassroomRound, "教室房带规则模型")
 	check_eq(float(room.snapshot()["game"].get("countdown", -1.0)), ClassroomRound.COUNTDOWN, "快照里有局内状态")
-	check(NetRoom.create("bomb", ["a"], 7).model == null, "还没搬上服务器的游戏没有模型")
+	check(NetRoom.create("owl", ["a"], 7).model == null, "还没搬上服务器的游戏没有模型")
 
 
 func test_room_tick_drives_the_model() -> void:
@@ -110,3 +110,53 @@ func test_payouts_only_after_the_round() -> void:
 		"结束之后按口数结账"
 	)
 	check_eq(int(room.snapshot()["earned"]["a"]), int(room.payouts()["a"]), "快照里带着这一局的收益")
+
+
+## ---- 传炸弹搬上服务器之后（第 4 步）----
+
+
+func test_bomb_room_has_a_model() -> void:
+	var room := NetRoom.create("bomb", ["a", "b"], 7)
+	check(room.model is BombRound, "传炸弹房带规则模型")
+	check_eq((room.model as BombRound).humans, 2, "两个真人都在模型里")
+	check(NetRoom.create("owl", ["a"], 7).model == null, "还没搬上服务器的游戏没有模型")
+
+
+func test_bomb_throw_input_goes_straight_to_the_model() -> void:
+	var room := NetRoom.create("bomb", ["a"], 7)
+	var round: BombRound = room.model
+	round.holder = 0
+	round.lock = 0.0
+	round.flight = 0.0
+	check(room.input("a", {"throw": -1}), "本局的人能扔")
+	check_eq(round.thrower, 0, "服务器立刻记下是谁扔的")
+	check_eq(round.target, 1, "扔到自己左手边那一位")
+
+
+func test_bomb_ignores_a_throw_from_an_outsider() -> void:
+	var room := NetRoom.create("bomb", ["a"], 7)
+	var round: BombRound = room.model
+	round.holder = 0
+	round.lock = 0.0
+	round.flight = 0.0
+	check_eq(room.input("zzz", {"throw": -1}), false, "外人的投掷丢掉")
+	check_eq(round.holder, 0, "炸弹还在原位")
+
+
+func test_bomb_tick_does_not_need_a_press_array() -> void:
+	var room := NetRoom.create("bomb", ["a"], 7)
+	var before: float = (room.model as BombRound).fuse
+	for i in 10:
+		room.tick(1.0 / 20.0)
+	check((room.model as BombRound).fuse < before, "时钟在推引信")
+
+
+func test_bomb_payouts_after_the_round() -> void:
+	var room := NetRoom.create("bomb", ["a"], 7)
+	var round: BombRound = room.model
+	round.alive = [0]
+	round.death_order = [1, 2, 3]
+	round.over = true
+	room.tick(1.0 / 20.0)
+	check(room.over, "模型结束了房间也结束")
+	check_eq(int(room.payouts()["a"]), int(Config.BOMB_RANK_COINS[0]), "活到最后按第一名结账")
