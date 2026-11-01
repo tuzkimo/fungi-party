@@ -96,6 +96,10 @@ func _process(_delta: float) -> bool:
 				var round: Variant = current_scene.get("_round")
 				if round is OwlRound:
 					print("局内：第 %d 关、剩 %.1f 秒（快照已生效）" % [int(round.get("level")), float(round.get("time_left"))])
+				if round is RaceRound:
+					print("局内：倒数 %.1f 秒、0 号在 %.1f 米（快照已生效）" % [
+						float(round.get("countdown")), float((round.racers[0] as RaceRacer).z)
+					])
 				return true
 	if _stage >= 1 and _frames >= 900:
 		printerr("登录没成功")
