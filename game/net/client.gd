@@ -105,6 +105,26 @@ func me() -> String:
 	return player_name
 
 
+## 场景里拿「那一个」Net 节点：启动菜单建的，名字固定叫 Net。
+static func of(tree: SceneTree) -> NetClient:
+	return tree.root.get_node_or_null("Net") as NetClient
+
+
+## 服务器把我拉进这一款了吗：进场景时问一次就定下本局走服务器还是本机。
+## over 之后快照还留着给演出用，所以不能拿「有没有 session」当条件。
+func in_room(kind: String) -> bool:
+	return ready() and str(session.get("kind", "")) == kind and not bool(session.get("over", false))
+
+
+## 我在这一局的座位号（座位表由服务器给；不在表里就当 0 号）
+func seat_index() -> int:
+	var seats: Array = session.get("seats", [])
+	for i in seats.size():
+		if str((seats[i] as Dictionary).get("account", "")) == player_name:
+			return i
+	return 0
+
+
 ## 天色：联机时天色由服务器采纳，`Save.write()` 在镜像模式下只推这一个字段。
 func push_day_time(t: float) -> void:
 	request("patch_day_time", {"t": t})

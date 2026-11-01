@@ -190,20 +190,12 @@ func _human_count() -> int:
 ## 服务器那份 session 是不是「我该进这局传炸弹」：只在 _ready 判一次，
 ## 局结束（over）之后还得继续按服务器那套画，不能又退回本机自己算。
 func _joinable_room() -> NetClient:
-	var net := get_tree().root.get_node_or_null("Net") as NetClient
-	if net == null or not net.ready():
-		return null
-	if str(net.session.get("kind", "")) != "bomb" or bool(net.session.get("over", false)):
-		return null
-	return net
+	var net := NetClient.of(get_tree())
+	return net if net != null and net.in_room("bomb") else null
 
 
 func _room_seat() -> int:
-	var seats: Array = _net.session.get("seats", [])
-	for i in seats.size():
-		if str((seats[i] as Dictionary).get("account", "")) == _net.player_name:
-			return i
-	return 0
+	return _net.seat_index()
 
 
 ## 场上的人全被炸死了才算这局看完（双人时剩下那个接着玩）。

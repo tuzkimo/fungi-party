@@ -180,20 +180,12 @@ func _apply_game(game: Dictionary, delta: float) -> void:
 ## 服务器那份 session 是不是「我该进这间教室」：只在 _ready 判一次，
 ## 局结束（over）之后还得继续按服务器那套画，不能又退回本地自己算。
 func _joinable_room() -> NetClient:
-	var net := get_tree().root.get_node_or_null("Net") as NetClient
-	if net == null or not net.ready():
-		return null
-	if str(net.session.get("kind", "")) != "classroom" or bool(net.session.get("over", false)):
-		return null
-	return net
+	var net := NetClient.of(get_tree())
+	return net if net != null and net.in_room("classroom") else null
 
 
 func _room_seat() -> int:
-	var seats: Array = _net.session.get("seats", [])
-	for i in seats.size():
-		if str(seats[i].get("account", "")) == _net.player_name:
-			return i
-	return 0
+	return _net.seat_index()
 
 
 func _on_again() -> void:
