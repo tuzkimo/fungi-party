@@ -1,8 +1,8 @@
 extends SceneTree
 
 ## 桌面看一眼邀请：A 登录，脚本用第二条连接扮演 B 站在旁边并邀请 A，
-## 截图里该有「邀请」列表和顶部那条横幅；然后按「接受」，A 应该被拉进教室。
-##   godot --path . --script res://tools/net_invite_shot.gd -- --port 7099 --name 邀请截图
+## 截图里该有「邀请」列表和顶部那条横幅；然后按「接受」，A 应该被拉进这一款小游戏。
+##   godot --path . --script res://tools/net_invite_shot.gd -- --port 7099 --name 邀请截图 [--kind owl]
 ## 输出：shots/invite.png
 
 const WARMUP := 20
@@ -10,6 +10,7 @@ const WARMUP := 20
 var _port := 7099
 var _name := "邀请截图"
 var _password := "password1"
+var _kind := "classroom"
 var _menu: StartMenu
 var _panel: InvitePanel
 var _other: NetClient
@@ -28,6 +29,8 @@ func _initialize() -> void:
 				_name = args[i + 1]
 			"--password":
 				_password = args[i + 1]
+			"--kind":
+				_kind = args[i + 1]
 		i += 2
 	change_scene_to_file("res://game/main.tscn")
 
@@ -59,7 +62,7 @@ func _process(_delta: float) -> bool:
 			if _other.ready():
 				_other.send_move(0, Vector3(0.0, 0.0, -4.0), 3.14, "seafood", "")
 			if _frames > 40:
-				_other.request("invite", {"to": _name, "kind": "classroom"})
+				_other.request("invite", {"to": _name, "kind": _kind})
 				_stage = 4
 				_frames = 0
 		4:
@@ -68,7 +71,7 @@ func _process(_delta: float) -> bool:
 			if _frames > 30:
 				_panel._on_toggle()
 				# 顺手从这一层发一条邀请出去：「已邀请 X，等他答应」该出现在面板上
-				_panel._on_invite_button("%sB" % _name, "classroom")
+				_panel._on_invite_button("%sB" % _name, _kind)
 				_stage = 5
 				_frames = 0
 		5:
@@ -89,6 +92,10 @@ func _process(_delta: float) -> bool:
 				if net != null:
 					kind = str(net.session.get("kind", ""))
 				print("接受之后：场景 %s，这一局 %s" % [str(current_scene.scene_file_path), kind])
+				# 猫头鹰：快照已经写进本机的模型（教室那份模型没有关卡，跳过）
+				var round: Variant = current_scene.get("_round")
+				if round is OwlRound:
+					print("局内：第 %d 关、剩 %.1f 秒（快照已生效）" % [int(round.get("level")), float(round.get("time_left"))])
 				return true
 	if _stage >= 1 and _frames >= 900:
 		printerr("登录没成功")

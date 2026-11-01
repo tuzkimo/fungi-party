@@ -64,6 +64,7 @@ func _run() -> void:
 	await _world_check()
 	await _invite_check()
 	await _bomb_check()
+	await _owl_check()
 	print("SMOKE OK")
 	quit(0)
 
@@ -216,6 +217,60 @@ func _bomb_check() -> void:
 		_die("传炸弹收局没结账：%d -> %d" % [coins_before, int(_client.data["coins"])])
 	print("传炸弹：两人同局各扣 %d 体力，服务器判投掷，收局结账 %d 币" % [
 		Config.STAMINA_COST_BOMB, int(_client.data["coins"]) - coins_before
+	])
+
+
+## 猫头鹰：邀请 → 两边各扣 30 → 服务器推三关 → 按住有分（或者吃到屎出局，两条都证明 INPUT 到了服务器）
+## → 主动离开收局结账。一整局 150 秒太长，不等着自然打完。
+func _owl_check() -> void:
+	var guest := NetClient.new()
+	guest.failed.connect(_on_failed)
+	root.add_child(guest)
+	var guest_name := "%sE" % _name
+	guest.connect_to(_host, _port, guest_name, _password)
+	await guest.logged_in
+	var coins_before := int(_client.data["coins"])
+	await _op("invite", {"to": guest_name, "kind": "owl"})
+	if not bool(_client.last_result.get("ok", false)):
+		_die("猫头鹰邀请被拒：%s" % str(_client.last_result.get("error", "")))
+	await create_timer(0.3).timeout
+	guest.request("answer", {"from": _name, "kind": "owl", "accept": true})
+	await guest.changed
+	await create_timer(0.4).timeout
+	for who in [guest, _client]:
+		if str(who.session.get("kind", "")) != "owl":
+			_die("%s 没进到猫头鹰：%s" % [who.me(), str(who.session)])
+	if int(guest.data["stamina"]) != Config.STAMINA_MAX - Config.STAMINA_COST_OWL:
+		_die("被邀请方体力没扣：%d" % int(guest.data["stamina"]))
+
+	var game: Dictionary = _client.session.get("game", {})
+	if game.is_empty() or (game.get("seats", []) as Array).size() != OwlRound.SEATS or not game.has("level"):
+		_die("没收到猫头鹰快照：%s" % str(_client.session))
+
+	# 人机自己会张嘴，所以要看真人那一格：涨分或吃到屎出局都证明本机 INPUT 到了服务器
+	var judged := false
+	for i in 120:
+		_client.send_input({"press": true})
+		await create_timer(0.1).timeout
+		var states: Array = (_client.session.get("game", {}) as Dictionary).get("seats", [])
+		if not states.is_empty():
+			var mine: Dictionary = states[0]
+			if int(mine.get("score", 0)) > 0 or bool(mine.get("out", false)):
+				judged = true
+				break
+	if not judged:
+		_die("按了 12 秒，服务器一次都没判（INPUT 没接上）")
+
+	# 结算门槛是 5 秒：等够再走，否则这局不结账
+	await create_timer(Config.NET_SETTLE_MIN_SECONDS).timeout
+	guest.close()
+	await create_timer(0.6).timeout
+	if not bool(_client.session.get("over", false)):
+		_die("对方掉线后这一局没收：%s" % str(_client.session))
+	if int(_client.data["coins"]) <= coins_before:
+		_die("猫头鹰收局没结账：%d -> %d" % [coins_before, int(_client.data["coins"])])
+	print("猫头鹰：两人同局各扣 %d 体力，服务器判吃口，收局结账 %d 币" % [
+		Config.STAMINA_COST_OWL, int(_client.data["coins"]) - coins_before
 	])
 
 

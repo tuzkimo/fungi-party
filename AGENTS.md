@@ -17,9 +17,9 @@
   同屏 2P 也是世界里的一份（`账号|1`），不用单独登录。
   **邀请已通**：`invite` / `answer` 进 `game/net/lobby.gd`（同时只开一间房，谁玩谁付自己的体力），
   成局后两边各收一份 `SESSION` 换场景，局内输入走 `INPUT`、局内快照 20 Hz 回推。
-  **教室和传炸弹已搬上服务器**（`game/minigame/classroom_round.gd` / `bomb_round.gd`，结算在服务器）。
+  **教室、传炸弹、猫头鹰已搬上服务器**（`game/minigame/classroom_round.gd` / `bomb_round.gd` / `owl_round.gd`，结算在服务器）。
   **邀请的 UI 已通**：森林右上角「邀请」列出世界里的人、挑一款发邀请，别人邀请我时屏幕底下弹一条接受/拒绝
-  （`game/ui/invite_panel.gd`，只发信号，发 op 在 `main.gd`）。**还没做**：猫头鹰 / 赛跑搬上服务器、睡觉一天一次。
+  （`game/ui/invite_panel.gd`，只发信号，发 op 在 `main.gd`）。**还没做**：赛跑搬上服务器、睡觉一天一次。
   接手联机先读 `docs/superpowers/plans/2026-10-25-v7-handoff.md`（现状、约束、下一步、坑都在那一份里）。
 - v5：角色可换 —— 红蘑菇之外加了海鲜菇（细长杆 + 小扁帽 + 四根黑棍手脚 + 腮红，按 `refs/海鲜菇角色设计图.png`），帐篷里免费换；体型与皮肤解耦，15 顶皮肤两个角色都能戴
 - 场景：`game/world/` 森林与 POI、`game/minigame/` 教室/赛跑/传炸弹/猫头鹰喂食、`game/skins/` 15 顶皮肤数据（`.tres`）与 `catalog.gd` 总表、`game/player/body/` 角色体型（红蘑菇 / 海鲜菇，`catalog.gd` 总表）、`game/ui/` HUD 与浮层
