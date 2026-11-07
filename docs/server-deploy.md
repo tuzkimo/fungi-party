@@ -103,10 +103,10 @@ command -v systemctl    # 一般是 /usr/bin/systemctl，下面那行要对上
 sudo visudo -f /etc/sudoers.d/fungi-party
 ```
 
-在打开的编辑器里粘进这一行（把 `你的用户名` 换成 `id -un` 打印的那个；三个命令用逗号隔开，别换行断开），保存退出：
+在打开的编辑器里粘进这一行（把 `你的用户名` 换成 `id -un` 打印的那个；几个命令用逗号隔开，别换行断开），保存退出：
 
 ```
-你的用户名 ALL=(root) NOPASSWD: /usr/bin/systemctl restart fungi-party-server, /usr/bin/systemctl is-active fungi-party-server, /usr/bin/journalctl -u fungi-party-server *
+你的用户名 ALL=(root) NOPASSWD: /usr/bin/systemctl restart fungi-party-server, /usr/bin/systemctl reset-failed fungi-party-server, /usr/bin/systemctl is-active fungi-party-server, /usr/bin/journalctl -u fungi-party-server *
 ```
 
 验证（应该直接重启成功、不问你密码）：
@@ -214,6 +214,7 @@ git add -A && git commit -m "改了什么" && git push origin main
 | `rsync: ... No such file or directory` | `~/fungi` 没建，或 `DEPLOY_USER` 和建目录的不是同一个用户 | 回 1.1 |
 | `校验不一致` | 传输中途坏了 | 不用管，重跑同一次 job（`Re-run jobs`）会从头传 |
 | `健康检查失败` + 日志里 `监听失败` | 端口被别的程序占了 | `sudo ss -lunp \| grep 7000` 看是谁，`sudo systemctl stop` 掉旧的 |
+| `健康检查失败` + 日志空空 / `restart` 被拒 | unit 崩太多次被 systemd 限流 | 服务器上 `sudo systemctl reset-failed fungi-party-server`，再重跑 job |
 | `健康检查失败` + 日志里 `存档目录` / 权限报错 | `saves` 目录权限不对 | `ls -ld ~/fungi/saves` 要是 `700 你的用户` |
 | `rsync: command not found` | 服务器上没装 rsync | `sudo apt install -y rsync` |
 | job 全绿但真机连不上 | 云安全组没开 UDP 7000 | 云控制台加规则（1.5） |

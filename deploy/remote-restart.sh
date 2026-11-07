@@ -14,7 +14,10 @@ mv -f fungi-party-server.new fungi-party-server
 chmod +x fungi-party-server
 
 # 服务没有 HTTP 端点：进程活着 + UDP 端口真的 bind 上，才算起来了。
+# 崩过的 unit 会被 systemd 限流（start-limit-hit），那时连手动 restart 都会被拒，
+# 先清失败计数；sudoers 没授权这一条就跳过，不挡住正常重启。
 # sudo -n：CI 跑不了交互密码，没配 NOPASSWD 就立刻失败（见 docs/server-deploy.md 1.4）。
+sudo -n systemctl reset-failed fungi-party-server 2>/dev/null || true
 sudo -n systemctl restart fungi-party-server
 for i in $(seq 1 20); do
 	if systemctl is-active --quiet fungi-party-server && [ -n "$(ss -lunH "sport = :$PORT")" ]; then
