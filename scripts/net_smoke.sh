@@ -14,7 +14,7 @@ NAME="冒烟$(date +%H%M%S)"
 
 godot --headless --path . --editor --quit > /dev/null 2>&1
 
-godot --headless --path . --script res://game/net/server_main.gd -- \
+godot --headless --path . --script res://game/net/server_local.gd -- \
 	--port "$PORT" --saves "$SAVES" > "$LOG_SERVER" 2>&1 &
 SRV=$!
 trap 'kill $SRV 2>/dev/null' EXIT

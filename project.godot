@@ -6,6 +6,8 @@ config_version=5
 
 config/name="菌子派对"
 run/main_scene="res://game/main.tscn"
+; 服务端导出（dedicated_server）用另一个主场景：导出的运行时没有 --script，只能靠主场景起服务
+run/main_scene.dedicated_server="res://game/net/server.tscn"
 config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"

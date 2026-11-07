@@ -8,7 +8,7 @@ Type=simple
 User=fungi
 WorkingDirectory=/opt/fungi
 Environment=HOME=/var/lib/fungi
-ExecStart=/opt/fungi/fungi-party-server --headless --script res://game/net/server_main.gd -- --port 7000 --saves /var/lib/fungi/saves --max 8
+ExecStart=/opt/fungi/fungi-party-server --headless -- --port 7000 --saves /var/lib/fungi/saves --max 8
 Restart=always
 RestartSec=3
 NoNewPrivileges=true

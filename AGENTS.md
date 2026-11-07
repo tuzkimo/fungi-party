@@ -37,7 +37,7 @@ godot --path . --script res://tools/shot_ingame.gd             # 进森林截一
 godot --path . --script res://tools/shot_party.gd              # 二号位加入后截一张 shots/party.png
 godot --path . --script res://tools/shot_race.gd               # 赛跑：倒数 / 跑动 / 结算面板各截一张 shots/race_*.png
 godot --headless --path . --script res://tools/soak_party.gd   # 四款小游戏的双人分支无头过一遍（时间加速 10 倍）
-godot --headless --path . --script res://game/net/server_main.gd -- --port 7000 --saves build/accounts  # 本机起服务器（上限 8 人）
+godot --headless --path . --script res://game/net/server_local.gd -- --port 7000 --saves build/accounts  # 本机起服务器（上限 8 人）
 bash scripts/net_smoke.sh                                      # 联机冒烟：起真服务器 + 客户端注册/抽卡/重连验存档
 godot --path . --script res://tools/net_login_shot.gd -- --port 7000   # 桌面看一眼启动菜单和登录（shots/login*.png）
 godot --path . --script res://tools/net_world_shot.gd -- --port 7000   # 桌面看一眼共享森林里的替身（shots/world.png）
@@ -114,6 +114,10 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
   `sudo -n systemctl restart fungi-party-server` → 验 UDP 7000 在监听。没有 HTTP 端点，所以健康检查是
   「进程活着 + 端口 bind 上」，不是 curl。一次部署会把在线的人踢下线，改协议版本等于立刻踢所有人。
   服务器侧布局、sudoers 规则、排错表全在 `docs/server-deploy.md`，改服务器布局先改那份文档。
+- 服务端的入口有两套壳、一份逻辑：`game/net/server_main.gd` 是 `extends Node` 的本体，
+  导出的服务端二进制靠 `project.godot` 的 `run/main_scene.dedicated_server="res://game/net/server.tscn"` 起它；
+  本地 / `net_smoke` 用 `game/net/server_local.gd` 那个 8 行 SceneTree 壳 `--script` 起同一份。
+  **导出的运行时二进制没有 `--script`**（编辑器版独有），所以别把启动方式写回 `--script`。
 - 服务器上**只跑 RefCounted 规则模型，绝不实例化 3D 场景**。一款游戏搬上服务器 = 一个 `*_round.gd`
   纯模型（tick 顺序照抄本地场景的 `_process`）+ `NetRoom._build_model()` 一条；客户端那条路只读快照。
 - 局内快照**一帧只拍一次**再各人复制（`server_main` 的 `_push_session` / `_broadcast_session`）：

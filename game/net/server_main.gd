@@ -1,8 +1,14 @@
-extends SceneTree
+extends Node
 
 ## 无头服务器：一根 ENet 监听，收原始字节包（不走节点 RPC），一个连接一份会话。
 ##
-##   godot --headless --path . --script res://game/net/server_main.gd -- --port 7000 --saves /var/lib/fungi/saves --max 8
+## 两种跑法，逻辑只有这一份：
+##   导出的服务端二进制：project.godot 的 run/main_scene.dedicated_server 指向 game/net/server.tscn，
+##     执行 `fungi-party-server --headless -- --port 7000 --saves ~/fungi/saves --max 8`
+##   本地 / 测试：game/net/server_local.gd 是 8 行 SceneTree 壳，把这个节点挂到 root
+##
+## 为什么不是 extends SceneTree：导出的运行时二进制没有 --script 选项（那是编辑器版独有的），
+## 只能靠主场景起服务端。
 ##
 ## 服务器只认白名单 op，算完立刻落盘再回包 —— 客户端拿到的永远是服务器上那份。
 
@@ -26,7 +32,7 @@ var _clock := NetClock.new()
 var _world_timer := 0.0
 
 
-func _initialize() -> void:
+func _ready() -> void:
 	var opts := _parse_args(OS.get_cmdline_user_args())
 	var port := int(opts.get("port", DEFAULT_PORT))
 	_save_dir = str(opts.get("saves", DEFAULT_SAVES))
@@ -36,7 +42,7 @@ func _initialize() -> void:
 		printerr("监听失败：%s（端口 %d）" % [error_string(err), port])
 		# 把 _peer 抹掉，否则 _process 还会拿着一个没起来的 host 继续 poll
 		_peer = null
-		quit(1)
+		get_tree().quit(1)
 		return
 	_peer.peer_disconnected.connect(_on_disconnect)
 	_lobby = NetLobby.new(
@@ -48,9 +54,9 @@ func _initialize() -> void:
 	print("菌子派对服务器 协议 v%d 端口 %d 存档 %s" % [NetProtocol.VERSION, port, _save_dir])
 
 
-func _process(_delta: float) -> bool:
+func _process(_delta: float) -> void:
 	if _peer == null:
-		return true
+		return
 	_peer.poll()
 	while _peer.get_available_packet_count() > 0:
 		var from := _peer.get_packet_peer()
@@ -69,7 +75,6 @@ func _process(_delta: float) -> bool:
 		if _lobby.room.over:
 			# 最后一帧已经带着 over 发出去了，房位腾给下一局
 			_lobby.room = null
-	return false
 
 
 func _handle(from: int, packet: PackedByteArray) -> void:

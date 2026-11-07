@@ -58,6 +58,26 @@ jobs:
           godot --headless --path . --export-release "Linux Server" "$BIN"
           ls -la "$BIN"
 
+      - name: 跑一遍导出的服务端，确认真的能监听
+        run: |
+          # 导出的运行时二进制没有 --script，服务端靠主场景起；这条闸就是验主场景/主循环没配错。
+          # 2026-11-07 就因为这个漏了：包能导出，但起来就跑客户端主场景、UDP 从来没绑上。
+          # stdbuf -oL 不然标准输出接管道是全缓冲，失败时 cat 出来是空的
+          stdbuf -oL -eL "$BIN" --headless -- --port 7099 --saves /tmp/fungi-saves > /tmp/server.log 2>&1 &
+          SRV=$!
+          for i in $(seq 1 20); do
+            if [ -n "$(ss -lunH 'sport = :7099')" ]; then
+              echo "导出的服务端能监听 UDP 7099"
+              kill $SRV
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::导出的服务端 20 秒内没监听 UDP 7099（主场景/主循环配错了），日志："
+          cat /tmp/server.log
+          kill $SRV 2>/dev/null || true
+          exit 1
+
       - uses: actions/upload-artifact@v4
         with:
           name: fungi-party-server

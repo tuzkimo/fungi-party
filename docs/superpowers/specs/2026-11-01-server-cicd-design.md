@@ -124,3 +124,19 @@ UDP 端口真的 bind 上才证明它没在 `_peer.create_server()` 那步失败
 - `deploy/remote-restart.sh`：重启 + 健康检查那段（CI 和手动脚本共用一份，不写在 YAML 里
   省得跟 heredoc 缩进、引号缠斗）。
 - `scripts/deploy-server.sh`：跟上新布局（`~/fungi` + `sudo -n systemctl restart`），保留当热修通道。
+
+## 落地时撞到的坑（2026-11-07 实装记录）
+
+1. **deploy job 也要 `actions/checkout`**：重启那段是仓库里的 `deploy/remote-restart.sh`，
+   不 checkout 就只有 artifact。
+2. **`rsync --append-verify` 不能用**：目标位置可能是上一版构建留下的 `.new`，它假设前缀一定对，
+   等于把旧字节当新版。改 `--partial`，哈希校验保留兜底。
+3. **导出的运行时二进制没有 `--script`**（编辑器/工具版独有）。原来的部署方式
+   `fungi-party-server --headless --script res://game/net/server_main.gd` 从来没生效过：
+   包只会跑主场景 `main.tscn`，起来就 `Parent node is busy setting up children` 退出，UDP 一直没绑上。
+   解法：`server_main.gd` 改成 `extends Node`，加 `game/net/server.tscn`，
+   `project.godot` 里 `run/main_scene.dedicated_server` 指向它（实测 feature-tag 覆盖生效）；
+   本地/测试用 `game/net/server_local.gd` 的 SceneTree 壳。
+   systemd 的 `ExecStart` 因此改成 `--headless -- --port 7000 ...`。
+4. **CI 加了一条闸**：导出后先在本机跑一遍这个二进制、等 UDP 端口 bind 上，再上传。
+   前三条里的第 3 条就是「包能导出但起不来」，没这条闸只能到服务器上才发现。

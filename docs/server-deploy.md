@@ -68,7 +68,7 @@ Type=simple
 User=$(id -un)
 WorkingDirectory=$HOME/fungi
 Environment=HOME=$HOME/fungi
-ExecStart=$HOME/fungi/fungi-party-server --headless --script res://game/net/server_main.gd -- --port 7000 --saves $HOME/fungi/saves --max 8
+ExecStart=$HOME/fungi/fungi-party-server --headless -- --port 7000 --saves $HOME/fungi/saves --max 8
 Restart=always
 RestartSec=3
 NoNewPrivileges=true
@@ -86,6 +86,9 @@ sudo systemctl enable fungi-party-server
 ```bash
 systemctl cat fungi-party-server | grep -E 'User|WorkingDirectory|ExecStart'
 ```
+
+> **以前装过这个 unit 的话要重跑这一节**：导出的服务端二进制不支持 `--script`（那是编辑器版才有的），
+> 现在靠主场景起服务，`ExecStart` 后面不能再带 `--script res://game/net/server_main.gd`。
 
 > 现在先别 `start`。二进制还没上传，会启动失败并一直重试——等第 2 节第一次部署完它会自己起来。
 
