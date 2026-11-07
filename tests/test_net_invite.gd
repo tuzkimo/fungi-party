@@ -160,6 +160,25 @@ func test_leaving_ends_the_room() -> void:
 	check_eq(lobby.room.over, true, "但这一局已经收了")
 
 
+## 掉线不是退局：一个人手机掉网，另一个人得能把这一局打完（真机上丢过整局）。
+func test_disconnect_keeps_the_round_for_the_others() -> void:
+	var lobby := _lobby(_fresh())
+	lobby.invite("甲", "乙", "classroom", ONLINE, NOW)
+	lobby.answer("甲", "乙", "classroom", true, ONLINE, NOW)
+	lobby.drop("乙", PackedStringArray(["甲"]))
+	check_eq(lobby.room.over, false, "还有人在：这一局接着打")
+	lobby.drop("甲", PackedStringArray())
+	check_eq(lobby.room.over, true, "一个人都不剩：收局")
+
+
+## 掉线也会把他的邀请作废，不然面板上挂着一条永远等不到人的邀请。
+func test_disconnect_clears_invites() -> void:
+	var lobby := _lobby(_fresh())
+	lobby.invite("甲", "乙", "classroom", ONLINE, NOW)
+	lobby.drop("甲", PackedStringArray(["乙"]))
+	check_eq(lobby.pending.size(), 0, "掉线的人发出的邀请作废")
+
+
 func test_room_clock_and_hard_stop() -> void:
 	var lobby := _lobby(_fresh())
 	lobby.invite("甲", "乙", "classroom", ONLINE, NOW)

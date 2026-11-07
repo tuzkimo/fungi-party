@@ -92,10 +92,8 @@ func _refresh() -> void:
 		_eat.text = "今天吃够了"
 	elif coins < Config.MEAL_COINS:
 		_eat.text = "还差 %d 币" % (Config.MEAL_COINS - coins)
-	elif stamina >= Config.STAMINA_MAX:
-		_eat.text = "还饱着"
 	else:
-		_eat.text = "打烊了，明天再来"
+		_eat.text = "还饱着"
 
 
 func _on_eat() -> void:

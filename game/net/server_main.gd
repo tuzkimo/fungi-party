@@ -62,7 +62,8 @@ func _process(_delta: float) -> void:
 		var from := _peer.get_packet_peer()
 		_handle(from, _peer.get_packet())
 	_drop_silent_peers()
-	_clock.advance(_delta)
+	# 天数照墙钟走：重启（每次部署都会重启）不该把「今天」抹回第 1 天
+	_clock.sync(Time.get_unix_time_from_system())
 	_world_timer += _delta
 	if _world_timer >= 1.0 / Config.NET_WORLD_HZ:
 		_world_timer = 0.0
@@ -362,11 +363,13 @@ func _drop_silent_peers() -> void:
 
 
 func _on_disconnect(id: int) -> void:
-	if _sessions.has(id):
-		var player_name := str(_sessions[id].get("name", "?"))
-		print("%s 断开" % player_name)
-		_sessions.erase(id)
-		_lobby.leave(player_name)
+	if not _sessions.has(id):
+		return
+	var player_name := str(_sessions[id].get("name", "?"))
+	print("%s 断开" % player_name)
+	_sessions.erase(id)
+	# 掉线不是主动走人：别人还在打就让那格空着（那格的输入永远是「没按」）
+	_lobby.drop(player_name, _online())
 
 
 func _now() -> float:

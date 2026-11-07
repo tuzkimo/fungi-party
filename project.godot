@@ -9,6 +9,9 @@ run/main_scene="res://game/main.tscn"
 ; 服务端导出（dedicated_server）用另一个主场景：导出的运行时没有 --script，只能靠主场景起服务
 run/main_scene.dedicated_server="res://game/net/server.tscn"
 config/quit_on_go_back=false
+; 服务端是 release 导出：不强制 flush 的话 print 会攒在 stdout 缓冲区里，
+; 重启一次就全丢，journalctl 一行都看不到（排掉线原因时是真瞎）
+run/flush_stdout_on_print=true
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 

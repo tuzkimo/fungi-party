@@ -60,6 +60,10 @@ func _ready() -> void:
 
 
 func _refresh() -> void:
+	# 换场景那一瞬 DayLoop 还会 emit 一次（op 回执刚到），而本节点已经不在树上了：
+	# 这时 get_tree() 是 null，硬查会刷一屏 SCRIPT ERROR。
+	if not is_inside_tree():
+		return
 	var day_loop := get_tree().get_first_node_in_group("day_loop") as DayLoop
 	if day_loop == null:
 		_root.visible = false

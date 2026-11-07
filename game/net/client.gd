@@ -260,9 +260,11 @@ func _on_session(body: Dictionary) -> void:
 	if bool(body.get("over", false)):
 		# 这局收了：快照留着给演出用，但下次被拉进局要能再触发 join_room
 		_in_room = false
+		print("这一局收了：%s 币 %s" % [str(session.get("kind", "")), str(session.get("earned", {}))])
 		return
 	if not _in_room:
 		_in_room = true
+		print("服务器把我拉进这一局：%s（座位 %d）" % [str(session.get("kind", "")), seat_index()])
 		join_room.emit()
 
 
@@ -297,6 +299,8 @@ func _send(kind: int, body: Dictionary) -> void:
 func _dead(reason: String) -> void:
 	if state == State.DEAD:
 		return
+	# 掉线原因要留一句日志：局中无端回森林，事后只能靠这一行对（adb logcat -s godot）
+	print("和服务器断开：%s" % reason)
 	state = State.DEAD
 	_queue.clear()
 	# 连接要真的关掉：留着的话服务器那边还挂着一个同名会话，下次登录会被它抢走自己那一局的快照

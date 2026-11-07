@@ -117,6 +117,18 @@ func leave(name: String, settle: bool = true) -> void:
 			settled = true
 
 
+## 掉线（不是主动走）：别人还在这一局里就让他那格空着打完，一个不剩了才收局结账。
+## 一个人手机掉网不能把另一个人的一局瞬间结算掉 —— 真机上就是这么丢了整局。
+func drop(name: String, online: PackedStringArray) -> void:
+	_clear_invites(name)
+	if room == null or room.seat_of(name) < 0:
+		return
+	for seat in room.seats:
+		if not bool(seat["npc"]) and online.has(str(seat["account"])):
+			return
+	leave(name, true)
+
+
 ## 推进这一局；模型说结束（或者到了硬顶）就结账，只结一次。
 func tick(delta: float) -> void:
 	if room == null:

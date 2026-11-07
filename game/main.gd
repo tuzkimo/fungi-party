@@ -77,6 +77,7 @@ func _on_online_ready() -> void:
 func _go_online() -> void:
 	Save.remote = _net
 	_refresh_looks()
+	_refresh_day()
 	# 登出再登录会走第二遍：已经连过的信号不能重连，否则替身每帧重建两遍
 	if not _net.world_changed.is_connected(_on_world):
 		_net.world_changed.connect(_on_world)
@@ -89,6 +90,7 @@ func _go_online() -> void:
 ## 主动登出：断开连接、清掉别处替身，回到登录表单（存档在服务器上，一样都没丢）。
 func _on_logout() -> void:
 	Save.remote = null
+	_refresh_day()
 	for key in _ghosts.keys():
 		(_ghosts[key] as Node).queue_free()
 	_ghosts.clear()
@@ -174,6 +176,14 @@ func _animate_ghosts(delta: float) -> void:
 		var before := ghost.global_position
 		ghost.apply(state, delta)
 		ghost.bob(delta, before.distance_to(ghost.global_position) > 0.002)
+
+
+## 体力条、饭店、帐篷都读 DayLoop，而它 _ready 那次读的是本机存档（那时还没登录完），
+## 不重读就会「屏幕上写着 100 体力，服务器那边是 0」—— 真机踩过。
+func _refresh_day() -> void:
+	var loop := get_tree().get_first_node_in_group("day_loop") as DayLoop
+	if loop != null:
+		loop.refresh()
 
 
 func _refresh_looks() -> void:

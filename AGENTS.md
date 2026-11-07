@@ -78,6 +78,15 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
   真人输入分两种形状 —— 横移按着（`steer`），跳跃 / 冲刺点一下（`jump` / `dash` 立刻进模型，不排到 tick）。
 - 体力与天色的公式只有 `game/systems/day.gd` 一套：单机的天色由体力派生；联机时天色归服务器的世界时钟
   （`game/net/clock.gd`，`DayLoop` 只读 `NetClient.clock`，不自己推、不落本机盘）。别处不许再算天色。扣体力只在小游戏 `_ready` 一处。
+- **世界时钟的天数照墙钟算**（`NetClock.sync(Time.get_unix_time_from_system())`），不数服务器开机时长：
+  服务端每次部署都重启，数开机时长等于把「今天」抹回第 1 天，玩家存档里的 `slept_day` 就变成「刚睡过的今天」，
+  于是睡觉一直回 `slept`、要干等下一次重启（真机踩过）。
+- 饭店只看份数 / 钱 / 还饱着，**不看体力**：以前「体力见底 = 天黑」时它跟着太阳打烊，
+  天色改归服务器时钟之后这条就成了死路——体力花光、饭还有、钱够，店却关门，睡觉又是「今天睡过了」。
+- 森林里的体力条 / 饭店 / 帐篷都读 `DayLoop`，而它 `_ready` 那次读的是本机存档（那时还没登录完）：
+  登录成功、登出之后都要 `DayLoop.refresh()`（`main._refresh_day()`），否则屏幕上写着 100 体力、服务器那边是 0。
+- 掉线不等于主动退局：`NetLobby.drop()` 只把那个人清出去，别人还在这一局里就让他那格空着打完
+  （那格的输入永远是「没按」），一个人不剩了才收局结账。`leave_room`（按「回森林」）才真的收局。
 - 睡几号归服务器：`slept_day` 是账号字段，日子来自世界时钟（`NetOps.apply` 的 `world` 参数由服务器注入，客户端说不了算）。
   UI 置灰走 `NetClient.slept_today()`，和服务器那道门槛是同一个判断，别各写一遍。
 - 皮肤外观只有一个入口 `MushroomMesh.use_skin()`；存档里的皮肤 id 一律走 `SkinCatalog.by_id()`，查不到就回落默认外观。

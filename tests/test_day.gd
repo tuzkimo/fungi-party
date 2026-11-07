@@ -45,14 +45,14 @@ func test_meal() -> void:
 	check(not Day.meal(40, 3, 100)["ok"], "一天三份就够了")
 	check(not Day.meal(40, 0, 19)["ok"], "差 1 币也吃不了")
 	check(not Day.meal(100, 0, 100)["ok"], "饱着的时候不吃")
-	check(not Day.meal(11, 0, 100)["ok"], "见底之后饭店打烊")
+	check(Day.meal(11, 0, 100)["ok"], "见底照样吃：饭店跟着太阳走，不再跟体力走")
 
 
 func test_rejected_meal_changes_nothing() -> void:
-	var r := Day.meal(11, 0, 100)
+	var r := Day.meal(40, 3, 100)
 	check_eq(r["coins"], 100, "吃不成不扣钱")
-	check_eq(r["meals"], 0, "吃不成不算份数")
-	check_eq(r["stamina"], 11, "吃不成不回体力")
+	check_eq(r["meals"], 3, "吃不成不算份数")
+	check_eq(r["stamina"], 40, "吃不成不回体力")
 
 
 func test_rollover() -> void:

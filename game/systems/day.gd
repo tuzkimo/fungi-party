@@ -31,7 +31,9 @@ static func entry_label(stamina: int, cost: int) -> String:
 	return "体力 −%d · 剩 %d" % [cost, stamina - cost]
 
 
-## 拒绝顺序：份数用完 → 钱不够 → 还饱着 → 打烊（体力见底）。拒绝时原样返回。
+## 拒绝顺序：份数用完 → 钱不够 → 还饱着。拒绝时原样返回。
+## 以前体力见底也拒（那时「体力见底 = 天黑」，饭店跟着太阳打烊）：联机后天色归服务器世界时钟，
+## 这条规矩就变成了死路——体力花光、饭还有、钱够，店却关门，睡觉又是「今天睡过了」。所以去掉了。
 static func meal(stamina: int, meals: int, coins: int) -> Dictionary:
 	var no := {"ok": false, "stamina": stamina, "meals": meals, "coins": coins}
 	if meals >= Config.MEALS_PER_DAY:
@@ -39,8 +41,6 @@ static func meal(stamina: int, meals: int, coins: int) -> Dictionary:
 	if coins < Config.MEAL_COINS:
 		return no
 	if stamina >= Config.STAMINA_MAX:
-		return no
-	if stamina < Config.STAMINA_MIN_COST:
 		return no
 	return {
 		"ok": true,

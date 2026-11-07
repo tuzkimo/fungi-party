@@ -107,7 +107,7 @@ func _world_check() -> void:
 	other.close()
 
 
-## 邀请：两个人进同一局，各扣自己的体力；有人掉线这一局就收了。
+## 邀请：两个人进同一局，各扣自己的体力；一个人掉线这一局还得留着给另一个人打完。
 func _invite_check() -> void:
 	var guest := NetClient.new()
 	guest.failed.connect(_on_failed)
@@ -168,8 +168,9 @@ func _invite_check() -> void:
 	var coins_before := int(_client.data["coins"])
 	guest.close()
 	await create_timer(0.5).timeout
-	if not bool(_client.session.get("over", false)):
-		_die("对方掉线后这一局没收：%s" % str(_client.session))
+	if bool(_client.session.get("over", false)):
+		_die("一个人掉线就把两个人的局收了：%s" % str(_client.session))
+	await _settle_and_reconnect()
 	if int(_client.data["coins"]) <= coins_before:
 		_die("收局没结账：%d -> %d" % [coins_before, int(_client.data["coins"])])
 	print("邀请：两人进同一间教室各扣 %d 体力，服务器判吃口，收局结账 %d 币" % [
@@ -223,8 +224,9 @@ func _bomb_check() -> void:
 	await create_timer(Config.NET_SETTLE_MIN_SECONDS).timeout
 	guest.close()
 	await create_timer(0.6).timeout
-	if not bool(_client.session.get("over", false)):
-		_die("对方掉线后这一局没收：%s" % str(_client.session))
+	if bool(_client.session.get("over", false)):
+		_die("一个人掉线就把两个人的局收了：%s" % str(_client.session))
+	await _settle_and_reconnect()
 	if int(_client.data["coins"]) <= coins_before:
 		_die("传炸弹收局没结账：%d -> %d" % [coins_before, int(_client.data["coins"])])
 	print("传炸弹：两人同局各扣 %d 体力，服务器判投掷，收局结账 %d 币" % [
@@ -277,8 +279,9 @@ func _owl_check() -> void:
 	await create_timer(Config.NET_SETTLE_MIN_SECONDS).timeout
 	guest.close()
 	await create_timer(0.6).timeout
-	if not bool(_client.session.get("over", false)):
-		_die("对方掉线后这一局没收：%s" % str(_client.session))
+	if bool(_client.session.get("over", false)):
+		_die("一个人掉线就把两个人的局收了：%s" % str(_client.session))
+	await _settle_and_reconnect()
 	if int(_client.data["coins"]) <= coins_before:
 		_die("猫头鹰收局没结账：%d -> %d" % [coins_before, int(_client.data["coins"])])
 	print("猫头鹰：两人同局各扣 %d 体力，服务器判吃口，收局结账 %d 币" % [
@@ -330,11 +333,26 @@ func _race_check() -> void:
 	await create_timer(Config.NET_SETTLE_MIN_SECONDS).timeout
 	guest.close()
 	await create_timer(0.6).timeout
-	if not bool(_client.session.get("over", false)):
-		_die("对方掉线后这一局没收：%s" % str(_client.session))
+	if bool(_client.session.get("over", false)):
+		_die("一个人掉线就把两个人的局收了：%s" % str(_client.session))
+	await _settle_and_reconnect()
 	print("赛跑：两人同局各扣 %d 体力，服务器判摇杆，收局结账 %d 币" % [
 		Config.STAMINA_COST_RACE, int(_client.data["coins"]) - coins_before
 	])
+
+
+## 收局结账：最后一个人也走人 → 服务器收局写币 → 重连拿回新存档。
+## 一个人掉线不再收局（见 NetLobby.drop），所以想验结账就得把两个人都走掉。
+func _settle_and_reconnect() -> void:
+	var old := _client
+	old.close()
+	await create_timer(0.8).timeout
+	_client = NetClient.new()
+	_client.failed.connect(_on_failed)
+	root.add_child(_client)
+	_client.connect_to(_host, _port, _name, _password)
+	await _client.logged_in
+	old.queue_free()
 
 
 ## 事件里有没有「真人扔的」：人机的 from 是 2/3，真人是 0/1。
