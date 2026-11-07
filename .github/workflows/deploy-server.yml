@@ -1,0 +1,131 @@
+name: deploy-server
+
+# push 到 main 且改了会进二进制的文件 → 自动测试、导出、上服务器、重启、健康检查。
+# 手动步骤（一次性）见 docs/server-deploy.md。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'game/**'
+      - 'project.godot'
+      - 'export_presets.cfg'
+      - '.github/workflows/deploy-server.yml'
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-server
+  cancel-in-progress: false
+
+env:
+  GODOT_RELEASE: 4.7.2-stable
+  GODOT_TEMPLATES_DIR: 4.7.2.stable
+  BIN: build/fungi-party-server.x86_64
+  PORT: 7000
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Godot
+        run: |
+          curl -fsSL -o godot.zip \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_linux.x86_64.zip"
+          unzip -q godot.zip
+          sudo mv "Godot_v${GODOT_RELEASE}_linux.x86_64" /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+          godot --version
+
+      - name: 安装导出模板
+        run: |
+          curl -fsSL -o templates.tpz \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_export_templates.tpz"
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_TEMPLATES_DIR}"
+          unzip -q templates.tpz -d /tmp/templates
+          mv /tmp/templates/templates/* "$HOME/.local/share/godot/export_templates/${GODOT_TEMPLATES_DIR}/"
+          ls "$HOME/.local/share/godot/export_templates/${GODOT_TEMPLATES_DIR}/" | head -5
+
+      - name: 无头测试
+        run: bash scripts/test.sh
+
+      - name: 导出 Linux 无头构建
+        run: |
+          mkdir -p build
+          # 新 runner 上没有 .godot/，先让编辑器扫一遍，否则导出会缺导入资源
+          godot --headless --path . --editor --quit > /dev/null 2>&1
+          godot --headless --path . --export-release "Linux Server" "$BIN"
+          ls -la "$BIN"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fungi-party-server
+          path: build/fungi-party-server.x86_64
+          if-no-files-found: error
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: fungi-party-server
+          path: build
+
+      - name: 准备 ssh
+        run: |
+          set -euo pipefail
+          for v in DEPLOY_HOST DEPLOY_USER DEPLOY_PORT DEPLOY_SSH_KEY; do
+            if [ -z "${!v}" ]; then
+              echo "::error::缺少 Secret ${v}：仓库 Settings > Secrets and variables > Actions 里加，见 docs/server-deploy.md"
+              exit 1
+            fi
+          done
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          # 部署目录跟着登录用户走，不再多配一个 secret。
+          # 启动服务时用的是同一台机器上的 systemd，路径必须与 unit 里的 WorkingDirectory 一致。
+          echo "SERVER_DIR=/home/$DEPLOY_USER/fungi" >> "$GITHUB_ENV"
+          echo "SSH_OPTS=-i $HOME/.ssh/deploy -p $DEPLOY_PORT -o BatchMode=yes -o IdentitiesOnly=yes" >> "$GITHUB_ENV"
+          # 同一步里还拿不到上面刚写进 GITHUB_ENV 的 SSH_OPTS，这里把参数写全
+          ssh -i ~/.ssh/deploy -p "$DEPLOY_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" "echo '连接成功，主机 '\$(hostname)"
+
+      - name: 上传（断线可续）
+        run: |
+          set -euo pipefail
+          # --partial：断线时留着已传的部分；--append-verify：重跑本 job 接着传而不是从 0 开始。
+          # 二进制只有 74 MB，但服务器上行很慢，这一条能省掉反复重传。
+          rsync -z --partial --append-verify \
+            -e "ssh $SSH_OPTS" \
+            build/fungi-party-server.x86_64 \
+            "$DEPLOY_USER@$DEPLOY_HOST:$SERVER_DIR/fungi-party-server.new"
+
+      - name: 校验上传完整性
+        run: |
+          set -euo pipefail
+          # --append-verify 只在「追加前缀一致」时安全，所以必须对一次哈希，
+          # 不一致就把半截文件删掉，让重跑从头传，绝不能让坏包上线。
+          LOCAL=$(sha256sum build/fungi-party-server.x86_64 | cut -d' ' -f1)
+          REMOTE=$(ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" "sha256sum '$SERVER_DIR/fungi-party-server.new'" | cut -d' ' -f1)
+          if [ "$LOCAL" != "$REMOTE" ]; then
+            ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" "rm -f '$SERVER_DIR/fungi-party-server.new'"
+            echo "::error::校验不一致（本地 $LOCAL，远端 $REMOTE）。半截文件已删，重跑本 job 会从头传。"
+            exit 1
+          fi
+          echo "校验一致：$LOCAL"
+
+      - name: 换上新版本并健康检查
+        run: |
+          set -euo pipefail
+          # 重启/健康检查那段放仓库里（deploy/remote-restart.sh），和 scripts/deploy-server.sh 共用一份，
+          # 免得写在 YAML 里跟引号、heredoc 缩进缠斗。
+          ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" "bash -s -- '$SERVER_DIR' $PORT" < deploy/remote-restart.sh

@@ -42,7 +42,7 @@ bash scripts/net_smoke.sh                                      # 联机冒烟：
 godot --path . --script res://tools/net_login_shot.gd -- --port 7000   # 桌面看一眼启动菜单和登录（shots/login*.png）
 godot --path . --script res://tools/net_world_shot.gd -- --port 7000   # 桌面看一眼共享森林里的替身（shots/world.png）
 godot --path . --script res://tools/net_invite_shot.gd -- --port 7000   # 桌面看一眼邀请：列表 + 横幅 + 接受后进教室（shots/invite.png）
-bash scripts/deploy-server.sh fungi@你的主机                    # 导出 Linux 无头构建并部署（见 deploy/README.md）
+bash scripts/deploy-server.sh 用户@主机                           # 手动发一次服务端（平时 push main 就自动上线，见 docs/server-deploy.md）
 godot --headless --path . --export-debug "Android" build/app.apk   # 调试包，带 FPS/DRAW/TRI 信息条
 bash scripts/export-release.sh                                      # 正式签名包 build/fungi_party_<版本>_arm64.apk
 adb install -r build/app.apk
@@ -109,6 +109,11 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
   替身只显示、不碰撞、不读输入；同屏 2P 用 `账号|1` 这个键，客户端要把自己那两份从世界快照里剔掉。
 - 人数上限 8、同时 1 个小游戏房：不是设计判断，是这台 2 核 2G / 5 Mbps 机器的实测天花板
   （8 人全量广播 1.1 Mbps；一个 Godot 无头进程常驻 94 MB，但一个 3D 房间就是几十 MB）。要更多先做距离裁剪。
+- 服务端上线靠 `.github/workflows/deploy-server.yml`：push main（改 `game/**`、`project.godot`、
+  `export_presets.cfg`）→ 无头测试 → 导出 Linux 无头构建 → rsync 到服务器 `~/fungi/` →
+  `sudo -n systemctl restart fungi-party-server` → 验 UDP 7000 在监听。没有 HTTP 端点，所以健康检查是
+  「进程活着 + 端口 bind 上」，不是 curl。一次部署会把在线的人踢下线，改协议版本等于立刻踢所有人。
+  服务器侧布局、sudoers 规则、排错表全在 `docs/server-deploy.md`，改服务器布局先改那份文档。
 - 服务器上**只跑 RefCounted 规则模型，绝不实例化 3D 场景**。一款游戏搬上服务器 = 一个 `*_round.gd`
   纯模型（tick 顺序照抄本地场景的 `_process`）+ `NetRoom._build_model()` 一条；客户端那条路只读快照。
 - 局内快照**一帧只拍一次**再各人复制（`server_main` 的 `_push_session` / `_broadcast_session`）：
