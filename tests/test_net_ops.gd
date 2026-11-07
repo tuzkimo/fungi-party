@@ -12,8 +12,8 @@ func _fresh(overrides: Dictionary = {}) -> Dictionary:
 
 func test_op_allowlist() -> void:
 	check(NetOps.allowed("pull"), "抽卡可发起")
-	check(not NetOps.allowed("meal"), "联机没有吃饭（不扣体力，没东西补）")
-	check(not NetOps.allowed("sleep"), "联机没有睡觉")
+	check(NetOps.allowed("meal"), "吃饭可发起")
+	check(NetOps.allowed("sleep"), "睡觉可发起")
 	check(not NetOps.allowed("grant"), "名单外拒绝")
 	check(not NetOps.allowed(""), "空 op 拒绝")
 	var r := NetOps.apply(_fresh(), "grant", {"coins": 99999})
@@ -59,6 +59,25 @@ func test_spend_stamina() -> void:
 	check(not bool(NetOps.apply(_fresh({"stamina": 5}), "spend_stamina", {"cost": 30})["ok"]), "体力不够拒开局")
 	check(not bool(NetOps.apply(_fresh({"stamina": 100}), "spend_stamina", {"cost": -5})["ok"]), "负数不能加体力")
 	check(not bool(NetOps.apply(_fresh({"stamina": 100}), "spend_stamina", {"cost": 99999})["ok"]), "离谱开销拒绝")
+
+
+## 吃饭 / 睡觉：都没有间隔（钱和肚子是唯一的限制），睡觉直接回满
+func test_meal_and_sleep() -> void:
+	var save := _fresh({"stamina": 20, "coins": 100})
+	var r := NetOps.apply(save, "meal", {})
+	check(bool(r["ok"]), "有钱就能吃")
+	check_eq([int((r["data"] as Dictionary)["stamina"]), int((r["data"] as Dictionary)["coins"])],
+		[20 + Config.MEAL_STAMINA, 100 - Config.MEAL_COINS], "回体力扣钱")
+	var again := NetOps.apply(r["data"] as Dictionary, "meal", {})
+	check(bool(again["ok"]), "吃完马上能再吃（没有间隔）")
+	check_eq(int((again["data"] as Dictionary)["coins"]), 100 - Config.MEAL_COINS * 2, "第二份照扣")
+	check(not bool(NetOps.apply(_fresh({"stamina": Config.STAMINA_MAX, "coins": 100}), "meal", {})["ok"]), "饱着不吃")
+	check(not bool(NetOps.apply(_fresh({"stamina": 20, "coins": 19}), "meal", {})["ok"]), "差 1 币也吃不了")
+
+	var slept := NetOps.apply(_fresh({"stamina": 3}), "sleep", {})
+	check(bool(slept["ok"]), "随时能睡")
+	check_eq(int((slept["data"] as Dictionary)["stamina"]), Config.STAMINA_MAX, "睡醒满体力")
+	check(bool(NetOps.apply(slept["data"] as Dictionary, "sleep", {})["ok"]), "连着睡也不拦")
 
 
 func test_equip_requires_ownership() -> void:

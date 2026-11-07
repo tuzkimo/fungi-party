@@ -8,9 +8,8 @@ class_name NetOps
 ## 客户端能发起的 op。
 ## shortcut: 一期允许 add_coins，因为四款小游戏还在客户端跑（结算得有个去处）。
 ## 二期小游戏搬到服务器之后必须把它从这里删掉，否则谁都能自己加币。
-## meal / sleep 也删了：联机不扣体力，没东西要恢复（体力系统只服务单机）。
 const CLIENT_OPS: Array[String] = [
-	"pull", "spend_stamina", "equip", "set_character", "add_coins",
+	"pull", "meal", "sleep", "spend_stamina", "equip", "set_character", "add_coins",
 ]
 
 ## 一期客户端上报的单次收益上限：最大的赛跑冠军是 70 币，留一倍余量
@@ -29,6 +28,10 @@ static func apply(data: Dictionary, op: String, args: Dictionary) -> Dictionary:
 	match op:
 		"pull":
 			return _pull(save, args)
+		"meal":
+			return _meal(save)
+		"sleep":
+			return _sleep(save)
 		"spend_stamina":
 			return _spend_stamina(save, args)
 		"equip":
@@ -54,6 +57,22 @@ static func _pull(save: Dictionary, args: Dictionary) -> Dictionary:
 	for i in count:
 		results.append(Gacha.roll(save, full if i == 0 else 0))
 	return {"ok": true, "data": save, "result": {"pulls": results}}
+
+
+## 吃一份：20 币回 25 体力，没有间隔（钱和肚子是唯一的限制）
+static func _meal(save: Dictionary) -> Dictionary:
+	var r := Day.meal(int(save["stamina"]), int(save["coins"]))
+	if not bool(r["ok"]):
+		return {"ok": false, "data": save, "error": "meal"}
+	save["stamina"] = int(r["stamina"])
+	save["coins"] = int(r["coins"])
+	return {"ok": true, "data": save}
+
+
+## 睡一觉：直接回满，没有间隔（天色归世界时钟，这里不碰）
+static func _sleep(save: Dictionary) -> Dictionary:
+	save["stamina"] = Config.STAMINA_MAX
+	return {"ok": true, "data": save}
 
 
 static func _spend_stamina(save: Dictionary, args: Dictionary) -> Dictionary:

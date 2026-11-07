@@ -44,13 +44,24 @@ func _run() -> void:
 	])
 
 	await _op("equip", {"skin": str(_client.data["equipped"])})
-	# 联机不扣体力：服务器连 meal / sleep 两条 op 都没有了
+	# 吃饭 / 睡觉：都没有间隔，睡觉直接回满（体力在账号上，所以走服务器 op）
+	await _op("sleep", {})
+	if int(_client.data["stamina"]) != Config.STAMINA_MAX:
+		_die("睡一觉没回满：%d" % int(_client.data["stamina"]))
+	var coins_for_meal := int(_client.data["coins"])
+	await _op("spend_stamina", {"cost": 40})
 	await _op("meal", {})
-	if NetOps.allowed("meal"):
-		_die("联机不该还有 meal 这条 op")
-	if bool(_client.last_result.get("ok", true)):
-		_die("联机不该还能吃饭")
-	print("联机不扣体力：meal op 也不存在（%s）" % str(_client.last_result.get("error", "")))
+	if not bool(_client.last_result.get("ok", false)):
+		_die("吃饭被拒了：%s" % str(_client.last_result.get("error", "")))
+	if int(_client.data["coins"]) != coins_for_meal - Config.MEAL_COINS:
+		_die("吃饭没扣钱：%d -> %d" % [coins_for_meal, int(_client.data["coins"])])
+	await _op("meal", {})
+	if not bool(_client.last_result.get("ok", false)):
+		_die("连着吃第二份被拦了（不该有间隔）：%s" % str(_client.last_result.get("error", "")))
+	await _op("sleep", {})
+	if int(_client.data["stamina"]) != Config.STAMINA_MAX:
+		_die("连着睡没回满：%d" % int(_client.data["stamina"]))
+	print("吃饭睡觉：没有间隔，睡觉直接回满，吃饭每份扣 %d 币" % Config.MEAL_COINS)
 	var coins_before := int(_client.data["coins"])
 	var owned_before := (_client.data["owned"] as PackedStringArray).size()
 	_client.close()

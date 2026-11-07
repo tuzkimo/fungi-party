@@ -55,19 +55,21 @@ func test_current_character_button_is_disabled() -> void:
 	panel.free()
 
 
-## 联机不扣体力：帐篷里的「睡觉」直接不摆（换衣服 / 换角色照旧）。
+## 睡觉没有间隔：按钮一直可按；联机写「睡一觉」，单机写「睡到早上」。
 ## `Save.remote` 是静态的，测完一定要还原，否则后面的用例会以为自己在联机。
-func test_sleep_button_is_hidden_online() -> void:
+func test_sleep_button_is_always_ready() -> void:
 	var net := NetClient.new()
-	net.data = Save.normalize({})
+	net.data = Save.normalize({"stamina": 3})
 	Save.remote = net
 	var panel := _open_panel()
 	panel._refresh()
-	check(not panel._sleep.visible, "联机时没有睡觉这回事")
+	check(panel._sleep.visible, "联机也能睡（回体力）")
+	check(not panel._sleep.disabled, "没有间隔，随时能按")
+	check_eq(panel._sleep.text, "睡一觉", "联机只是回体力")
 
 	Save.remote = null
 	panel._refresh()
-	check(panel._sleep.visible, "单机里睡觉按钮在")
+	check_eq(panel._sleep.text, "睡到早上", "单机顺带天亮")
 
 	Save.remote = null
 	panel.free()

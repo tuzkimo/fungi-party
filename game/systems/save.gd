@@ -25,8 +25,6 @@ static func defaults() -> Dictionary:
 		"stamina": Config.STAMINA_MAX,
 		"day": 1,
 		"day_time": Config.MORNING_TIME,
-		# 上次睡觉的 unix 秒（0 = 没做过，立刻能睡）：单机睡觉有冷却，不看世界第几天
-		"sleep_at": 0.0,
 	}
 
 
@@ -42,7 +40,6 @@ static func normalize(raw: Dictionary) -> Dictionary:
 	data["stamina"] = int(raw.get("stamina", Config.STAMINA_MAX))
 	data["day"] = int(raw.get("day", 1))
 	data["day_time"] = float(raw.get("day_time", Config.MORNING_TIME))
-	data["sleep_at"] = float(raw.get("sleep_at", 0.0))
 	return data
 
 
@@ -74,7 +71,6 @@ static func read(path: String = PATH) -> Dictionary:
 		"stamina": cfg.get_value(SECTION, "stamina", Config.STAMINA_MAX),
 		"day": cfg.get_value(SECTION, "day", 1),
 		"day_time": float(cfg.get_value(SECTION, "day_time", Config.MORNING_TIME)),
-		"sleep_at": float(cfg.get_value(SECTION, "sleep_at", 0.0)),
 	})
 
 
@@ -132,22 +128,25 @@ static func set_character(id: String, path: String = PATH) -> bool:
 
 
 ## 扣一局体力：够才扣（四款小游戏的 _ready 都走这里）。
-## **联机不扣**：一帮朋友里只要有一个人体力见底，那一局就开不起来，所以联网模式随便玩。
+## **只有「自己开的局」扣**（一个人玩 / 同屏 2P）；被邀请的联机局完全不查不扣（见 NetLobby）。
+## 联机时先拿镜像判一次给个即时答复，服务器回包才是准的：错判只会少打一局，不会多打。
 static func spend_stamina(cost: int, path: String = PATH) -> bool:
-	if remote != null:
-		return true
 	var data := read(path)
 	var r := Day.spend_cost(int(data["stamina"]), cost)
 	if not bool(r["ok"]):
 		return false
+	if remote != null:
+		remote.call("request", "spend_stamina", {"cost": cost})
+		return true
 	write(path, {"stamina": int(r["stamina"])})
 	return true
 
 
-## 吃一份：只服务单机 —— 联机不扣体力，也就没东西要补（见 NetLobby 顶上那段）。
+## 吃一份：20 币回 25 体力，没有间隔。联机发 op（体力在账号上），单机本地写。
 static func eat_meal(path: String = PATH) -> bool:
 	if remote != null:
-		return false
+		remote.call("request", "meal", {})
+		return true
 	var data := read(path)
 	var r := Day.meal(int(data["stamina"]), int(data["coins"]))
 	if not bool(r["ok"]):
@@ -156,26 +155,14 @@ static func eat_meal(path: String = PATH) -> bool:
 	return true
 
 
-## 睡一觉：只服务单机（联机天色归服务器时钟，体力也不扣）。冷却记在 sleep_at 上。
+## 睡一觉：回满体力，没有间隔、不要钱。联机发 op（天色归服务器时钟，只回体力），
+## 单机顺带把本机的天色拨到早上、天数 +1。
 static func rollover(path: String = PATH) -> void:
 	if remote != null:
+		remote.call("request", "sleep", {})
 		return
 	var data := read(path)
-	if not Day.ready(_now(), float(data["sleep_at"]), Config.SLEEP_COOLDOWN_SECONDS):
-		return
-	var rolled := Day.rollover(int(data["day"]))
-	rolled["sleep_at"] = _now()
-	write(path, rolled)
-
-
-## 下一觉还要等几秒（0 = 现在就能）：帐篷的置灰和睡觉的门槛看同一个数
-static func sleep_wait(path: String = PATH) -> float:
-	return Day.wait_left(_now(), float(read(path)["sleep_at"]), Config.SLEEP_COOLDOWN_SECONDS)
-
-
-## 现在几点（unix 秒）：体力恢复只在单机判，本机钟就够了
-static func _now() -> float:
-	return Time.get_unix_time_from_system()
+	write(path, Day.rollover(int(data["day"])))
 
 
 static func set_day_time(t: float, path: String = PATH) -> void:

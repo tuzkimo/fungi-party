@@ -82,12 +82,9 @@ func _refresh() -> void:
 	var stamina := day_loop.stamina
 	var coins := int(Save.read()["coins"])
 	_coins.text = "蘑菇币 %d" % coins
-	# 联机不扣体力，饭店没活干：只留个说法，别让人以为按钮坏了
 	_meals.text = ""
-	_eat.visible = not Save.online()
-	_stamina.text = "联网模式不扣体力" if Save.online() else "体力 %d/%d" % [stamina, Config.STAMINA_MAX]
-	if Save.online():
-		return
+	_eat.visible = true
+	_stamina.text = "体力 %d/%d" % [stamina, Config.STAMINA_MAX]
 
 	var ok := bool(Day.meal(stamina, coins)["ok"])
 	_eat.disabled = _busy or not ok

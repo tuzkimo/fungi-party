@@ -31,24 +31,6 @@ static func entry_label(stamina: int, cost: int) -> String:
 	return "体力 −%d · 剩 %d" % [cost, stamina - cost]
 
 
-## 体力恢复（睡觉 / 吃饭）只认冷却，不认天色也不认「第几天」：两个人在线时各恢复各的，
-## 不需要同步任何时间，世界时钟只负责画天色。
-static func wait_left(now: float, last: float, cooldown: float) -> float:
-	if last <= 0.0:
-		return 0.0   # 从来没做过（老存档 / 服务器上缺字段）：立刻能做，别拿 0 当成「纪元那次」
-	return maxf(0.0, last + cooldown - now)
-
-
-## 冷却好了没有（now / last 都是 unix 秒；last = 0 就是从来没做过 → 立刻能做）
-static func ready(now: float, last: float, cooldown: float) -> bool:
-	return wait_left(now, last, cooldown) <= 0.0
-
-
-## 倒计时的人话：向上取整到分钟，最少 1（浮点尾数会把它显示成「还要 0 分钟」）
-static func wait_text(seconds: float) -> String:
-	return "%d 分钟" % maxi(1, ceili(seconds / 60.0))
-
-
 ## 拒绝顺序：钱不够 → 还饱着（冷却由调用方查）。拒绝时原样返回。
 ## 以前体力见底也拒（那时「体力见底 = 天黑」，饭店跟着太阳打烊）：联机后天色归服务器世界时钟，
 ## 这条就变成了死路——体力花光、饭还有、钱够，店却关门。所以去掉了，店只看钱和肚子。

@@ -14,18 +14,16 @@ func test_old_save_gets_defaults() -> void:
 	check_eq(d.coins, 50, "老字段照旧")
 	check_eq(d.stamina, 100, "老存档默认满体力")
 	check_eq(d.day, 1, "老存档是第一天")
-	check_eq(d.sleep_at, 0.0, "老存档没睡过（实得 %s）" % d.sleep_at)
-	check_eq(d.meal_at, 0.0, "老存档没吃过饭（实得 %s）" % d.meal_at)
 	check(absf(d.day_time - 0.28) < 0.001, "老存档在清晨（实得 %.3f）" % d.day_time)
 	_clean()
 
 
-## 冷却时间戳也得走归一化：服务器那份是 JSON，读回来可能是整数
-func test_cooldown_stamps_roundtrip_through_normalize() -> void:
-	check_eq(Save.defaults()["sleep_at"], 0.0, "缺省是没睡过")
-	check_eq(Save.normalize({})["meal_at"], 0.0, "空存档读成 0")
-	check_eq(Save.normalize({"sleep_at": 17})["sleep_at"], 17.0, "整数也读得回来")
-	check_eq(Save.normalize({"meal_at": 1.5})["meal_at"], 1.5, "浮点读得回来")
+## 老存档里的 meals / slept_day / meal_at 这些没用的键：归一化一律丢掉，不留在新存档里
+func test_dead_fields_are_dropped() -> void:
+	var data := Save.normalize({"meals": 2, "slept_day": 9, "meal_at": 1.5, "sleep_at": 3.0})
+	check(not data.has("meals"), "份数没了")
+	check(not data.has("slept_day"), "睡过的日子没了")
+	check(not data.has("meal_at") and not data.has("sleep_at"), "冷却时间戳也没了")
 
 
 func test_partial_write_keeps_other_fields() -> void:

@@ -52,17 +52,6 @@ func test_rejected_meal_changes_nothing() -> void:
 	check_eq(r["stamina"], 100, "吃不成不回体力")
 
 
-## 睡觉 / 吃饭的门槛是冷却，不跟世界时钟的第几天对表：两个人在线各恢复各的。
-func test_recovery_cooldowns() -> void:
-	check(Day.ready(1000.0, 0.0, 60.0), "从来没做过 → 立刻能做")
-	check(not Day.ready(1000.0, 990.0, 60.0), "刚做过 → 还在冷却")
-	check(Day.ready(1050.0, 990.0, 60.0), "到点就能做")
-	check(absf(Day.wait_left(1000.0, 990.0, 60.0) - 50.0) < 0.001, "倒计时按秒算")
-	check_eq(Day.wait_left(1100.0, 990.0, 60.0), 0.0, "过点了不倒扣")
-	check_eq(Day.wait_text(1.0), "1 分钟", "不足一分钟也算一分钟")
-	check_eq(Day.wait_text(61.0), "2 分钟", "向上取整")
-
-
 func test_rollover() -> void:
 	var r := Day.rollover(3)
 	check_eq(r["stamina"], 100, "睡醒满体力")
@@ -92,9 +81,9 @@ func test_eat_meal_and_rollover_persist() -> void:
 	check(absf(Save.read(P).day_time - 0.62) < 0.001, "天色写回存档")
 	Save.rollover(P)
 	var e := Save.read(P)
+	Save.rollover(P)
+	check_eq(Save.read(P).day, 4, "再睡一次照样有效（没有间隔）")
 	check_eq([e.stamina, e.day], [100, 3], "睡一觉满体力、天数加一")
-	check(e.sleep_at > 0.0, "记下睡的时间")
-	check(Save.sleep_wait(P) > 0.0, "刚睡完还在冷却")
 	check(absf(e.day_time - 0.28) < 0.001, "过夜回到清晨")
 	check_eq(e.coins, 60, "过夜不动钱")
 	_clean()

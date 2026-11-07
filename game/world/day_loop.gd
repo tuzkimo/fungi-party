@@ -95,13 +95,8 @@ func _sync_clock() -> void:
 	time_of_day = net.clock if net != null else Config.MORNING_TIME
 
 
-## 睡觉有冷却（跟天色、第几天无关）：没冷却好就别演一遍必然被拒的睡觉
-func _waiting_to_sleep() -> bool:
-	return Save.sleep_wait() > 0.0
-
-
 func sleep() -> void:
-	if sleeping or _waiting_to_sleep():
+	if sleeping:
 		return
 	sleeping = true
 	changed.emit()

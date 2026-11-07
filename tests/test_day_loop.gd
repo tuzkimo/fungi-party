@@ -35,11 +35,10 @@ func test_refresh_follows_the_net_mirror() -> void:
 	check_eq(loop.stamina, 12, "先读到镜像里的体力")
 
 	# 服务器那封 OP_RESULT 落地后的样子：镜像已换人、changed 已经发出来
-	net.data = Save.normalize({"stamina": Config.STAMINA_MAX, "sleep_at": 99.0, "day": 3})
+	net.data = Save.normalize({"stamina": Config.STAMINA_MAX, "day": 3})
 	net.changed.emit()
 	check_eq(loop.stamina, Config.STAMINA_MAX, "回包之后体力跟着刷新")
 	check_eq(loop.day, 3, "日子也跟着刷新")
-	check_eq(float(Save.read()["sleep_at"]), 99.0, "冷却时间戳也在镜像里")
 
 	Save.remote = null
 	loop.free()

@@ -115,11 +115,9 @@ func _process(_delta: float) -> void:
 func _refresh() -> void:
 	var data := Save.read()
 	_stamina.text = "体力 %d/%d" % [int(data["stamina"]), Config.STAMINA_MAX]
-	# 联机不扣体力，睡觉没意义（换衣服 / 换角色照旧）；单机才有冷却
-	var wait := Save.sleep_wait()
-	_sleep.visible = not Save.online()
-	_sleep.disabled = wait > 0.0
-	_sleep.text = ("还要等 %s" % Day.wait_text(wait)) if wait > 0.0 else "睡到早上"
+	# 睡一觉直接回满，没有间隔（联机只是回体力，单机顺带天亮）
+	_sleep.disabled = false
+	_sleep.text = "睡一觉" if Save.online() else "睡到早上"
 	_sync_seats()
 	var look := Party.look(_seat)
 	var character_key := "%d|%s" % [_seat, str(look["body"])]
