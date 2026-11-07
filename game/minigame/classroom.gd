@@ -78,6 +78,11 @@ func _ready() -> void:
 				_round.humans += 1
 		_seats[_my_seat].apply_look(0)
 
+	# 头顶挂名字：联机时看账号名（自己那格也是），单机时 0/1 号是「你 / 2P」、其余是人机
+	var names := _seat_names()
+	for i in _seats.size():
+		_seats[i].set_label(str(names[i]))
+
 	_ui.again_pressed.connect(_on_again)
 	_ui.forest_pressed.connect(_on_forest)
 
@@ -266,6 +271,28 @@ func _stunned() -> Array:
 	for seat in Party.count():
 		out.append((_round.seats[seat] as StealEat.Seat).stun > 0.0)
 	return out
+
+
+## 座位名：人坐前几个，人机从后面补（和猫头鹰、传炸弹同一套）。
+func _seat_names() -> Array:
+	var names := []
+	var seats: Array = _net.session.get("seats", []) if _net != null else []
+	for seat in Config.SEAT_COUNT:
+		if not _is_human(seat):
+			names.append("人机")
+		elif _net != null:
+			names.append(str((seats[seat] as Dictionary).get("account", "")))
+		else:
+			names.append(Party.name_of(seat))
+	return names
+
+
+## 这个座位是不是人在玩：本地按 Party 算，服务器那一局按 session 的座位表算。
+func _is_human(seat: int) -> bool:
+	if _net == null:
+		return Party.human(seat)
+	var seats: Array = _net.session.get("seats", [])
+	return seat >= 0 and seat < seats.size() and not bool((seats[seat] as Dictionary).get("npc", false))
 
 
 ## 结算：每个玩家各自算币，都进同一个钱包（一台手机一份存档，不拆）。

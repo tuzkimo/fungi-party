@@ -97,6 +97,12 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
   `TouchControls.move(i)` / `held(i)`。`TouchControls` 的 `@export var duo` 是「这张场景允许双人」，
   真的摆两组还得 `Party.joined()`（人数变了自动重摆）。
 - 浮层里动态拼的文字只用 ASCII 标点：系统字体不一定有全角的 ？ （），真机上会显示成豆腐块。
+- 名字牌只有一套：`NameTag.attach()`（字体走 `UIStyle.font()`，内置字体没有中文字形；按到镜头的距离在
+  `_process` 里淡出，`Label3D` 不认 `visibility_range_*`）。森林里的自己 / 2P / 别人、
+  四款小游戏每个座位都挂它；座位名各游戏已有 `_seat_names()` / `_seat_name()`，别另写一套取名规则。
+- 摊位抽卡联机时一律发 `pull` op，等 `OP_RESULT` 里的结果再放演出：本机 `Gacha.pull()` 只改镜像、写盘是空操作，
+  走它等于白抽（不扣币、抽到的皮肤也不算数）。同理 op 改了外观（`equip` / `set_character`）之后要 `_refresh_looks()`，
+  否则自己本机看着还是旧的（别人靠 `MOVE` 报上去的形象已经换了）。
 - 双人赛跑用两个 `SubViewport` 分屏（共用同一份 `World3D`），垫在 `layer = -1` 的 CanvasLayer 上，
   否则晚加的 CanvasLayer 会把 HUD 盖掉。
 - `SkinCatalog.PATHS` 是显式路径表（不用扫目录，导出包不可靠）。加一顶皮肤 = 加一个 `.tres` + 一条 PATHS。

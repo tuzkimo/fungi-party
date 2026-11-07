@@ -13,12 +13,17 @@ const BUTTON_COLORS := {
 }
 
 
-static func theme() -> Theme:
+## 中文字形只有系统字体才有（内置字体没有）：UI 和 3D 名字牌共用这一份。
+static func font() -> Font:
 	var font := SystemFont.new()
 	font.font_names = PackedStringArray(["Noto Sans CJK SC", "Noto Sans SC", "Droid Sans Fallback", "sans-serif"])
 	font.allow_system_fallback = true
+	return font
+
+
+static func theme() -> Theme:
 	var result := Theme.new()
-	result.default_font = font
+	result.default_font = font()
 	result.default_font_size = 28
 	return result
 

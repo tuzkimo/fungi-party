@@ -76,6 +76,7 @@ func _ready() -> void:
 		if _net != null and i == _my_seat:
 			look = 0
 		seat.setup(SEAT_COLORS[i], look)
+		seat.set_label(str(_names[i]))
 		_seats.append(seat)
 
 	_bomb = BombVisual.new()

@@ -19,6 +19,7 @@ const OUT_FADE := 0.45
 var _pivot: Node3D
 var _body: MushroomMesh
 var _cap_color := Color.WHITE
+var _name: NameTag = null
 var _out := false
 var _score := -1
 var _pop := 0.0
@@ -45,6 +46,21 @@ func setup(cap_color: Color, yaw: float) -> void:
 func apply_look(seat: int) -> void:
 	_body.use_party_look(seat)
 	_cap_color = _body.tint_cap
+	if _name != null:
+		_name.position.y = _label_y()
+
+
+func set_label(text: String) -> void:
+	if text == "":
+		return
+	if _name == null:
+		_name = NameTag.attach(self, text, _label_y())
+	_name.text = text
+	_name.position.y = _label_y()
+
+
+func _label_y() -> float:
+	return _body.top() * BODY_SCALE + 0.55
 
 
 func apply(score: int, open: bool, out: bool, delta: float) -> void:

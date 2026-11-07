@@ -14,6 +14,10 @@ var _one: Button
 var _ten: Button
 var _results: GridContainer
 var _shown := false
+## 正等服务器回几个抽（0 = 没在等）：联机时币和皮肤都归服务器，本机的 Gacha 只改镜像
+var _awaiting := 0
+## 发 op 之前的那份回执：用它认出「新到的那一条」，别把上一次抽卡的结果再演出一遍
+var _seen_result: Dictionary = {}
 
 
 func _ready() -> void:
@@ -83,6 +87,8 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	if _awaiting > 0:
+		_take_online_pull()
 	var stall := get_tree().get_first_node_in_group("stall") as Stall
 	var show_now: bool = stall != null and stall.player_inside
 	_root.visible = show_now
@@ -107,6 +113,13 @@ func _refresh() -> void:
 		_ten.text = "已集齐"
 		return
 	_status.text = "已拥有 %d/%d" % [(data["owned"] as PackedStringArray).size(), SkinCatalog.count()]
+	if _awaiting > 0:
+		# 等服务器回执：币是服务器扣的，这时候再点没意义
+		_one.disabled = true
+		_ten.disabled = true
+		_one.text = "抽卡中..."
+		_ten.text = "抽卡中..."
+		return
 	_one.text = "单抽 · %d 币" % Config.GACHA_PRICE_ONE
 	if coins < Config.GACHA_PRICE_ONE:
 		_one.text = "还差 %d 币" % (Config.GACHA_PRICE_ONE - coins)
@@ -118,18 +131,54 @@ func _refresh() -> void:
 
 
 func _on_pull_one() -> void:
-	var result := Gacha.pull()
-	if not result["ok"]:
-		return
-	_show_results([result])
-	_after_pull()
+	_pull(1)
 
 
 func _on_pull_ten() -> void:
-	var results := Gacha.pull_ten()
-	if results.is_empty():
+	_pull(10)
+
+
+## 联机时币和已拥有都在服务器上，本机那份只读：走本机 Gacha 等于白抽（不扣钱、皮肤也不算数），
+## 所以一律发 op，等 OP_RESULT 里的结果再放演出。
+func _pull(count: int) -> void:
+	if _awaiting > 0:
 		return
-	_show_results(results)
+	var net := Save.remote as NetClient
+	if net != null:
+		_awaiting = count
+		_seen_result = net.last_result
+		net.request("pull", {"n": count})
+		_refresh()
+		return
+	if count == 1:
+		var one := Gacha.pull()
+		if not bool(one["ok"]):
+			return
+		_show_results([one])
+	else:
+		var ten := Gacha.pull_ten()
+		if ten.is_empty():
+			return
+		_show_results(ten)
+	_after_pull()
+
+
+## 服务器的回执到了才算到账：币是服务器扣的，这里只负责把结果画出来。
+func _take_online_pull() -> void:
+	var net := Save.remote as NetClient
+	if net == null:
+		_awaiting = 0
+		return
+	var result: Dictionary = net.last_result
+	if is_same(result, _seen_result):
+		return
+	_awaiting = 0
+	_seen_result = result
+	var pulls: Array = (result.get("result", {}) as Dictionary).get("pulls", [])
+	if not bool(result.get("ok", false)) or pulls.is_empty():
+		_refresh()
+		return
+	_show_results(pulls)
 	_after_pull()
 
 
@@ -139,6 +188,8 @@ func _after_pull() -> void:
 
 
 func _apply_skin_to_player() -> void:
+	if not is_inside_tree():
+		return
 	var player := get_tree().get_first_node_in_group("player") as Player
 	if player != null:
 		player.apply_skin()

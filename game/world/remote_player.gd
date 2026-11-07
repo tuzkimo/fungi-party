@@ -4,9 +4,6 @@ extends Node3D
 ## 森林里别人的替身：不参与物理、不读输入，只按快照插值着走。
 ## 用和玩家一样的蘑菇外观（MushroomMesh.use_look），头顶挂一个名字牌。
 
-const NAME_HEIGHT := 2.2
-const NAME_DISTANCE := 14.0
-
 var account := ""
 var _mesh: MushroomMesh
 var _label: Label3D
@@ -23,18 +20,7 @@ func setup(name_text: String, body_id: String, skin_id: String) -> void:
 	_mesh.use_look(body_id, skin_id)
 	_look = "%s|%s" % [body_id, skin_id]
 
-	_label = Label3D.new()
-	_label.name = "Name"
-	_label.text = name_text
-	_label.font_size = 64
-	_label.pixel_size = 0.0045
-	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_label.no_depth_test = false
-	_label.modulate = Color(1, 1, 1, 0.92)
-	_label.outline_modulate = Color(0.05, 0.05, 0.06, 0.9)
-	_label.outline_size = 18
-	_label.position = Vector3(0.0, NAME_HEIGHT, 0.0)
-	add_child(_label)
+	_label = NameTag.attach(self, name_text, _mesh.top() + 0.55)
 
 
 ## 一份快照：位置、朝向、体型和皮肤（换了才重建外观）
@@ -63,7 +49,3 @@ func bob(delta: float, moving: bool) -> void:
 		_mesh.position.y = rest + sin(Time.get_ticks_msec() * 0.012) * 0.04
 	else:
 		_mesh.position.y = lerpf(rest, 0.0, clampf(delta * 8.0, 0.0, 1.0))
-
-
-func near(from: Vector3) -> bool:
-	return global_position.distance_to(from) <= NAME_DISTANCE

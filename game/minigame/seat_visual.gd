@@ -21,6 +21,7 @@ var _fill: MeshInstance3D
 var _bar_back: MeshInstance3D
 var _fill_mesh: QuadMesh
 var _mark: MeshInstance3D
+var _name: NameTag = null
 var _bar_y := 0.0
 var _mark_y := 0.0
 var _bounce := 0.0
@@ -45,6 +46,23 @@ func apply_look(seat: int) -> void:
 	_fill.position.y = _bar_y
 	_bar_back.position.y = _bar_y
 	_mark.position.y = _mark_y
+	if _name != null:
+		_name.position.y = _label_y()
+
+
+## 名字牌挂在「!」标记上面一层，按换体型后的头顶算。
+func _label_y() -> float:
+	return (_mark_y if _mark_y > 0.0 else _body.top() * BODY_SCALE * MARK_RATIO) + 0.45
+
+
+## 头顶的名字：谁是谁就看它（人机座位写「人机」）。
+func set_label(text: String) -> void:
+	if text == "":
+		return
+	if _name == null:
+		_name = NameTag.attach(self, text, _label_y())
+	_name.text = text
+	_name.position.y = _label_y()
 
 
 func apply(seat: StealEat.Seat, eating: bool, delta: float, watched := false) -> void:

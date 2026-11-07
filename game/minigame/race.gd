@@ -222,6 +222,7 @@ func _spawn_views() -> void:
 			# 服务器那一局座位号是服务器给的，形象还是本机 0 号那一身
 			player.setup_player(seat if _net == null else 0)
 			player.apply(_round.racers[seat], 0.0)
+			player.set_label(_seat_name(seat))
 			_views.append(player)
 		else:
 			var rival := RacerVisual.new()
@@ -229,6 +230,7 @@ func _spawn_views() -> void:
 			add_child(rival)
 			rival.setup(_colors[seat])
 			rival.apply(_round.racers[seat], 0.0)
+			rival.set_label(_seat_name(seat))
 			_views.append(rival)
 
 

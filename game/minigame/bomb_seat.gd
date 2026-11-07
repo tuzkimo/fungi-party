@@ -14,6 +14,7 @@ const DEAD_BODY := Color(0.40, 0.39, 0.41)
 
 var _mesh: MushroomMesh
 var _mark: MeshInstance3D
+var _name: NameTag = null
 var _mark_y := 0.0
 var _phase := 0.0
 var _shown_alive := true
@@ -58,6 +59,17 @@ func setup(color: Color, seat: int) -> void:
 	_mark_y = _mesh.top() * MARK_RATIO
 	_mark.position = Vector3(0.0, _mark_y, 0.0)
 	add_child(_mark)
+
+
+## 头顶的名字：远端真人和人机都靠它认。
+func set_label(text: String) -> void:
+	if text == "":
+		return
+	var height := _mark_y + MARK_RISE + 0.2
+	if _name == null:
+		_name = NameTag.attach(self, text, height)
+	_name.text = text
+	_name.position.y = height
 
 
 ## hurried：0 就是安稳抱着，1 是「快炸了」——呼吸更快、身体后仰、色块抬高。

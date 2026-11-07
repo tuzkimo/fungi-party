@@ -16,6 +16,7 @@ var seat := 0
 var leader: Node3D = null
 
 var speed_input := Vector2.ZERO
+var _name: NameTag = null
 var _touch: TouchControls = null
 var _prev_touch_held := false
 var _was_on_floor := true
@@ -27,6 +28,26 @@ var _chew := -1.0   # >= 0 表示正在吃饭，-1 表示没在咬
 ## 存档变了（比如刚在登录界面拿到服务器上那份）就重刷外观。
 func refresh_look() -> void:
 	_visual.use_party_look(seat)
+	refresh_name()
+
+
+## 头顶的名字：联机时 0 号挂自己的账号名、1 号挂「2P」；单机一个人没名字可挂。
+## 换过皮肤/体型之后要重刷一次：牌子的高度按 `top()` 算。
+func refresh_name() -> void:
+	var text := ""
+	if seat > 0:
+		text = Party.name_of(seat)
+	elif Save.remote != null:
+		text = (Save.remote as NetClient).player_name
+	if text == "":
+		# 没名字就不挂：空文本画出来是空气，`_process` 里的淡出/显示照旧跑也不碍事
+		if _name != null:
+			_name.text = ""
+		return
+	if _name == null:
+		_name = NameTag.attach(self, text, 0.0)
+	_name.text = text
+	_name.position.y = _visual.top() + 0.55
 
 
 static func resolve_direction(input: Vector2, camera_yaw: float) -> Vector3:
@@ -94,6 +115,7 @@ func wants_to_lead() -> bool:
 ## 按会话状态把外观刷成「该座位玩家戴着的皮肤 + 选的角色」。
 func apply_skin() -> void:
 	_visual.use_party_look(seat)
+	refresh_name()
 
 
 func is_follower() -> bool:

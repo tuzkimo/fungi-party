@@ -13,6 +13,7 @@ const FOLLOW := 18.0
 
 var _visual: MushroomMesh
 var _mark: MeshInstance3D
+var _name: NameTag = null
 
 
 ## seat >= 0：这台机器上的玩家，用自己的体型 + 皮肤，头上不顶色块。
@@ -38,6 +39,17 @@ func setup(color: Color, seat := -1) -> void:
 	_mark.material_override = material
 	_mark.position.y = MARK_HEIGHT
 	add_child(_mark)
+
+
+## 头顶的名字：分屏之后哪一格是谁就看它（人机看 RIVAL_NAMES）。
+func set_label(text: String) -> void:
+	if text == "":
+		return
+	var height := _visual.top() * BODY_SCALE + 0.5
+	if _name == null:
+		_name = NameTag.attach(self, text, height)
+	_name.text = text
+	_name.position.y = height
 
 
 ## 摆位/挤压来自模型；转向留给子类（真人会朝摇杆方向偏一点）。

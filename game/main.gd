@@ -110,6 +110,9 @@ func _on_answer(from: String, kind: String, accept: bool) -> void:
 ## 邀请被拒（体力不够 / 对方下线 / 已经有一局在开）要说一声，不然按下去像没反应。
 func _on_net_changed() -> void:
 	var op := str(_net.last_result.get("op", ""))
+	# 皮肤和角色是服务器改的：镜像刚刚刷新过，本机这个人的外观跟着重刷（否则自己看着还是旧的）
+	if bool(_net.last_result.get("ok", false)) and op in ["equip", "set_character", "pull"]:
+		_refresh_looks()
 	if op != "invite" and op != "answer":
 		return
 	if bool(_net.last_result.get("ok", false)):

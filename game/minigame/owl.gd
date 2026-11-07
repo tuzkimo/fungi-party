@@ -89,6 +89,10 @@ func _ready() -> void:
 	else:
 		_actors[_my_seat].apply_look(0)
 
+	# 头顶挂名字：谁是谁全靠它
+	for i in _actors.size():
+		_actors[i].set_label(str(_names[i]))
+
 	_ui = $UI
 	_ui.set_names(_names)
 	_ui.set_hint(
