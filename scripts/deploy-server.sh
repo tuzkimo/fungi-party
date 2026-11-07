@@ -15,7 +15,7 @@ godot --headless --path . --export-release "Linux Server" "$BIN"
 
 echo "上传到 $HOST:~/fungi/..."
 # 路径相对远端家目录，和 CI 落在同一个地方（~/fungi）
-rsync -z --partial --append-verify "$BIN" "$HOST:fungi/fungi-party-server.new"
+rsync -z --partial "$BIN" "$HOST:fungi/fungi-party-server.new"
 
 echo "换上新版本并重启（在线的人会被踢下线）..."
 ssh "$HOST" "bash -s -- \"\$HOME/fungi\" $PORT" < deploy/remote-restart.sh

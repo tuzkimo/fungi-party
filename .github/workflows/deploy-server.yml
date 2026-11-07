@@ -104,9 +104,10 @@ jobs:
       - name: 上传（断线可续）
         run: |
           set -euo pipefail
-          # --partial：断线时留着已传的部分；--append-verify：重跑本 job 接着传而不是从 0 开始。
-          # 二进制只有 74 MB，但服务器上行很慢，这一条能省掉反复重传。
-          rsync -z --partial --append-verify \
+          # --partial：断线时留着已传的部分，重跑本 job 能接着传；正常情况按块比对，只传变了的块。
+          # 不要用 --append-verify：它假设目标文件前缀一定是对的，而这里目标位置可能是上一版
+          # 构建留下的 .new，那就等于把旧字节当成新版（实测会因此校验失败）。
+          rsync -z --partial \
             -e "ssh $SSH_OPTS" \
             build/fungi-party-server.x86_64 \
             "$DEPLOY_USER@$DEPLOY_HOST:$SERVER_DIR/fungi-party-server.new"
@@ -114,8 +115,7 @@ jobs:
       - name: 校验上传完整性
         run: |
           set -euo pipefail
-          # --append-verify 只在「追加前缀一致」时安全，所以必须对一次哈希，
-          # 不一致就把半截文件删掉，让重跑从头传，绝不能让坏包上线。
+          # 传完对一次哈希：不一致就把半截文件删掉，让重跑从头传，绝不能让坏包上线。
           LOCAL=$(sha256sum build/fungi-party-server.x86_64 | cut -d' ' -f1)
           REMOTE=$(ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" "sha256sum '$SERVER_DIR/fungi-party-server.new'" | cut -d' ' -f1)
           if [ "$LOCAL" != "$REMOTE" ]; then

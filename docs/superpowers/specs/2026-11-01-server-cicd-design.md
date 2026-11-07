@@ -33,9 +33,10 @@
 ### A 的一个硬伤和它的补丁
 
 Godot 服务端到外网很慢（wee-cook 那边实测 13 KB/s 量级），74 MB 一次传不完/session 断了要重来。
-所以传输用 `rsync --partial --append-verify -z`：断线后**重跑同一次 job 会接着传**，不用从 0 开始。
-`--append-verify` 只在「尾部追加」这一种情况下安全，所以传完立刻比对 `sha256sum`，
-不一致就删掉 `.new` 并让 job 红——下一次重跑从头传，绝不会把坏包推上线。
+所以传输用 `rsync -z --partial`：断线后**重跑同一次 job 会接着传**，正常情况按块比对只传变了的块。
+（不要用 `--append-verify`：目标位置可能是上一版构建留下的 `.new`，它假设前缀一定对，
+等于把旧字节当新版 —— 2026-11-07 实测因此校验失败过一次。）
+校验兜底：传完立刻比对 `sha256sum`，不一致就删掉 `.new` 并让 job 红，绝不会把坏包推上线。
 
 ## 触发条件
 
@@ -58,7 +59,7 @@ build（装 Godot → 无头测试 → 导出 → 上传 artifact）──► de
 2. **deploy**（`ubuntu-latest`，拿 artifact）：
    - 先验 4 个 secret 齐不齐，缺哪个直接报哪个名字。
    - 写私钥到 `~/.ssh/deploy`（600），`known_hosts` 用 `ssh-keyscan -p 端口`。
-   - `rsync -z --partial --append-verify -e "ssh ..."` 到 `~/fungi/fungi-party-server.new`。
+   - `rsync -z --partial -e "ssh ..."` 到 `~/fungi/fungi-party-server.new`（校验不一致就删掉重传）。
    - 比对 `sha256sum`（本地 vs 远端）。不一致 → 删远端 `.new`、job 红。
    - ssh 把仓库里的 `deploy/remote-restart.sh` 用 `bash -s -- <目录> <端口>` 推过去执行：备份旧包成 `.prev`
      → `mv .new` 到位 → `chmod +x` → `sudo -n systemctl restart` → 轮询最多 40 秒，
