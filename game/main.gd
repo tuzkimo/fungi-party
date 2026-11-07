@@ -46,7 +46,9 @@ func _ensure_net() -> NetClient:
 		return existing
 	var net := NetClient.new()
 	net.name = "Net"
-	get_tree().root.add_child(net)
+	# 启动时引擎正在往 root 里装初始场景，那一刻 root 是 blocked 的，直接 add_child 会失败
+	# （Parent node is busy setting up children）——Net 就一直不在树里，_process 不跑，联网等于死。
+	get_tree().root.add_child.call_deferred(net)
 	return net
 
 
