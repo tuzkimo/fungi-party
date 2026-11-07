@@ -100,7 +100,10 @@ const STAMINA_COST_BOMB := 25
 const STAMINA_COST_OWL := 30
 const MEAL_COINS := 20
 const MEAL_STAMINA := 25
-const MEALS_PER_DAY := 3
+## 体力恢复只认冷却（unix 秒），不认天色也不认「第几天」：联网时各人恢复各人的，
+## 世界时钟只画天色，不用来同步任何人的体力。
+const SLEEP_COOLDOWN_SECONDS := 45 * 60
+const MEAL_COOLDOWN_SECONDS := 4 * 60
 const MORNING_TIME := 0.28
 const DAYTIME_MAX_T := 0.80
 const NIGHT_TIME := 0.86

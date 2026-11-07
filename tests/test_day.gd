@@ -36,29 +36,36 @@ func test_entry_label() -> void:
 
 
 func test_meal() -> void:
-	var r := Day.meal(40, 0, 100)
+	var r := Day.meal(40, 100)
 	check(r["ok"], "饿了有钱就能吃")
 	check_eq(r["stamina"], 65, "一份回 25")
 	check_eq(r["coins"], 80, "扣 20 币")
-	check_eq(r["meals"], 1, "记一份")
-	check_eq(Day.meal(95, 0, 100)["stamina"], 100, "回体力不超过满")
-	check(not Day.meal(40, 3, 100)["ok"], "一天三份就够了")
-	check(not Day.meal(40, 0, 19)["ok"], "差 1 币也吃不了")
-	check(not Day.meal(100, 0, 100)["ok"], "饱着的时候不吃")
-	check(Day.meal(11, 0, 100)["ok"], "见底照样吃：饭店跟着太阳走，不再跟体力走")
+	check_eq(Day.meal(95, 100)["stamina"], 100, "回体力不超过满")
+	check(not Day.meal(40, 19)["ok"], "差 1 币也吃不了")
+	check(not Day.meal(100, 100)["ok"], "饱着的时候不吃")
+	check(Day.meal(11, 100)["ok"], "见底照样吃：饭店不跟太阳也不跟体力走")
 
 
 func test_rejected_meal_changes_nothing() -> void:
-	var r := Day.meal(40, 3, 100)
+	var r := Day.meal(100, 100)
 	check_eq(r["coins"], 100, "吃不成不扣钱")
-	check_eq(r["meals"], 3, "吃不成不算份数")
-	check_eq(r["stamina"], 40, "吃不成不回体力")
+	check_eq(r["stamina"], 100, "吃不成不回体力")
+
+
+## 睡觉 / 吃饭的门槛是冷却，不跟世界时钟的第几天对表：两个人在线各恢复各的。
+func test_recovery_cooldowns() -> void:
+	check(Day.ready(1000.0, 0.0, 60.0), "从来没做过 → 立刻能做")
+	check(not Day.ready(1000.0, 990.0, 60.0), "刚做过 → 还在冷却")
+	check(Day.ready(1050.0, 990.0, 60.0), "到点就能做")
+	check(absf(Day.wait_left(1000.0, 990.0, 60.0) - 50.0) < 0.001, "倒计时按秒算")
+	check_eq(Day.wait_left(1100.0, 990.0, 60.0), 0.0, "过点了不倒扣")
+	check_eq(Day.wait_text(1.0), "1 分钟", "不足一分钟也算一分钟")
+	check_eq(Day.wait_text(61.0), "2 分钟", "向上取整")
 
 
 func test_rollover() -> void:
 	var r := Day.rollover(3)
 	check_eq(r["stamina"], 100, "睡醒满体力")
-	check_eq(r["meals"], 0, "新的一天还没吃饭")
 	check_eq(r["day"], 4, "天数加一")
 	check(absf(r["day_time"] - 0.28) < 0.001, "睡醒是清晨")
 
@@ -75,15 +82,20 @@ func test_save_wrappers() -> void:
 
 func test_eat_meal_and_rollover_persist() -> void:
 	_clean()
-	Save.write(P, {"stamina": 40, "coins": 100, "meals": 0, "day": 2, "day_time": 0.75})
-	check(Save.eat_meal(P), "有钱有额度就能吃")
+	Save.write(P, {"stamina": 40, "coins": 100, "day": 2, "day_time": 0.75})
+	check(Save.eat_meal(P), "有钱就能吃")
 	var d := Save.read(P)
-	check_eq([d.stamina, d.coins, d.meals], [65, 80, 1], "吃一份同时改三个数")
+	check_eq([d.stamina, d.coins], [65, 80], "吃一份同时改体力和钱")
+	check(d.meal_at > 0.0, "记下吃的时间")
+	check(not Save.eat_meal(P), "刚吃完还在冷却")
+	check_eq(Save.read(P).coins, 80, "被冷却挡下不扣钱")
 	Save.set_day_time(0.62, P)
 	check(absf(Save.read(P).day_time - 0.62) < 0.001, "天色写回存档")
 	Save.rollover(P)
 	var e := Save.read(P)
-	check_eq([e.stamina, e.meals, e.day], [100, 0, 3], "过夜重置")
+	check_eq([e.stamina, e.day], [100, 3], "睡一觉满体力、天数加一")
+	check(e.sleep_at > 0.0, "记下睡的时间")
+	check(Save.sleep_wait(P) > 0.0, "刚睡完还在冷却")
 	check(absf(e.day_time - 0.28) < 0.001, "过夜回到清晨")
 	check_eq(e.coins, 80, "过夜不动钱")
 	_clean()

@@ -18,15 +18,20 @@ func test_take_events_without_a_game_is_empty() -> void:
 	client.free()
 
 
-## 帐篷的置灰和服务器那道门槛看同一个东西：slept_day 对世界时钟的今天
-func test_slept_today_follows_the_world_day() -> void:
+## 帐篷 / 饭店的置灰和服务器那道门槛看同一个东西：服务器给的 now 对上次的时间戳
+func test_server_now_drives_the_cooldown() -> void:
 	var client := NetClient.new()
-	check(not client.slept_today(), "镜像还没下来就是没睡过")
-	client.data = Save.normalize({"slept_day": 3})
-	client.day = 3
-	check(client.slept_today(), "同一天算睡过")
-	client.day = 4
-	check(not client.slept_today(), "第二天又没睡过")
+	check(client.server_now() > 0.0, "还没收到 WORLD 就用本机时间兜底（只用来画倒计时）")
+	client.now = 1_700_000_000.0
+	check_eq(client.server_now(), 1_700_000_000.0, "收到过就只认服务器那份")
+	Save.remote = client
+	client.data = Save.normalize({"sleep_at": 1_700_000_030.0})
+	check(Save.sleep_wait() > 0.0, "离上次睡觉还没到点")
+	client.data = Save.normalize({"sleep_at": 1_700_000_000.0 - Config.SLEEP_COOLDOWN_SECONDS})
+	check_eq(Save.sleep_wait(), 0.0, "过点了就能睡")
+	client.data = Save.normalize({})
+	check_eq(Save.sleep_wait(), 0.0, "老存档没睡过 → 立刻能睡")
+	Save.remote = null
 	client.free()
 
 

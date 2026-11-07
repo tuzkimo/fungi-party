@@ -55,21 +55,21 @@ func test_current_character_button_is_disabled() -> void:
 	panel.free()
 
 
-## 联机一天只能睡一次：睡过了按钮就置灰（服务器那道门槛在 test_net_ops 里另测）。
+## 睡完有冷却：按钮置灰并写明还要等多久（服务器那道门槛在 test_net_ops 里另测）。
 ## `Save.remote` 是静态的，测完一定要还原，否则后面的用例会以为自己在联机。
-func test_sleep_button_greys_out_after_sleeping_today() -> void:
+func test_sleep_button_greys_out_during_the_cooldown() -> void:
 	var net := NetClient.new()
-	net.data = Save.normalize({"slept_day": 3})
-	net.day = 3
+	net.now = 10_000.0
+	net.data = Save.normalize({"sleep_at": 10_000.0 - Config.SLEEP_COOLDOWN_SECONDS + 60.0})
 	Save.remote = net
 	var panel := _open_panel()
 	panel._refresh()
-	check(panel._sleep.disabled, "今天睡过了就按不动")
-	check_eq(panel._sleep.text, "今天睡过了", "按钮写明原因")
+	check(panel._sleep.disabled, "冷却里按不动")
+	check_eq(panel._sleep.text, "还要等 1 分钟", "按钮写明还要等多久")
 
-	net.day = 4
+	net.data = Save.normalize({"sleep_at": 10_000.0 - Config.SLEEP_COOLDOWN_SECONDS})
 	panel._refresh()
-	check(not panel._sleep.disabled, "到了下一天又能睡")
+	check(not panel._sleep.disabled, "到点又能睡")
 	check_eq(panel._sleep.text, "睡到早上", "按钮恢复")
 
 	Save.remote = null

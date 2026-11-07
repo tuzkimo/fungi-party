@@ -30,7 +30,7 @@ static func apply(data: Dictionary, op: String, args: Dictionary, world: Diction
 		"pull":
 			return _pull(save, args)
 		"meal":
-			return _meal(save)
+			return _meal(save, world)
 		"spend_stamina":
 			return _spend_stamina(save, args)
 		"equip":
@@ -60,13 +60,19 @@ static func _pull(save: Dictionary, args: Dictionary) -> Dictionary:
 	return {"ok": true, "data": save, "result": {"pulls": results}}
 
 
-static func _meal(save: Dictionary) -> Dictionary:
-	var r := Day.meal(int(save["stamina"]), int(save["meals"]), int(save["coins"]))
+## 吃饭：冷却 + 钱 + 还饱不饱，三样都由服务器判（`world.now` 也是服务器给的）。
+static func _meal(save: Dictionary, world: Dictionary) -> Dictionary:
+	var now := float(world.get("now", 0.0))
+	if now <= 0.0:
+		return {"ok": false, "data": save, "error": "clock"}
+	if not Day.ready(now, _stamp(save, "meal_at"), Config.MEAL_COOLDOWN_SECONDS):
+		return {"ok": false, "data": save, "error": "cooldown"}
+	var r := Day.meal(int(save["stamina"]), int(save["coins"]))
 	if not bool(r["ok"]):
 		return {"ok": false, "data": save, "error": "meal"}
 	save["stamina"] = int(r["stamina"])
-	save["meals"] = int(r["meals"])
 	save["coins"] = int(r["coins"])
+	save["meal_at"] = now
 	return {"ok": true, "data": save}
 
 
@@ -107,18 +113,23 @@ static func _add_coins(save: Dictionary, args: Dictionary) -> Dictionary:
 	return {"ok": true, "data": save}
 
 
-## 今天睡过了没有：服务器判进出、帐篷照这条置灰，别在两处各写一遍。
-static func slept_today(save: Dictionary, world_day: int) -> bool:
-	return int(save.get("slept_day", -1)) == world_day
-
-
-## 一天一次：日子归世界时钟（`world.day`），天色也归它，所以只回体力、清份数，不动 `day_time`。
+## 睡觉：回满，冷却由服务器判。刻意不跟世界时钟的第几天挂钩——两个人在线时各睡各的，
+## 一个人的作息不能卡住另一个人（天色照旧归服务器时钟，这里不动它）。
 static func _sleep(save: Dictionary, world: Dictionary) -> Dictionary:
-	var today := int(world.get("day", int(save["day"])))
-	if slept_today(save, today):
-		return {"ok": false, "data": save, "error": "slept"}
+	var now := float(world.get("now", 0.0))
+	if now <= 0.0:
+		return {"ok": false, "data": save, "error": "clock"}
+	if not Day.ready(now, _stamp(save, "sleep_at"), Config.SLEEP_COOLDOWN_SECONDS):
+		return {"ok": false, "data": save, "error": "cooldown"}
 	save["stamina"] = Config.STAMINA_MAX
-	save["meals"] = 0
-	save["slept_day"] = today
-	save["day"] = today
+	save["sleep_at"] = now
 	return {"ok": true, "data": save}
+
+
+## 老存档没有这个字段 / 存成了 int：一律当 0 = 没做过
+static func _stamp(save: Dictionary, key: String) -> float:
+	var raw: Variant = save.get(key, 0.0)
+	if typeof(raw) != TYPE_FLOAT and typeof(raw) != TYPE_INT:
+		return 0.0
+	var stamp := float(raw)
+	return stamp if is_finite(stamp) and stamp > 0.0 else 0.0

@@ -23,11 +23,12 @@ static func defaults() -> Dictionary:
 		"character": BodyCatalog.DEFAULT_ID,
 		"pity": 0,
 		"stamina": Config.STAMINA_MAX,
-		"meals": 0,
 		"day": 1,
 		"day_time": Config.MORNING_TIME,
-		# 睡过的日序号（-1 = 没睡过）：日子归服务器世界时钟，老存档读不到就是 -1
-		"slept_day": -1,
+		# 上次睡觉 / 吃饭的 unix 秒（0 = 没做过，立刻能做）：体力恢复只认冷却，
+		# 所以不需要跟世界时钟的第几天对表
+		"sleep_at": 0.0,
+		"meal_at": 0.0,
 	}
 
 
@@ -41,10 +42,10 @@ static func normalize(raw: Dictionary) -> Dictionary:
 	data["character"] = str(raw.get("character", BodyCatalog.DEFAULT_ID))
 	data["pity"] = int(raw.get("pity", 0))
 	data["stamina"] = int(raw.get("stamina", Config.STAMINA_MAX))
-	data["meals"] = int(raw.get("meals", 0))
 	data["day"] = int(raw.get("day", 1))
 	data["day_time"] = float(raw.get("day_time", Config.MORNING_TIME))
-	data["slept_day"] = int(raw.get("slept_day", -1))
+	data["sleep_at"] = float(raw.get("sleep_at", 0.0))
+	data["meal_at"] = float(raw.get("meal_at", 0.0))
 	return data
 
 
@@ -74,9 +75,10 @@ static func read(path: String = PATH) -> Dictionary:
 		"character": cfg.get_value(SECTION, "character", BodyCatalog.DEFAULT_ID),
 		"pity": cfg.get_value(SECTION, "pity", 0),
 		"stamina": cfg.get_value(SECTION, "stamina", Config.STAMINA_MAX),
-		"meals": cfg.get_value(SECTION, "meals", 0),
 		"day": cfg.get_value(SECTION, "day", 1),
 		"day_time": float(cfg.get_value(SECTION, "day_time", Config.MORNING_TIME)),
+		"sleep_at": float(cfg.get_value(SECTION, "sleep_at", 0.0)),
+		"meal_at": float(cfg.get_value(SECTION, "meal_at", 0.0)),
 	})
 
 
@@ -147,26 +149,51 @@ static func spend_stamina(cost: int, path: String = PATH) -> bool:
 	return true
 
 
+## 吃一份：联机只报上去（门槛在服务器），单机自己判冷却 + 钱 + 还饱不饱。
 static func eat_meal(path: String = PATH) -> bool:
 	var data := read(path)
-	var r := Day.meal(int(data["stamina"]), int(data["meals"]), int(data["coins"]))
-	if not bool(r["ok"]):
-		return false
 	if remote != null:
 		remote.call("request", "meal", {})
 		return true
+	if not Day.ready(_now(), float(data["meal_at"]), Config.MEAL_COOLDOWN_SECONDS):
+		return false
+	var r := Day.meal(int(data["stamina"]), int(data["coins"]))
+	if not bool(r["ok"]):
+		return false
 	write(path, {
-		"stamina": int(r["stamina"]), "meals": int(r["meals"]), "coins": int(r["coins"])
+		"stamina": int(r["stamina"]), "coins": int(r["coins"]), "meal_at": _now()
 	})
 	return true
 
 
+## 睡一觉：联机只报上去（门槛在服务器），单机自己判冷却。
 static func rollover(path: String = PATH) -> void:
 	if remote != null:
 		remote.call("request", "sleep", {})
 		return
 	var data := read(path)
-	write(path, Day.rollover(int(data["day"])))
+	if not Day.ready(_now(), float(data["sleep_at"]), Config.SLEEP_COOLDOWN_SECONDS):
+		return
+	var rolled := Day.rollover(int(data["day"]))
+	rolled["sleep_at"] = _now()
+	write(path, rolled)
+
+
+## 下一觉 / 下一份饭还要等几秒（0 = 现在就能）。联机读服务器的 now，单机读本机时间：
+## 帐篷和饭店的置灰跟服务器同一道门槛，别在两处各算一遍。
+static func sleep_wait(path: String = PATH) -> float:
+	return Day.wait_left(_now(), float(read(path)["sleep_at"]), Config.SLEEP_COOLDOWN_SECONDS)
+
+
+static func meal_wait(path: String = PATH) -> float:
+	return Day.wait_left(_now(), float(read(path)["meal_at"]), Config.MEAL_COOLDOWN_SECONDS)
+
+
+## 现在几点（unix 秒）：联机时只认服务器给的那份，本机钟说了不算。
+static func _now() -> float:
+	if remote != null:
+		return float(remote.call("server_now"))
+	return Time.get_unix_time_from_system()
 
 
 static func set_day_time(t: float, path: String = PATH) -> void:

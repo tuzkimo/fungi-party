@@ -78,18 +78,18 @@ func _refresh() -> void:
 	if day_loop == null:
 		return
 	var stamina := day_loop.stamina
-	var meals := day_loop.meals
 	var coins := int(Save.read()["coins"])
 	_stamina.text = "体力 %d/%d" % [stamina, Config.STAMINA_MAX]
 	_coins.text = "蘑菇币 %d" % coins
-	_meals.text = "今天第 %d/%d 份" % [mini(meals + 1, Config.MEALS_PER_DAY), Config.MEALS_PER_DAY]
+	var wait := Save.meal_wait()
+	_meals.text = "" if wait <= 0.0 else "下一份还要 %s" % Day.wait_text(wait)
 
-	var ok := bool(Day.meal(stamina, meals, coins)["ok"])
+	var ok := bool(Day.meal(stamina, coins)["ok"]) and wait <= 0.0
 	_eat.disabled = _busy or not ok
 	if ok:
 		_eat.text = "吃一份(%d 币)" % Config.MEAL_COINS
-	elif meals >= Config.MEALS_PER_DAY:
-		_eat.text = "今天吃够了"
+	elif wait > 0.0:
+		_eat.text = "刚吃过，等 %s" % Day.wait_text(wait)
 	elif coins < Config.MEAL_COINS:
 		_eat.text = "还差 %d 币" % (Config.MEAL_COINS - coins)
 	else:

@@ -87,8 +87,13 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
   登录成功、登出之后都要 `DayLoop.refresh()`（`main._refresh_day()`），否则屏幕上写着 100 体力、服务器那边是 0。
 - 掉线不等于主动退局：`NetLobby.drop()` 只把那个人清出去，别人还在这一局里就让他那格空着打完
   （那格的输入永远是「没按」），一个人不剩了才收局结账。`leave_room`（按「回森林」）才真的收局。
-- 睡几号归服务器：`slept_day` 是账号字段，日子来自世界时钟（`NetOps.apply` 的 `world` 参数由服务器注入，客户端说不了算）。
-  UI 置灰走 `NetClient.slept_today()`，和服务器那道门槛是同一个判断，别各写一遍。
+- **体力恢复只看冷却，不跟时间挂钩**：`save.sleep_at` / `save.meal_at` 各存一个 unix 秒，
+  睡觉 45 分钟一次（`Config.SLEEP_COOLDOWN_SECONDS`）、吃饭 4 分钟一份（`MEAL_COOLDOWN_SECONDS`）。
+  刻意不用「世界第几天」判：天色只能有一套，两个人在线时各睡各的，一个人的作息不能卡住另一个人
+  （0.11.4 之前就是拿 `slept_day == 世界天数` 判的，服务端一重启天数归零 → 睡觉永远回 `slept`）。
+  门槛在 `NetOps`，`world` 里的 `now`（unix 秒）由服务器注入，客户端说不了算；
+  UI 置灰走 `Save.sleep_wait()` / `Save.meal_wait()`，和服务器同一个判断，别各写一遍。
+- 饭店只看钱和肚子（`Day.meal`），不再看体力：没人有份数上限了，冷却就是上限。
 - 皮肤外观只有一个入口 `MushroomMesh.use_skin()`；存档里的皮肤 id 一律走 `SkinCatalog.by_id()`，查不到就回落默认外观。
 - 体型只有一套入口：`MushroomMesh` 是门面，几何在 `game/player/body/`（基类 `mushroom_body.gd` + 每体型一个子类）。加角色 = 加一个 `body_xxx.gd` + `BodyCatalog` 一条，别往 `build()` 里加 if。
 - 零件的坐标基准是红帽（半径 0.70）：横向一律 `×(cap_radius/0.70)`、帽上的纵向跟 `cap_height`、披风从帽底挂到腰。新零件照这个写，否则换个体型就埋进杆里或飘在空中。

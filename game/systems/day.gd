@@ -31,13 +31,29 @@ static func entry_label(stamina: int, cost: int) -> String:
 	return "体力 −%d · 剩 %d" % [cost, stamina - cost]
 
 
-## 拒绝顺序：份数用完 → 钱不够 → 还饱着。拒绝时原样返回。
+## 体力恢复（睡觉 / 吃饭）只认冷却，不认天色也不认「第几天」：两个人在线时各恢复各的，
+## 不需要同步任何时间，世界时钟只负责画天色。
+static func wait_left(now: float, last: float, cooldown: float) -> float:
+	if last <= 0.0:
+		return 0.0   # 从来没做过（老存档 / 服务器上缺字段）：立刻能做，别拿 0 当成「纪元那次」
+	return maxf(0.0, last + cooldown - now)
+
+
+## 冷却好了没有（now / last 都是 unix 秒；last = 0 就是从来没做过 → 立刻能做）
+static func ready(now: float, last: float, cooldown: float) -> bool:
+	return wait_left(now, last, cooldown) <= 0.0
+
+
+## 倒计时的人话：向上取整到分钟，最少 1（浮点尾数会把它显示成「还要 0 分钟」）
+static func wait_text(seconds: float) -> String:
+	return "%d 分钟" % maxi(1, ceili(seconds / 60.0))
+
+
+## 拒绝顺序：钱不够 → 还饱着（冷却由调用方查）。拒绝时原样返回。
 ## 以前体力见底也拒（那时「体力见底 = 天黑」，饭店跟着太阳打烊）：联机后天色归服务器世界时钟，
-## 这条规矩就变成了死路——体力花光、饭还有、钱够，店却关门，睡觉又是「今天睡过了」。所以去掉了。
-static func meal(stamina: int, meals: int, coins: int) -> Dictionary:
-	var no := {"ok": false, "stamina": stamina, "meals": meals, "coins": coins}
-	if meals >= Config.MEALS_PER_DAY:
-		return no
+## 这条就变成了死路——体力花光、饭还有、钱够，店却关门。所以去掉了，店只看钱和肚子。
+static func meal(stamina: int, coins: int) -> Dictionary:
+	var no := {"ok": false, "stamina": stamina, "coins": coins}
 	if coins < Config.MEAL_COINS:
 		return no
 	if stamina >= Config.STAMINA_MAX:
@@ -45,15 +61,14 @@ static func meal(stamina: int, meals: int, coins: int) -> Dictionary:
 	return {
 		"ok": true,
 		"stamina": mini(Config.STAMINA_MAX, stamina + Config.MEAL_STAMINA),
-		"meals": meals + 1,
 		"coins": coins - Config.MEAL_COINS,
 	}
 
 
+## 单机的睡觉：回满体力、天亮（联网时天色归服务器时钟，睡觉只回体力）
 static func rollover(day: int) -> Dictionary:
 	return {
 		"stamina": Config.STAMINA_MAX,
-		"meals": 0,
 		"day": day + 1,
 		"day_time": Config.MORNING_TIME,
 	}

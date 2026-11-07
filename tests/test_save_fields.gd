@@ -13,18 +13,19 @@ func test_old_save_gets_defaults() -> void:
 	var d := Save.read(P)
 	check_eq(d.coins, 50, "老字段照旧")
 	check_eq(d.stamina, 100, "老存档默认满体力")
-	check_eq(d.meals, 0, "老存档没吃过饭")
 	check_eq(d.day, 1, "老存档是第一天")
-	check_eq(d.slept_day, -1, "老存档没睡过（实得 %s）" % d.slept_day)
+	check_eq(d.sleep_at, 0.0, "老存档没睡过（实得 %s）" % d.sleep_at)
+	check_eq(d.meal_at, 0.0, "老存档没吃过饭（实得 %s）" % d.meal_at)
 	check(absf(d.day_time - 0.28) < 0.001, "老存档在清晨（实得 %.3f）" % d.day_time)
 	_clean()
 
 
-## slept_day 不落本机盘（睡几号归服务器），归一化照旧得给个 -1，别丢掉这个键
-func test_slept_day_roundtrips_through_normalize() -> void:
-	check_eq(int(Save.defaults()["slept_day"]), -1, "缺省是没睡过")
-	check_eq(int(Save.normalize({})["slept_day"]), -1, "空存档读成 -1")
-	check_eq(int(Save.normalize({"slept_day": 9})["slept_day"]), 9, "服务器那份读得回来")
+## 冷却时间戳也得走归一化：服务器那份是 JSON，读回来可能是整数
+func test_cooldown_stamps_roundtrip_through_normalize() -> void:
+	check_eq(Save.defaults()["sleep_at"], 0.0, "缺省是没睡过")
+	check_eq(Save.normalize({})["meal_at"], 0.0, "空存档读成 0")
+	check_eq(Save.normalize({"sleep_at": 17})["sleep_at"], 17.0, "整数也读得回来")
+	check_eq(Save.normalize({"meal_at": 1.5})["meal_at"], 1.5, "浮点读得回来")
 
 
 func test_partial_write_keeps_other_fields() -> void:
@@ -41,9 +42,10 @@ func test_partial_write_keeps_other_fields() -> void:
 
 func test_roundtrip_all_fields() -> void:
 	_clean()
-	Save.write(P, {"coins": 7, "stamina": 33, "meals": 2, "day": 9, "day_time": 0.71})
+	Save.write(P, {"coins": 7, "stamina": 33, "day": 9, "day_time": 0.71, "meal_at": 12.5})
 	var d := Save.read(P)
-	check_eq([d.coins, d.stamina, d.meals, d.day], [7, 33, 2, 9], "五个数字字段存得住")
+	check_eq([d.coins, d.stamina, d.day], [7, 33, 9], "数字字段存得住")
+	check_eq(d.meal_at, 12.5, "冷却时间戳存得住")
 	check(absf(d.day_time - 0.71) < 0.001, "天体水位存得住")
 	_clean()
 

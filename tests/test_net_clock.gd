@@ -25,7 +25,7 @@ func test_day_and_time_from_wall_clock() -> void:
 	check(absf(clock.time_of_day() - mid()) < 0.001, "剩下的半天照走")
 
 
-## 真机踩过的坑：服务器一重启天数归零，存档里的 slept_day 就「永远睡过了」。
+## 真机踩过的坑：服务器一重启天数归零，存档里跟天数对表的字段就全错位。
 func test_restart_lands_on_the_same_day() -> void:
 	var before := NetClock.new()
 	before.sync(1_700_000_000.0)

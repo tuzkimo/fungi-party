@@ -14,7 +14,6 @@ const SUNSET_SECONDS := 1.2  # 见底后太阳压到落山的时长
 @export var daynight_path: NodePath
 
 var stamina := Config.STAMINA_MAX
-var meals := 0
 var day := 1
 var time_of_day := Config.MORNING_TIME
 var sleeping := false
@@ -81,7 +80,6 @@ func refresh() -> void:
 		net.changed.connect(refresh)
 	var data := Save.read()
 	stamina = int(data["stamina"])
-	meals = int(data["meals"])
 	day = int(data["day"])
 	if Save.online():
 		_sync_clock()
@@ -97,14 +95,13 @@ func _sync_clock() -> void:
 	time_of_day = net.clock if net != null else Config.MORNING_TIME
 
 
-## 联机一天只能睡一次：门槛在服务器上，这里不去演一遍必然被拒的睡觉
-func _slept_today() -> bool:
-	var net := Save.remote as NetClient
-	return net != null and net.slept_today()
+## 睡觉有冷却（跟天色、第几天无关）：没冷却好就别演一遍必然被拒的睡觉
+func _waiting_to_sleep() -> bool:
+	return Save.sleep_wait() > 0.0
 
 
 func sleep() -> void:
-	if sleeping or _slept_today():
+	if sleeping or _waiting_to_sleep():
 		return
 	sleeping = true
 	changed.emit()

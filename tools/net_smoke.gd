@@ -47,18 +47,29 @@ func _run() -> void:
 	await _op("sleep", {})
 	if int(_client.data["stamina"]) != Config.STAMINA_MAX:
 		_die("睡觉没回体力")
-	print("睡觉之后 体力 %d 第 %d 天" % [int(_client.data["stamina"]), int(_client.data["day"])])
+	print("睡觉之后 体力 %d（冷却到 %.0f）" % [int(_client.data["stamina"]), float(_client.data["sleep_at"])])
 
-	# 世界时钟一天只能睡一次：第二次得被拒，但照样得回 OP_RESULT（不回就 timeout 掉线）
-	var day_before := int(_client.data["day"])
+	# 睡觉有冷却：第二次得被拒，但照样得回 OP_RESULT（不回就 timeout 掉线）
 	await _op("sleep", {})
 	if bool(_client.last_result.get("ok", true)):
-		_die("同一天睡了第二次")
-	if str(_client.last_result.get("error", "")) != "slept":
+		_die("冷却里睡了第二次")
+	if str(_client.last_result.get("error", "")) != "cooldown":
 		_die("第二次睡觉的拒绝原因不对：%s" % str(_client.last_result.get("error", "")))
-	if int(_client.data["day"]) != day_before:
-		_die("被拒的睡觉改了天数：%d -> %d" % [day_before, int(_client.data["day"])])
-	print("同一天再睡被拒（error: slept），天数还是 %d" % day_before)
+	print("冷却里再睡被拒（error: cooldown）")
+
+	# 吃饭也是冷却制：吃一份扣钱回体力，紧接着再吃要被拒
+	var coins_for_meal := int(_client.data["coins"])
+	# 只花 20：这一份正好吃满，后面四局的开销才不会把体力耗到不够邀请
+	await _op("spend_stamina", {"cost": 20})
+	await _op("meal", {})
+	if not bool(_client.last_result.get("ok", false)):
+		_die("吃饭被拒了：%s" % str(_client.last_result.get("error", "")))
+	if int(_client.data["coins"]) != coins_for_meal - Config.MEAL_COINS:
+		_die("吃饭没扣钱：%d -> %d" % [coins_for_meal, int(_client.data["coins"])])
+	await _op("meal", {})
+	if str(_client.last_result.get("error", "")) != "cooldown":
+		_die("连着吃第二份没被拒：%s" % str(_client.last_result.get("error", "")))
+	print("吃饭：扣 %d 币回体力，冷却里再吃被拒（error: cooldown）" % Config.MEAL_COINS)
 
 	var coins_before := int(_client.data["coins"])
 	var owned_before := (_client.data["owned"] as PackedStringArray).size()
@@ -116,6 +127,7 @@ func _invite_check() -> void:
 	guest.connect_to(_host, _port, guest_name, _password)
 	await guest.logged_in
 	# 信号只在「从不在局里变成在局里」那一下发，两个人都得收到
+	var stamina_before := int(_client.data["stamina"])
 	_client.join_room.connect(func() -> void: _joined[_name] = true)
 	guest.join_room.connect(func() -> void: _joined[guest_name] = true)
 
@@ -142,8 +154,8 @@ func _invite_check() -> void:
 	if str(seats[0].get("account", "")) != _name or str(seats[1].get("account", "")) != guest_name:
 		_die("座位顺序不对（发起的坐 0 号）：%s" % str(seats))
 	var cost := Config.STAMINA_COST_CLASSROOM
-	if int(_client.data["stamina"]) != Config.STAMINA_MAX - cost:
-		_die("邀请方体力没扣：%d" % int(_client.data["stamina"]))
+	if int(_client.data["stamina"]) != stamina_before - cost:
+		_die("邀请方体力没扣：%d -> %d" % [stamina_before, int(_client.data["stamina"])])
 	if int(guest.data["stamina"]) != Config.STAMINA_MAX - cost:
 		_die("被邀请方体力没扣：%d" % int(guest.data["stamina"]))
 
