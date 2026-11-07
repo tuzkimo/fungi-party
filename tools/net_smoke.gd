@@ -44,33 +44,13 @@ func _run() -> void:
 	])
 
 	await _op("equip", {"skin": str(_client.data["equipped"])})
-	await _op("sleep", {})
-	if int(_client.data["stamina"]) != Config.STAMINA_MAX:
-		_die("睡觉没回体力")
-	print("睡觉之后 体力 %d（冷却到 %.0f）" % [int(_client.data["stamina"]), float(_client.data["sleep_at"])])
-
-	# 睡觉有冷却：第二次得被拒，但照样得回 OP_RESULT（不回就 timeout 掉线）
-	await _op("sleep", {})
+	# 联机不扣体力：服务器连 meal / sleep 两条 op 都没有了
+	await _op("meal", {})
+	if NetOps.allowed("meal"):
+		_die("联机不该还有 meal 这条 op")
 	if bool(_client.last_result.get("ok", true)):
-		_die("冷却里睡了第二次")
-	if str(_client.last_result.get("error", "")) != "cooldown":
-		_die("第二次睡觉的拒绝原因不对：%s" % str(_client.last_result.get("error", "")))
-	print("冷却里再睡被拒（error: cooldown）")
-
-	# 吃饭也是冷却制：吃一份扣钱回体力，紧接着再吃要被拒
-	var coins_for_meal := int(_client.data["coins"])
-	# 只花 20：这一份正好吃满，后面四局的开销才不会把体力耗到不够邀请
-	await _op("spend_stamina", {"cost": 20})
-	await _op("meal", {})
-	if not bool(_client.last_result.get("ok", false)):
-		_die("吃饭被拒了：%s" % str(_client.last_result.get("error", "")))
-	if int(_client.data["coins"]) != coins_for_meal - Config.MEAL_COINS:
-		_die("吃饭没扣钱：%d -> %d" % [coins_for_meal, int(_client.data["coins"])])
-	await _op("meal", {})
-	if str(_client.last_result.get("error", "")) != "cooldown":
-		_die("连着吃第二份没被拒：%s" % str(_client.last_result.get("error", "")))
-	print("吃饭：扣 %d 币回体力，冷却里再吃被拒（error: cooldown）" % Config.MEAL_COINS)
-
+		_die("联机不该还能吃饭")
+	print("联机不扣体力：meal op 也不存在（%s）" % str(_client.last_result.get("error", "")))
 	var coins_before := int(_client.data["coins"])
 	var owned_before := (_client.data["owned"] as PackedStringArray).size()
 	_client.close()
@@ -127,7 +107,6 @@ func _invite_check() -> void:
 	guest.connect_to(_host, _port, guest_name, _password)
 	await guest.logged_in
 	# 信号只在「从不在局里变成在局里」那一下发，两个人都得收到
-	var stamina_before := int(_client.data["stamina"])
 	_client.join_room.connect(func() -> void: _joined[_name] = true)
 	guest.join_room.connect(func() -> void: _joined[guest_name] = true)
 
@@ -153,11 +132,8 @@ func _invite_check() -> void:
 		_die("座位数不对：%d" % seats.size())
 	if str(seats[0].get("account", "")) != _name or str(seats[1].get("account", "")) != guest_name:
 		_die("座位顺序不对（发起的坐 0 号）：%s" % str(seats))
-	var cost := Config.STAMINA_COST_CLASSROOM
-	if int(_client.data["stamina"]) != stamina_before - cost:
-		_die("邀请方体力没扣：%d -> %d" % [stamina_before, int(_client.data["stamina"])])
-	if int(guest.data["stamina"]) != Config.STAMINA_MAX - cost:
-		_die("被邀请方体力没扣：%d" % int(guest.data["stamina"]))
+	if int(_client.data["stamina"]) != Config.STAMINA_MAX or int(guest.data["stamina"]) != Config.STAMINA_MAX:
+		_die("联机不该扣体力：%d / %d" % [int(_client.data["stamina"]), int(guest.data["stamina"])])
 
 	# 教室这一局的规则在服务器上跑：快照要带局内状态，按下去得算数
 	await create_timer(0.3).timeout
@@ -185,9 +161,9 @@ func _invite_check() -> void:
 	await _settle_and_reconnect()
 	if int(_client.data["coins"]) <= coins_before:
 		_die("收局没结账：%d -> %d" % [coins_before, int(_client.data["coins"])])
-	print("邀请：两人进同一间教室各扣 %d 体力，服务器判吃口，收局结账 %d 币" % [
-		cost, int(_client.data["coins"]) - coins_before
-	])
+	print("邀请：两人进同一间教室（不扣体力），服务器判吃口，收局结账 %d 币" % (
+		int(_client.data["coins"]) - coins_before
+	))
 
 
 ## 传炸弹：邀请 → 两边各扣 25 → 服务器判炸弹 → 主动离开收局，各拿各的币。
@@ -210,8 +186,6 @@ func _bomb_check() -> void:
 	for who in [guest, _client]:
 		if str(who.session.get("kind", "")) != "bomb":
 			_die("%s 没进到传炸弹：%s" % [who.me(), str(who.session)])
-	if int(guest.data["stamina"]) != Config.STAMINA_MAX - Config.STAMINA_COST_BOMB:
-		_die("被邀请方体力没扣：%d" % int(guest.data["stamina"]))
 
 	# 规则在服务器上：快照带局内状态，两个人看到的是同一局
 	var game: Dictionary = _client.session.get("game", {})
@@ -241,9 +215,9 @@ func _bomb_check() -> void:
 	await _settle_and_reconnect()
 	if int(_client.data["coins"]) <= coins_before:
 		_die("传炸弹收局没结账：%d -> %d" % [coins_before, int(_client.data["coins"])])
-	print("传炸弹：两人同局各扣 %d 体力，服务器判投掷，收局结账 %d 币" % [
-		Config.STAMINA_COST_BOMB, int(_client.data["coins"]) - coins_before
-	])
+	print("传炸弹：两人同局，服务器判投掷，收局结账 %d 币" % (
+		int(_client.data["coins"]) - coins_before
+	))
 
 
 ## 猫头鹰：邀请 → 两边各扣 30 → 服务器推三关 → 按住有分（或者吃到屎出局，两条都证明 INPUT 到了服务器）
@@ -266,8 +240,6 @@ func _owl_check() -> void:
 	for who in [guest, _client]:
 		if str(who.session.get("kind", "")) != "owl":
 			_die("%s 没进到猫头鹰：%s" % [who.me(), str(who.session)])
-	if int(guest.data["stamina"]) != Config.STAMINA_MAX - Config.STAMINA_COST_OWL:
-		_die("被邀请方体力没扣：%d" % int(guest.data["stamina"]))
 
 	var game: Dictionary = _client.session.get("game", {})
 	if game.is_empty() or (game.get("seats", []) as Array).size() != OwlRound.SEATS or not game.has("level"):
@@ -296,9 +268,9 @@ func _owl_check() -> void:
 	await _settle_and_reconnect()
 	if int(_client.data["coins"]) <= coins_before:
 		_die("猫头鹰收局没结账：%d -> %d" % [coins_before, int(_client.data["coins"])])
-	print("猫头鹰：两人同局各扣 %d 体力，服务器判吃口，收局结账 %d 币" % [
-		Config.STAMINA_COST_OWL, int(_client.data["coins"]) - coins_before
-	])
+	print("猫头鹰：两人同局，服务器判吃口，收局结账 %d 币" % (
+		int(_client.data["coins"]) - coins_before
+	))
 
 
 ## 赛跑：邀请 → 两边各扣 20 → 服务器推赛道、判摇杆 → 对方掉线收局。
@@ -321,8 +293,6 @@ func _race_check() -> void:
 	for who in [guest, _client]:
 		if str(who.session.get("kind", "")) != "race":
 			_die("%s 没进到赛跑：%s" % [who.me(), str(who.session)])
-	if int(guest.data["stamina"]) != Config.STAMINA_MAX - Config.STAMINA_COST_RACE:
-		_die("被邀请方体力没扣：%d" % int(guest.data["stamina"]))
 
 	var game: Dictionary = _client.session.get("game", {})
 	if game.is_empty() or (game.get("racers", []) as Array).size() != Config.SEAT_COUNT:
@@ -348,9 +318,9 @@ func _race_check() -> void:
 	if bool(_client.session.get("over", false)):
 		_die("一个人掉线就把两个人的局收了：%s" % str(_client.session))
 	await _settle_and_reconnect()
-	print("赛跑：两人同局各扣 %d 体力，服务器判摇杆，收局结账 %d 币" % [
-		Config.STAMINA_COST_RACE, int(_client.data["coins"]) - coins_before
-	])
+	print("赛跑：两人同局，服务器判摇杆，收局结账 %d 币" % (
+		int(_client.data["coins"]) - coins_before
+	))
 
 
 ## 收局结账：最后一个人也走人 → 服务器收局写币 → 重连拿回新存档。

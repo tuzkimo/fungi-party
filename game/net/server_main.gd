@@ -175,10 +175,7 @@ func _on_op(from: int, session: Dictionary, body: Dictionary) -> void:
 	if ROOM_OPS.has(op):
 		_on_room_op(from, player_name, op, args as Dictionary)
 		return
-	# now（unix 秒）由服务器注入：体力恢复的冷却是按它算的，客户端说不了算
-	var result := NetOps.apply(
-		Accounts.read(_save_dir, player_name), op, args as Dictionary, _world_now()
-	)
+	var result := NetOps.apply(Accounts.read(_save_dir, player_name), op, args as Dictionary)
 	if bool(result["ok"]):
 		Accounts.write(_save_dir, player_name, result["data"] as Dictionary)
 	_send(from, NetProtocol.Msg.OP_RESULT, {
@@ -237,7 +234,7 @@ func _on_room_op(from: int, me: String, op: String, args: Dictionary) -> void:
 	var saves: Dictionary = result.get("saves", {})
 	for name in saves:
 		Accounts.write(_save_dir, str(name), saves[name] as Dictionary)
-	if not saves.is_empty():
+	if result.get("room", null) != null:
 		_push_session(result)
 	_send(from, NetProtocol.Msg.OP_RESULT, {
 		"op": op,
@@ -248,19 +245,17 @@ func _on_room_op(from: int, me: String, op: String, args: Dictionary) -> void:
 	})
 
 
-## 成局：房快照 + 各自扣完体力那份存档，各发一份（邀请方的那份只能这样送到）
+## 成局：房快照各发一份（邀请方的那份只能这样送到；接受方还会从 OP_RESULT 收到自己的存档）
 func _push_session(result: Dictionary) -> void:
 	var room: NetRoom = result["room"]
-	var saves: Dictionary = result["saves"]
 	# 快照只拍一次：传炸弹的快照会把「上次之后发生的事」清掉，每人一份不能靠重复拍
 	var base := room.snapshot()
-	for name in saves:
-		var id := _peer_of(str(name))
-		if id == 0:
+	for seat in room.seats:
+		if bool(seat["npc"]):
 			continue
-		var body := base.duplicate(true)
-		body["save"] = saves[name]
-		_send(id, NetProtocol.Msg.SESSION, body)
+		var id := _peer_of(str(seat["account"]))
+		if id != 0:
+			_send(id, NetProtocol.Msg.SESSION, base.duplicate(true))
 
 
 ## 每 1/20 秒把这一局的快照发给局里的真人（人机没连接，跳过）
@@ -316,7 +311,6 @@ func _broadcast_world() -> void:
 		_send(int(id), NetProtocol.Msg.WORLD, {
 			"clock": _clock.time_of_day(),
 			"day": _clock.day,
-			"now": float(_world_now()["now"]),
 			"players": players,
 			"me": str(session["name"]),
 			"invites": _lobby.invites_for(str(session["name"]), _online(), _now()),
@@ -377,10 +371,6 @@ func _on_disconnect(id: int) -> void:
 func _now() -> float:
 	return float(Time.get_ticks_msec()) / 1000.0
 
-
-## 世界状态（注入给 NetOps 和 WORLD）：睡多久 / 多久能吃都由它算，客户端只读
-func _world_now() -> Dictionary:
-	return {"now": Time.get_unix_time_from_system()}
 
 
 ## `-- --port 7000 --saves /x --max 8`

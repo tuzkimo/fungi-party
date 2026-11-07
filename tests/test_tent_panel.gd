@@ -55,22 +55,19 @@ func test_current_character_button_is_disabled() -> void:
 	panel.free()
 
 
-## 睡完有冷却：按钮置灰并写明还要等多久（服务器那道门槛在 test_net_ops 里另测）。
+## 联机不扣体力：帐篷里的「睡觉」直接不摆（换衣服 / 换角色照旧）。
 ## `Save.remote` 是静态的，测完一定要还原，否则后面的用例会以为自己在联机。
-func test_sleep_button_greys_out_during_the_cooldown() -> void:
+func test_sleep_button_is_hidden_online() -> void:
 	var net := NetClient.new()
-	net.now = 10_000.0
-	net.data = Save.normalize({"sleep_at": 10_000.0 - Config.SLEEP_COOLDOWN_SECONDS + 60.0})
+	net.data = Save.normalize({})
 	Save.remote = net
 	var panel := _open_panel()
 	panel._refresh()
-	check(panel._sleep.disabled, "冷却里按不动")
-	check_eq(panel._sleep.text, "还要等 1 分钟", "按钮写明还要等多久")
+	check(not panel._sleep.visible, "联机时没有睡觉这回事")
 
-	net.data = Save.normalize({"sleep_at": 10_000.0 - Config.SLEEP_COOLDOWN_SECONDS})
+	Save.remote = null
 	panel._refresh()
-	check(not panel._sleep.disabled, "到点又能睡")
-	check_eq(panel._sleep.text, "睡到早上", "按钮恢复")
+	check(panel._sleep.visible, "单机里睡觉按钮在")
 
 	Save.remote = null
 	panel.free()

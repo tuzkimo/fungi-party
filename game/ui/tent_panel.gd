@@ -24,6 +24,8 @@ func _ready() -> void:
 	root.theme = UIStyle.theme()
 	add_child(root)
 	_root = root
+	# 站在 POI 跟前时右上角那两个按钮要让位（见 InvitePanel.poi_overlay_open）
+	add_to_group("poi_panel")
 
 	# 靠右上角摆、不压暗场景：吃饭动画和换帽子都在玩家身上，面板挡住就白做了
 	var panel := PanelContainer.new()
@@ -113,8 +115,9 @@ func _process(_delta: float) -> void:
 func _refresh() -> void:
 	var data := Save.read()
 	_stamina.text = "体力 %d/%d" % [int(data["stamina"]), Config.STAMINA_MAX]
-	# 睡觉有冷却（门槛在服务器上，这里只是照同一个数置灰 + 报个倒计时）
+	# 联机不扣体力，睡觉没意义（换衣服 / 换角色照旧）；单机才有冷却
 	var wait := Save.sleep_wait()
+	_sleep.visible = not Save.online()
 	_sleep.disabled = wait > 0.0
 	_sleep.text = ("还要等 %s" % Day.wait_text(wait)) if wait > 0.0 else "睡到早上"
 	_sync_seats()

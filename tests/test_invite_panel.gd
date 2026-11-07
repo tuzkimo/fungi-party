@@ -134,7 +134,7 @@ func test_unknown_kind_falls_back_to_the_id() -> void:
 
 
 func test_error_text() -> void:
-	check_eq(InvitePanel.error_text("stamina"), "体力不够", "体力不够有中文解释")
+	check_eq(InvitePanel.error_text("busy"), "已经有一局在开了", "忙有中文解释")
 	check_eq(InvitePanel.error_text("whatever"), "whatever", "不认识的原样显示")
 
 

@@ -4,20 +4,13 @@ extends RefCounted
 ## 邀请配对 + 「同时只开一间房」的规矩。
 ## 服务器侧纯逻辑：存档由调用方注入读写（服务器给 Accounts，测试给字典），这里不碰文件、不碰节点。
 ##
-## 体力规矩是「谁玩谁付自己的」：邀请时只查发起人的，接受时再查双方的，成局那一下才各扣一次；
-## 拒绝、过期、中途离开一分不扣。
+## 体力规矩：**联机不扣体力**（邀请、接受、开局都不查不算）。真机上撞到过：一帮朋友在森林里，
+## 只要有一个人体力见底，那一局就开不起来 —— 单机那套「按局扣」放进联机就是折磨。
+## 体力 / 吃饭 / 睡觉现在只服务单机（见 `Save.spend_stamina` 的 remote 分支）。
 
 ## 已经搬上服务器的几款：只有这些能开局。其余几款还在客户端跑单机逻辑，
-## 邀进去等于扣两次体力、还白占着「同时 1 房」。每搬完一款往这里加一条。
+## 邀进去等于白占着「同时 1 房」。每搬完一款往这里加一条。
 const MODELLED: Array[String] = ["classroom", "bomb", "owl", "race"]
-
-## kind → 开局体力。和 NetRoom.KINDS 一一对应。
-const COSTS := {
-	"classroom": Config.STAMINA_COST_CLASSROOM,
-	"bomb": Config.STAMINA_COST_BOMB,
-	"owl": Config.STAMINA_COST_OWL,
-	"race": Config.STAMINA_COST_RACE,
-}
 
 ## 被邀请人账号 → {from, kind, at}。同一时刻只留最新的一条，重发即覆盖。
 var pending := {}
@@ -36,10 +29,6 @@ func _init(read_save: Callable, write_save: Callable) -> void:
 	_write = write_save
 
 
-static func cost_of(kind: String) -> int:
-	return int(COSTS.get(kind, 0))
-
-
 ## 发邀请：只查不动账。返回 {ok, error}。
 func invite(from: String, to: String, kind: String, online: PackedStringArray, now: float) -> Dictionary:
 	if not MODELLED.has(kind):
@@ -50,8 +39,6 @@ func invite(from: String, to: String, kind: String, online: PackedStringArray, n
 		return {"ok": false, "error": "offline"}
 	if room != null:
 		return {"ok": false, "error": "busy"}
-	if not Day.can_play(_stamina(from), cost_of(kind)):
-		return {"ok": false, "error": "stamina"}
 	pending[to] = {"from": from, "kind": kind, "at": now}
 	return {"ok": true}
 
@@ -74,21 +61,13 @@ func answer(from: String, to: String, kind: String, accept: bool, online: Packed
 		return {"ok": false, "error": "busy"}
 	if not online.has(from):
 		return {"ok": false, "error": "offline"}
-	var cost := cost_of(kind)
-	var mine := Day.spend_cost(_stamina(to), cost)
-	var theirs := Day.spend_cost(_stamina(from), cost)
-	if not bool(mine["ok"]) or not bool(theirs["ok"]):
-		return {"ok": false, "error": "stamina"}
 	room = NetRoom.create(kind, [from, to], randi())
 	if room == null:
 		return {"ok": false, "error": "room"}
 	settled = false
 	_clear_invites(from)
 	_clear_invites(to)
-	var saves := {}
-	saves[to] = _charged(to, int(mine["stamina"]))
-	saves[from] = _charged(from, int(theirs["stamina"]))
-	return {"ok": true, "result": {"accepted": true}, "room": room, "saves": saves}
+	return {"ok": true, "result": {"accepted": true}, "room": room}
 
 
 ## 下发给某个人的待处理邀请（WORLD 里那一格）。顺手把过期和发起人已掉线的清掉。
@@ -162,11 +141,3 @@ func _clear_invites(name: String) -> void:
 			pending.erase(to)
 
 
-func _stamina(name: String) -> int:
-	return int((_read.call(name) as Dictionary).get("stamina", 0))
-
-
-func _charged(name: String, stamina: int) -> Dictionary:
-	var save := (_read.call(name) as Dictionary).duplicate(true)
-	save["stamina"] = stamina
-	return save

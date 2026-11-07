@@ -44,7 +44,12 @@ func setup(cap_color: Color, yaw: float) -> void:
 
 ## 座位上的自己跟玩家穿的、选的一致（教室那套做法）。
 func apply_look(seat: int) -> void:
-	_body.use_party_look(seat)
+	apply_look_of(Party.look(seat))
+
+
+## 按一份形象（body / skin）长：联机时别人那格用他自己的体型皮肤，不是色块。
+func apply_look_of(look: Dictionary) -> void:
+	_body.use_look(str(look["body"]), str(look["skin"]))
 	_cap_color = _body.tint_cap
 	if _name != null:
 		_name.position.y = _label_y()

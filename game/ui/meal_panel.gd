@@ -20,6 +20,8 @@ func _ready() -> void:
 	root.theme = UIStyle.theme()
 	add_child(root)
 	_root = root
+	# 站在 POI 跟前时右上角那两个按钮要让位（见 InvitePanel.poi_overlay_open）
+	add_to_group("poi_panel")
 
 	# 靠右上角摆、不压暗场景：吃饭动画和换帽子都在玩家身上，面板挡住就白做了
 	var panel := PanelContainer.new()
@@ -79,17 +81,18 @@ func _refresh() -> void:
 		return
 	var stamina := day_loop.stamina
 	var coins := int(Save.read()["coins"])
-	_stamina.text = "体力 %d/%d" % [stamina, Config.STAMINA_MAX]
 	_coins.text = "蘑菇币 %d" % coins
-	var wait := Save.meal_wait()
-	_meals.text = "" if wait <= 0.0 else "下一份还要 %s" % Day.wait_text(wait)
+	# 联机不扣体力，饭店没活干：只留个说法，别让人以为按钮坏了
+	_meals.text = ""
+	_eat.visible = not Save.online()
+	_stamina.text = "联网模式不扣体力" if Save.online() else "体力 %d/%d" % [stamina, Config.STAMINA_MAX]
+	if Save.online():
+		return
 
-	var ok := bool(Day.meal(stamina, coins)["ok"]) and wait <= 0.0
+	var ok := bool(Day.meal(stamina, coins)["ok"])
 	_eat.disabled = _busy or not ok
 	if ok:
 		_eat.text = "吃一份(%d 币)" % Config.MEAL_COINS
-	elif wait > 0.0:
-		_eat.text = "刚吃过，等 %s" % Day.wait_text(wait)
 	elif coins < Config.MEAL_COINS:
 		_eat.text = "还差 %d 币" % (Config.MEAL_COINS - coins)
 	else:

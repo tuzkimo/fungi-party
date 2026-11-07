@@ -40,7 +40,12 @@ func setup(index_value: int) -> void:
 
 ## 座位上的自己也要跟玩家穿的一样（体型 + 皮肤），头顶的条不跟着变。
 func apply_look(seat: int) -> void:
-	_body.use_party_look(seat)
+	apply_look_of(Party.look(seat))
+
+
+## 按一份形象（body / skin）长：联机时别人那格用他自己的体型皮肤，不是色块。
+func apply_look_of(look: Dictionary) -> void:
+	_body.use_look(str(look["body"]), str(look["skin"]))
 	_bar_y = _body.top() * BODY_SCALE * BAR_RATIO
 	_mark_y = _body.top() * BODY_SCALE * MARK_RATIO
 	_fill.position.y = _bar_y

@@ -76,7 +76,10 @@ func _ready() -> void:
 		for seat_state in _net.session.get("seats", []):
 			if not bool((seat_state as Dictionary).get("npc", false)):
 				_round.humans += 1
-		_seats[_my_seat].apply_look(0)
+		# 谁的座位按谁报上来的形象长（以前只有自己那格刷了，别人全是色块）
+		for seat in Config.SEAT_COUNT:
+			if _is_human(seat):
+				_seats[seat].apply_look_of(_net.seat_look(seat))
 
 	# 头顶挂名字：联机时看账号名（自己那格也是），单机时 0/1 号是「你 / 2P」、其余是人机
 	var names := _seat_names()

@@ -88,6 +88,14 @@ func _ready() -> void:
 	sync()
 
 
+## 站在 POI 跟前就把右上角让出去（和 InvitePanel 同一套判断）
+func _process(_delta: float) -> void:
+	var blocked := InvitePanel.poi_overlay_open(get_tree())
+	_toggle.visible = not blocked
+	if blocked and _panel.visible:
+		_panel.visible = false
+
+
 ## 外面的状态变了（加入 / 离队 / 换场景回来）就调一次。
 func sync() -> void:
 	_toggle.text = "2P 已加入" if Party.joined() else "＋ 加入"

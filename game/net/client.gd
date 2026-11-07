@@ -38,8 +38,6 @@ var world := {}
 var clock := Config.MORNING_TIME
 ## 世界上第几天：服务器给，只当天色的一部分（体力恢复跟它没关系了）
 var day := 1
-## 服务器的 unix 秒：睡觉 / 吃饭的冷却按它算，本机钟说了不算
-var now := 0.0
 ## 谁在邀请我：[{from, kind}]，跟着 WORLD 一起来
 var invites := []
 ## 我所在的这一局（服务器发的快照）；空 = 不在局里
@@ -87,7 +85,6 @@ func close() -> void:
 	data = {}
 	invites = []
 	session = {}
-	now = 0.0
 	_in_room = false
 	key_hex = ""
 
@@ -134,6 +131,22 @@ func in_room(kind: String) -> bool:
 	return ready() and str(session.get("kind", "")) == kind and not bool(session.get("over", false))
 
 
+## 第 seat 号座位那个人长什么样：自己按本机存档 / 2P，别人按他 MOVE 报上来的形象。
+## 服务器只发账号名，形象在世界快照里（`world[账号]` 的 body / skin）。还没报过就回落默认红蘑菇。
+func seat_look(seat: int) -> Dictionary:
+	var seats: Array = session.get("seats", [])
+	if seat < 0 or seat >= seats.size():
+		return Party.look(0)
+	var account := str((seats[seat] as Dictionary).get("account", ""))
+	if account == "" or account == player_name:
+		return Party.look(0)
+	var state: Dictionary = world.get(account, {})
+	return {
+		"body": BodyCatalog.normalize(str(state.get("body", ""))),
+		"skin": str(state.get("skin", "")),
+	}
+
+
 ## 我在这一局的座位号（座位表由服务器给；不在表里就当 0 号）
 func seat_index() -> int:
 	var seats: Array = session.get("seats", [])
@@ -141,12 +154,6 @@ func seat_index() -> int:
 		if str((seats[i] as Dictionary).get("account", "")) == player_name:
 			return i
 	return 0
-
-
-## 服务器现在几点（unix 秒）。还没收到 WORLD 就退回本机时间：只用来画倒计时，
-## 真正的门槛在服务器上（`NetOps` 用的是服务器注入的那份 now）。
-func server_now() -> float:
-	return now if now > 0.0 else Time.get_unix_time_from_system()
 
 
 ## 局内输入：和 send_move 一样走独立通道，不排 op 队列——输入比 op 新，堵在后面就是白加延迟。
@@ -217,7 +224,6 @@ func _drain() -> void:
 				world.erase("%s|1" % str(body.get("me", player_name)))
 				clock = float(body.get("clock", clock))
 				day = int(body.get("day", day))
-				now = float(body.get("now", now))
 				invites = body.get("invites", [])
 				world_changed.emit()
 			NetProtocol.Msg.SESSION:

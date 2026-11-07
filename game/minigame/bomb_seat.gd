@@ -31,12 +31,12 @@ func _ready() -> void:
 		rotation.y = atan2(towards.x, towards.z)
 
 
-## seat 是人坐的位子就按那位玩家的样子长（体型 + 皮肤），人机传 -1 用色块认人。
-func setup(color: Color, seat: int) -> void:
+## look 是人坐的位子那份形象（体型 + 皮肤）；空 = 人机，用色块认人。
+func setup(color: Color, look: Dictionary = {}) -> void:
 	_mesh = MushroomMesh.new()
 	_mesh.name = "Body"
-	if seat >= 0:
-		_mesh.use_party_look(seat)
+	if not look.is_empty():
+		_mesh.use_look(str(look["body"]), str(look["skin"]))
 	else:
 		_mesh.tint_cap = color
 	add_child(_mesh)

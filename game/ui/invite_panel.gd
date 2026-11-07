@@ -19,7 +19,6 @@ const KIND_NAMES := {
 }
 ## 服务器拒绝的理由 → 人话（服务器只回 code，`NetOps` / `NetLobby` 那几处）
 const ERRORS := {
-	"stamina": "体力不够",
 	"offline": "对方不在线",
 	"busy": "已经有一局在开了",
 	"kind": "这款还没搬上服务器",
@@ -144,6 +143,16 @@ func _ready() -> void:
 	row.add_child(_banner_button("拒绝", false))
 
 
+## 站在 POI 跟前就把右上角让出去（面板一关就自动回来）
+func _process(_delta: float) -> void:
+	if not _root.visible:
+		return
+	var blocked := poi_overlay_open(get_tree())
+	_toggle.visible = not blocked
+	if blocked and _panel.visible:
+		_panel.visible = false
+
+
 ## 联机才有：进森林、登录成功、从小游戏回来都要调一次。
 func set_online(on: bool) -> void:
 	_root.visible = on
@@ -162,6 +171,16 @@ func sync(world: Dictionary, invites: Array) -> void:
 func set_status(text: String) -> void:
 	_status.text = text
 	_status.visible = text != ""
+
+
+## 有 POI 浮层开着没有：帐篷 / 饭店 / 摊位这些面板就摆在右上角，
+## 那对按钮（邀请 / ＋加入）得让开，否则盖住面板的标题和第一行。
+static func poi_overlay_open(tree: SceneTree) -> bool:
+	for node in tree.get_nodes_in_group("poi_panel"):
+		var root := node.get("_root") as Control
+		if root != null and root.visible:
+			return true
+	return false
 
 
 ## 世界里能邀请的人：同屏 2P 在 world 里是「账号|1」，那不是一个账号。

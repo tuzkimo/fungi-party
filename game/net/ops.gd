@@ -8,8 +8,9 @@ class_name NetOps
 ## 客户端能发起的 op。
 ## shortcut: 一期允许 add_coins，因为四款小游戏还在客户端跑（结算得有个去处）。
 ## 二期小游戏搬到服务器之后必须把它从这里删掉，否则谁都能自己加币。
+## meal / sleep 也删了：联机不扣体力，没东西要恢复（体力系统只服务单机）。
 const CLIENT_OPS: Array[String] = [
-	"pull", "meal", "spend_stamina", "equip", "set_character", "add_coins", "sleep",
+	"pull", "spend_stamina", "equip", "set_character", "add_coins",
 ]
 
 ## 一期客户端上报的单次收益上限：最大的赛跑冠军是 70 币，留一倍余量
@@ -21,16 +22,13 @@ static func allowed(op: String) -> bool:
 
 
 ## 返回 {ok, data, result, error}。data 是新的一份存档（不原地改调用方的字典）。
-## `world` 是服务器注入的世界状态（`{"day": int}`）：客户端说不了算，缺省就按存档自己的日子。
-static func apply(data: Dictionary, op: String, args: Dictionary, world: Dictionary = {}) -> Dictionary:
+static func apply(data: Dictionary, op: String, args: Dictionary) -> Dictionary:
 	if not allowed(op):
 		return {"ok": false, "data": data, "error": "op"}
 	var save := Save.normalize(data)
 	match op:
 		"pull":
 			return _pull(save, args)
-		"meal":
-			return _meal(save, world)
 		"spend_stamina":
 			return _spend_stamina(save, args)
 		"equip":
@@ -39,8 +37,6 @@ static func apply(data: Dictionary, op: String, args: Dictionary, world: Diction
 			return _set_character(save, args)
 		"add_coins":
 			return _add_coins(save, args)
-		"sleep":
-			return _sleep(save, world)
 	return {"ok": false, "data": save, "error": "op"}
 
 
@@ -58,22 +54,6 @@ static func _pull(save: Dictionary, args: Dictionary) -> Dictionary:
 	for i in count:
 		results.append(Gacha.roll(save, full if i == 0 else 0))
 	return {"ok": true, "data": save, "result": {"pulls": results}}
-
-
-## 吃饭：冷却 + 钱 + 还饱不饱，三样都由服务器判（`world.now` 也是服务器给的）。
-static func _meal(save: Dictionary, world: Dictionary) -> Dictionary:
-	var now := float(world.get("now", 0.0))
-	if now <= 0.0:
-		return {"ok": false, "data": save, "error": "clock"}
-	if not Day.ready(now, _stamp(save, "meal_at"), Config.MEAL_COOLDOWN_SECONDS):
-		return {"ok": false, "data": save, "error": "cooldown"}
-	var r := Day.meal(int(save["stamina"]), int(save["coins"]))
-	if not bool(r["ok"]):
-		return {"ok": false, "data": save, "error": "meal"}
-	save["stamina"] = int(r["stamina"])
-	save["coins"] = int(r["coins"])
-	save["meal_at"] = now
-	return {"ok": true, "data": save}
 
 
 static func _spend_stamina(save: Dictionary, args: Dictionary) -> Dictionary:
@@ -111,25 +91,3 @@ static func _add_coins(save: Dictionary, args: Dictionary) -> Dictionary:
 		return {"ok": false, "data": save, "error": "args"}
 	save["coins"] = maxi(0, int(save["coins"]) + amount)
 	return {"ok": true, "data": save}
-
-
-## 睡觉：回满，冷却由服务器判。刻意不跟世界时钟的第几天挂钩——两个人在线时各睡各的，
-## 一个人的作息不能卡住另一个人（天色照旧归服务器时钟，这里不动它）。
-static func _sleep(save: Dictionary, world: Dictionary) -> Dictionary:
-	var now := float(world.get("now", 0.0))
-	if now <= 0.0:
-		return {"ok": false, "data": save, "error": "clock"}
-	if not Day.ready(now, _stamp(save, "sleep_at"), Config.SLEEP_COOLDOWN_SECONDS):
-		return {"ok": false, "data": save, "error": "cooldown"}
-	save["stamina"] = Config.STAMINA_MAX
-	save["sleep_at"] = now
-	return {"ok": true, "data": save}
-
-
-## 老存档没有这个字段 / 存成了 int：一律当 0 = 没做过
-static func _stamp(save: Dictionary, key: String) -> float:
-	var raw: Variant = save.get(key, 0.0)
-	if typeof(raw) != TYPE_FLOAT and typeof(raw) != TYPE_INT:
-		return 0.0
-	var stamp := float(raw)
-	return stamp if is_finite(stamp) and stamp > 0.0 else 0.0

@@ -36,6 +36,8 @@ func _ready() -> void:
 	panel.add_theme_stylebox_override("panel", UIStyle.panel())
 	center.add_child(panel)
 	_root = root
+	# 站在 POI 跟前时右上角那两个按钮要让位（见 InvitePanel.poi_overlay_open）
+	add_to_group("poi_panel")
 
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 14)

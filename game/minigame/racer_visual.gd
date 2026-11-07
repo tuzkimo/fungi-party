@@ -16,16 +16,16 @@ var _mark: MeshInstance3D
 var _name: NameTag = null
 
 
-## seat >= 0：这台机器上的玩家，用自己的体型 + 皮肤，头上不顶色块。
-func setup(color: Color, seat := -1) -> void:
+## look 非空 = 真人（用自己的体型 + 皮肤，头上不顶色块）；空 = 人机，用颜色认人。
+func setup(color: Color, look: Dictionary = {}) -> void:
 	_visual = MushroomMesh.new()
 	_visual.name = "MushroomMesh"
-	if seat >= 0:
-		_visual.use_party_look(seat)
+	if not look.is_empty():
+		_visual.use_look(str(look["body"]), str(look["skin"]))
 	else:
 		_visual.tint_cap = color
 	add_child(_visual)
-	if seat >= 0:
+	if not look.is_empty():
 		return
 
 	var mesh := BoxMesh.new()

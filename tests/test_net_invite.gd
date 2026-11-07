@@ -23,14 +23,15 @@ func _fresh() -> Dictionary:
 	}
 
 
-func test_cost_matches_config() -> void:
-	check_eq(NetLobby.cost_of("classroom"), Config.STAMINA_COST_CLASSROOM, "教室 12")
-	check_eq(NetLobby.cost_of("bomb"), Config.STAMINA_COST_BOMB, "传炸弹 25")
-	check_eq(NetLobby.cost_of("owl"), Config.STAMINA_COST_OWL, "猫头鹰 30")
-	check_eq(NetLobby.cost_of("race"), Config.STAMINA_COST_RACE, "赛跑 20")
-	check_eq(NetLobby.cost_of("nope"), 0, "不认识的 kind 没有成本")
-	for kind in NetRoom.KINDS:
-		check(NetLobby.cost_of(kind) > 0, "%s 有成本" % kind)
+## 联机不扣体力：邀请 / 接受都不看存档里的体力，一分没体力的账号也能开局。
+func test_no_stamina_gate_online() -> void:
+	var broke := {"甲": {"stamina": 0, "coins": 0}, "乙": {"stamina": 0, "coins": 0}}
+	var lobby := _lobby(broke)
+	check(bool(lobby.invite("甲", "乙", "owl", ONLINE, NOW)["ok"]), "0 体力也邀请得出去")
+	var r := lobby.answer("甲", "乙", "owl", true, ONLINE, NOW)
+	check(bool(r["ok"]), "0 体力也接得了")
+	check(lobby.room != null, "局照开")
+	check(r.get("saves", null) == null, "没人被扣体力")
 
 
 func test_invite_rejects() -> void:
@@ -38,8 +39,7 @@ func test_invite_rejects() -> void:
 	check_eq(str(lobby.invite("甲", "乙", "nope", ONLINE, NOW)["error"]), "kind", "不认识的 kind")
 	check_eq(str(lobby.invite("甲", "甲", "classroom", ONLINE, NOW)["error"]), "self", "不能邀请自己")
 	check_eq(str(lobby.invite("甲", "丁", "classroom", ONLINE, NOW)["error"]), "offline", "对方不在线")
-	var tired := {"甲": {"stamina": 5}, "乙": {"stamina": 100}}
-	check_eq(str(_lobby(tired).invite("甲", "乙", "classroom", ONLINE, NOW)["error"]), "stamina", "自己体力不够")
+
 	check_eq(lobby.pending.size(), 0, "被拒的邀请不留下任何东西")
 
 
@@ -94,27 +94,9 @@ func test_answer_starts_and_charges_both() -> void:
 	check_eq(lobby.room.kind, "classroom", "房是教室")
 	check_eq(lobby.room.seat_of("甲"), 0, "发起的坐 0 号")
 	check_eq(lobby.room.seat_of("乙"), 1, "接受的坐 1 号")
-	var cost := Config.STAMINA_COST_CLASSROOM
-	var out := r["saves"] as Dictionary
-	check_eq(int((out["甲"] as Dictionary)["stamina"]), 100 - cost, "邀请方扣自己的")
-	check_eq(int((out["乙"] as Dictionary)["stamina"]), 100 - cost, "被邀请方扣自己的")
+	check(r.get("saves", null) == null, "联机不扣体力，所以没有要落盘的存档")
 	check_eq(int(saves["甲"]["stamina"]), 100, "调用方那份存档不原地改")
 	check_eq(lobby.invites_for("乙", ONLINE, NOW).size(), 0, "进了房不再收邀请")
-
-
-func test_answer_needs_stamina_at_the_moment() -> void:
-	var saves := _fresh()
-	var lobby := _lobby(saves)
-	lobby.invite("甲", "乙", "classroom", ONLINE, NOW)
-	saves["乙"]["stamina"] = 3
-	check_eq(str(lobby.answer("甲", "乙", "classroom", true, ONLINE, NOW)["error"]), "stamina", "接受时不够就进不去")
-	check(lobby.room == null, "不成局")
-	check_eq(int(saves["甲"]["stamina"]), 100, "没成局不扣体力")
-	saves["乙"]["stamina"] = 100
-	lobby.invite("甲", "乙", "classroom", ONLINE, NOW)
-	saves["甲"]["stamina"] = 1
-	check_eq(str(lobby.answer("甲", "乙", "classroom", true, ONLINE, NOW)["error"]), "stamina", "邀请方中间花掉了也进不去")
-	check(lobby.room == null, "不成局")
 
 
 func test_answer_inviter_gone() -> void:

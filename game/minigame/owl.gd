@@ -87,7 +87,10 @@ func _ready() -> void:
 		for seat in Party.count():
 			_actors[seat].apply_look(seat)
 	else:
-		_actors[_my_seat].apply_look(0)
+		# 服务器那一局：谁的座位按谁报上来的形象长（以前只有自己那格刷了，别人全是色块）
+		for seat in OwlRound.SEATS:
+			if _is_human(seat):
+				_actors[seat].apply_look_of(_net.seat_look(seat))
 
 	# 头顶挂名字：谁是谁全靠它
 	for i in _actors.size():

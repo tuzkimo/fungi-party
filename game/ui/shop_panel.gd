@@ -28,6 +28,8 @@ func _ready() -> void:
 	root.theme = UIStyle.theme()
 	add_child(root)
 	_root = root
+	# 站在 POI 跟前时右上角那两个按钮要让位（见 InvitePanel.poi_overlay_open）
+	add_to_group("poi_panel")
 
 	var dim := ColorRect.new()
 	dim.name = "Dim"

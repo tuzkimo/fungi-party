@@ -212,15 +212,15 @@ func _feed_net() -> void:
 		_net.send_input({"dash": true})
 
 
-## 四个座位各一个视图：自己负责的座位用自己的体型和皮肤，其余（人机 / 别人）是染色蘑菇。
+## 四个座位各一个视图：真人按自己的体型皮肤长（联机时按他报上来的形象），人机是染色蘑菇。
 func _spawn_views() -> void:
 	for seat in Config.SEAT_COUNT:
+		var look := _seat_look(seat)
 		if _seats.has(seat):
 			var player := RacePlayer.new()
 			player.name = "Player%d" % seat
 			add_child(player)
-			# 服务器那一局座位号是服务器给的，形象还是本机 0 号那一身
-			player.setup_player(seat if _net == null else 0)
+			player.setup_player(look)
 			player.apply(_round.racers[seat], 0.0)
 			player.set_label(_seat_name(seat))
 			_views.append(player)
@@ -228,10 +228,25 @@ func _spawn_views() -> void:
 			var rival := RacerVisual.new()
 			rival.name = "Racer%d" % seat
 			add_child(rival)
-			rival.setup(_colors[seat])
+			rival.setup(_colors[seat], look)
 			rival.apply(_round.racers[seat], 0.0)
 			rival.set_label(_seat_name(seat))
 			_views.append(rival)
+
+
+## 这一格是不是真人：联机看服务器的座位表，单机看 Party
+func _is_human(seat: int) -> bool:
+	if _net == null:
+		return Party.human(seat)
+	var seats: Array = _net.session.get("seats", [])
+	return seat >= 0 and seat < seats.size() and not bool((seats[seat] as Dictionary).get("npc", false))
+
+
+## 这一格的人长什么样：人机给空（用颜色认人），真人按座位表里那个账号报上来的形象
+func _seat_look(seat: int) -> Dictionary:
+	if not _is_human(seat):
+		return {}
+	return _net.seat_look(seat) if _net != null else Party.look(seat)
 
 
 ## 一个座位就是整块屏（服务器那一局、本机单人）。双人：左右各一个 SubViewport，共用同一份 World3D。

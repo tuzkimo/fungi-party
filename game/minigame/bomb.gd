@@ -71,10 +71,10 @@ func _ready() -> void:
 		seat.name = "Seat%d" % i
 		seat.position = BombSeat.seat_position(i)
 		add_child(seat)
-		# 本机的人按自己的体型皮肤长，别人（含远端真人和人机）用色块认人
-		var look := i if _net == null and _is_human(i) else -1
-		if _net != null and i == _my_seat:
-			look = 0
+		# 真人按自己的体型皮肤长（联机时按他报上来的形象），人机用色块认人
+		var look := {}
+		if _is_human(i):
+			look = _net.seat_look(i) if _net != null else Party.look(i)
 		seat.setup(SEAT_COLORS[i], look)
 		seat.set_label(str(_names[i]))
 		_seats.append(seat)

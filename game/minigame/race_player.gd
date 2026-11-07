@@ -8,8 +8,8 @@ const TURN := 0.6
 var _walk_phase := 0.0
 
 
-func setup_player(seat: int) -> void:
-	setup(Color.WHITE, seat)
+func setup_player(look: Dictionary) -> void:
+	setup(Color.WHITE, look)
 
 
 func apply(racer: RaceRacer, delta: float) -> void:

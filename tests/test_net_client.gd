@@ -18,20 +18,23 @@ func test_take_events_without_a_game_is_empty() -> void:
 	client.free()
 
 
-## 帐篷 / 饭店的置灰和服务器那道门槛看同一个东西：服务器给的 now 对上次的时间戳
-func test_server_now_drives_the_cooldown() -> void:
+## 座位形象：自己那份按本机存档，别人按他 MOVE 报上来的 body / skin（别再画成 NPC 色块）
+func test_seat_look_prefers_the_players_own_look() -> void:
 	var client := NetClient.new()
-	check(client.server_now() > 0.0, "还没收到 WORLD 就用本机时间兜底（只用来画倒计时）")
-	client.now = 1_700_000_000.0
-	check_eq(client.server_now(), 1_700_000_000.0, "收到过就只认服务器那份")
-	Save.remote = client
-	client.data = Save.normalize({"sleep_at": 1_700_000_030.0})
-	check(Save.sleep_wait() > 0.0, "离上次睡觉还没到点")
-	client.data = Save.normalize({"sleep_at": 1_700_000_000.0 - Config.SLEEP_COOLDOWN_SECONDS})
-	check_eq(Save.sleep_wait(), 0.0, "过点了就能睡")
-	client.data = Save.normalize({})
-	check_eq(Save.sleep_wait(), 0.0, "老存档没睡过 → 立刻能睡")
-	Save.remote = null
+	client.player_name = "我"
+	client.session = {
+		"seats": [
+			{"account": "我", "npc": false},
+			{"account": "别人", "npc": false},
+			{"account": "", "npc": true},
+		],
+	}
+	client.world = {"别人": {"body": "seafood", "skin": "poop"}}
+	check_eq(str(client.seat_look(0)["body"]), str(Save.read()["character"]), "自己按存档")
+	var other := client.seat_look(1)
+	check_eq([str(other["body"]), str(other["skin"])], ["seafood", "poop"], "别人按他报上来的形象")
+	var unknown := client.seat_look(5)
+	check_eq(str(unknown["body"]), str(Save.read()["character"]), "座位表里没有就按自己那份")
 	client.free()
 
 
