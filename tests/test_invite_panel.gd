@@ -136,3 +136,23 @@ func test_unknown_kind_falls_back_to_the_id() -> void:
 func test_error_text() -> void:
 	check_eq(InvitePanel.error_text("stamina"), "体力不够", "体力不够有中文解释")
 	check_eq(InvitePanel.error_text("whatever"), "whatever", "不认识的原样显示")
+
+
+## 面板底下的「退出登录」：按一下只发信号（断开和清凭据归 main.gd）。
+func test_logout_button_emits() -> void:
+	var panel := _open()
+	var out := []
+	panel.logout_pressed.connect(func() -> void: out.append(true))
+	var all: Array = []
+	_all_buttons(panel._panel, all)
+	var logout: Button = null
+	for b in all:
+		if b.text == "退出登录":
+			logout = b
+	check(logout != null, "面板上有退出登录")
+	if logout != null:
+		panel._panel.visible = true
+		logout.pressed.emit()
+	check_eq(out.size(), 1, "发一次信号")
+	check(not panel._panel.visible, "按完把面板收起来")
+	panel.free()

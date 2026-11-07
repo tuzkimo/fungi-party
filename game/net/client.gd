@@ -22,6 +22,8 @@ enum State { IDLE, CONNECTING, AUTH, READY, DEAD }
 var data := {}
 var player_name := ""
 var state := State.IDLE
+## 这次登录用的那份凭证（口令派生的密钥，服务器上存的就是它）。自动登录只认它，口令本身不落盘。
+var key_hex := ""
 
 var _peer: ENetMultiplayerPeer
 var _password := ""
@@ -51,9 +53,19 @@ var _in_room := false
 
 ## 登录（名字不存在就是注册，服务器自己认）。结果走 logged_in / failed。
 func connect_to(host: String, port: int, name: String, password: String) -> void:
+	_start(host, port, name)
+	_password = password
+
+
+## 自动登录：用上次存下的密钥，不再问口令。服务器不认就走 failed("auth")。
+func connect_with_key(host: String, port: int, name: String, saved_key: String) -> void:
+	_start(host, port, name)
+	key_hex = saved_key
+
+
+func _start(host: String, port: int, name: String) -> void:
 	close()
 	player_name = name
-	_password = password
 	_peer = ENetMultiplayerPeer.new()
 	var err := _peer.create_client(host, port)
 	if err != OK:
@@ -74,6 +86,7 @@ func close() -> void:
 	invites = []
 	session = {}
 	_in_room = false
+	key_hex = ""
 
 
 func ready() -> bool:
@@ -154,6 +167,12 @@ func _process(delta: float) -> void:
 		return
 	_peer.poll()
 	_drain()
+	if _peer == null:
+		return
+	if state != State.CONNECTING and _peer.get_connection_status() == MultiplayerPeer.CONNECTION_DISCONNECTED:
+		# 被服务器踢了（同名账号在别处登录）或者服务器重启了：早点认，别装还在线
+		_dead("closed")
+		return
 	if state == State.CONNECTING:
 		_connecting += delta
 		if _peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
@@ -207,12 +226,21 @@ func _on_challenge(body: Dictionary) -> void:
 	_salt = str(body.get("salt", ""))
 	_nonce = str(body.get("nonce", ""))
 	_exists = bool(body.get("exists", false))
-	var key := NetAuth.derive(_password, NetAuth.unhex(_salt))
+	key_hex = key_for(key_hex, _password, _salt)
+	var key := NetAuth.unhex(key_hex)
 	if _exists:
 		_send(NetProtocol.Msg.PROOF, {"proof": NetAuth.hex(NetAuth.proof(key, NetAuth.unhex(_nonce)))})
 	else:
-		_send(NetProtocol.Msg.PROOF, {"key": NetAuth.hex(key)})
+		_send(NetProtocol.Msg.PROOF, {"key": key_hex})
 	_password = ""
+
+
+## 这次登录用哪把密钥：存过就直接用（自动登录），否则拿口令和服务器给的盐现算。
+## 加密那一万来轮迭代只在这一处，别在调用方各写一遍。
+static func key_for(saved_key: String, password: String, salt_hex: String) -> String:
+	if saved_key != "":
+		return saved_key
+	return NetAuth.hex(NetAuth.derive(password, NetAuth.unhex(salt_hex)))
 
 
 func _on_welcome(body: Dictionary) -> void:
@@ -271,4 +299,8 @@ func _dead(reason: String) -> void:
 		return
 	state = State.DEAD
 	_queue.clear()
+	# 连接要真的关掉：留着的话服务器那边还挂着一个同名会话，下次登录会被它抢走自己那一局的快照
+	if _peer != null:
+		_peer.close()
+		_peer = null
 	failed.emit(reason)

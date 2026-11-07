@@ -7,6 +7,8 @@ extends CanvasLayer
 
 signal invite_pressed(to: String, kind: String)
 signal answer_pressed(from: String, kind: String, accept: bool)
+## 面板底下那个「退出登录」：只发信号，断开和清本机凭据归 main.gd
+signal logout_pressed
 
 ## 款 → 中文名。不在表里的款不摆出来（服务器上也没有）。
 const KIND_NAMES := {
@@ -103,6 +105,14 @@ func _ready() -> void:
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status.visible = false
 	box.add_child(_status)
+
+	var logout := Button.new()
+	logout.name = "Logout"
+	logout.text = "退出登录"
+	logout.custom_minimum_size = BUTTON_SIZE
+	logout.pressed.connect(_on_logout_button)
+	UIStyle.style_button(logout)
+	box.add_child(logout)
 
 	_banner = PanelContainer.new()
 	_banner.name = "Banner"
@@ -241,6 +251,11 @@ func _on_toggle() -> void:
 func _on_invite_button(to: String, kind: String) -> void:
 	_waiting_for = to
 	invite_pressed.emit(to, kind)
+
+
+func _on_logout_button() -> void:
+	_panel.visible = false
+	logout_pressed.emit()
 
 
 func _on_answer_button(accept: bool) -> void:

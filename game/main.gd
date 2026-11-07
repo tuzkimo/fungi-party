@@ -26,16 +26,19 @@ func _ready() -> void:
 	_join_panel.leave_pressed.connect(_on_leave)
 	_invite_panel.invite_pressed.connect(_on_invite)
 	_invite_panel.answer_pressed.connect(_on_answer)
+	_invite_panel.logout_pressed.connect(_on_logout)
 	_first = Player.of_seat(get_tree(), 0)
 	_spawn_second()
 	_net = _ensure_net()
 	_net.join_room.connect(_on_join_room)
 	if _net.ready():
 		# 从小游戏转回来：联网会话还在，不用再登录
+		_start_menu.visible = false
 		_go_online()
 	else:
 		Save.remote = null
 		_start_menu.setup(_net)
+		_start_menu.auto_login()
 		_start_menu.online_ready.connect(_on_online_ready)
 
 
@@ -74,10 +77,24 @@ func _on_online_ready() -> void:
 func _go_online() -> void:
 	Save.remote = _net
 	_refresh_looks()
-	_net.world_changed.connect(_on_world)
-	_net.changed.connect(_on_net_changed)
+	# 登出再登录会走第二遍：已经连过的信号不能重连，否则替身每帧重建两遍
+	if not _net.world_changed.is_connected(_on_world):
+		_net.world_changed.connect(_on_world)
+	if not _net.changed.is_connected(_on_net_changed):
+		_net.changed.connect(_on_net_changed)
 	_invite_panel.set_online(true)
 	_invite_panel.sync(_net.world, _net.invites)
+
+
+## 主动登出：断开连接、清掉别处替身，回到登录表单（存档在服务器上，一样都没丢）。
+func _on_logout() -> void:
+	Save.remote = null
+	for key in _ghosts.keys():
+		(_ghosts[key] as Node).queue_free()
+	_ghosts.clear()
+	_invite_panel.set_online(false)
+	_start_menu.visible = true
+	_start_menu.forget()
 
 
 func _on_invite(to: String, kind: String) -> void:

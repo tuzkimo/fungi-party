@@ -22,6 +22,10 @@
   （`game/ui/invite_panel.gd`，只发信号，发 op 在 `main.gd`）。
   **睡觉一天一次已通**：天色改由服务器世界时钟给（`game/net/clock.gd`，一天 = 真实 4 小时，`WORLD` 里带 `day`），
   睡觉只回体力不再拨太阳，`slept_day` 记在世界时钟的那一天，同一天再睡服务器回 `error: "slept"`、帐篷按钮置灰。
+  **登录记得住**：登录成功把这次用的那把密钥（`NetClient.key_hex`，口令派生的那把它）写进 `user://net.cfg`，
+  开机 `StartMenu.auto_login()` 用它直连，口令本身不落盘；小游戏回森林不再弹启动菜单，
+  邀请面板底下的「退出登录」清掉本机凭据再回登录表单。**一个账号只留一条连接**：新登录把旧连接踢掉
+  （`server_main._kick_others`，否则邀请成局的 `SESSION` 会发给那条已经死掉的连接）。
   接手联机先读 `docs/superpowers/plans/2026-10-25-v7-handoff.md`（现状、约束、下一步、坑都在那一份里）。
 - v5：角色可换 —— 红蘑菇之外加了海鲜菇（细长杆 + 小扁帽 + 四根黑棍手脚 + 腮红，按 `refs/海鲜菇角色设计图.png`），帐篷里免费换；体型与皮肤解耦，15 顶皮肤两个角色都能戴
 - 场景：`game/world/` 森林与 POI、`game/minigame/` 教室/赛跑/传炸弹/猫头鹰喂食、`game/skins/` 15 顶皮肤数据（`.tres`）与 `catalog.gd` 总表、`game/player/body/` 角色体型（红蘑菇 / 海鲜菇，`catalog.gd` 总表）、`game/ui/` HUD 与浮层

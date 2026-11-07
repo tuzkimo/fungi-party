@@ -139,10 +139,26 @@ func _on_proof(from: int, session: Dictionary, body: Dictionary) -> void:
 		print("%s 注册成功" % player_name)
 	session["authed"] = true
 	session["nonce"] = ""
+	_kick_others(from, player_name)
 	_send(from, NetProtocol.Msg.WELCOME, {
 		"name": player_name,
 		"save": Accounts.read(_save_dir, player_name),
 	})
+
+
+## 一个账号只留一条连接：重开客户端 / 换设备登录时，旧的那条（可能已经掉线、ENet 还没收掉）必须让位。
+## 不让位的话 `_peer_of` 会把邀请成局的 SESSION 发给那条死连接，活着的那台永远进不了局。
+## 先擦再踢：`_on_disconnect` 看到会话已不在，就不会把新玩家从房里拉出来。
+func _kick_others(keep: int, player_name: String) -> void:
+	for id in _sessions.keys():
+		var other: Dictionary = _sessions[id]
+		if int(id) == keep or str(other.get("name", "")) != player_name:
+			continue
+		if not bool(other.get("authed", false)):
+			continue
+		_sessions.erase(id)
+		_peer.disconnect_peer(int(id))
+		print("%s 在新连接上登录，旧连接被踢" % player_name)
 
 
 func _on_op(from: int, session: Dictionary, body: Dictionary) -> void:
