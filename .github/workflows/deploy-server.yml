@@ -73,6 +73,8 @@ jobs:
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
     steps:
+      # deploy 也要 checkout：重启/健康检查跑的是仓库里的 deploy/remote-restart.sh
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: fungi-party-server
