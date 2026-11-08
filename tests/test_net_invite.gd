@@ -275,3 +275,64 @@ func test_disconnect_still_pays() -> void:
 	for i in 5:
 		lobby.tick(1.0 / 20.0)
 	check(int(saves["甲"]["coins"]) > 0, "掉线的人照样结账")
+
+
+## 捉迷藏：角色由「接受的人」选；输的付 5 币，扣不满就按他现有的扣。
+func _hide_room(lobby: NetLobby, role: String) -> Dictionary:
+	lobby.invite("甲", "乙", "hide", ONLINE, NOW)
+	return lobby.answer("甲", "乙", "hide", true, ONLINE, NOW, role)
+
+
+func test_hide_roles() -> void:
+	var lobby := _lobby(_fresh())
+	var r := _hide_room(lobby, "hide")
+	check(bool(r["ok"]), "捉迷藏能开局")
+	var model := lobby.room.model as HideRound
+	check_eq(model.hider_seat, 1, "接受的人选了藏 → 1 号座藏")
+	check_eq(model.seeker_seat, 0, "发起的人找")
+	var lobby2 := _lobby(_fresh())
+	_hide_room(lobby2, "seek")
+	check_eq((lobby2.room.model as HideRound).hider_seat, 0, "接受的人选了找 → 发起的人藏")
+
+
+func test_hide_bad_role() -> void:
+	var lobby := _lobby(_fresh())
+	lobby.invite("甲", "乙", "hide", ONLINE, NOW)
+	var r := lobby.answer("甲", "乙", "hide", true, ONLINE, NOW, "nope")
+	check_eq(str(r["error"]), "role", "角色不合法就拒")
+	check(lobby.room == null, "拒了不开房")
+
+
+func test_hide_payout_win_and_loss() -> void:
+	var saves := _fresh()
+	saves["甲"]["coins"] = 20
+	saves["乙"]["coins"] = 20
+	var lobby := _lobby(saves)
+	_hide_room(lobby, "hide")
+	lobby.room.tick(Config.HIDE_COUNTDOWN + 0.1)
+	lobby.room.model.forfeit(1)          # 藏的人放弃
+	lobby.tick(0.1)
+	check_eq(int(saves["甲"]["coins"]), 25, "赢家 +5")
+	check_eq(int(saves["乙"]["coins"]), 15, "输家 -5")
+
+
+func test_hide_payout_short_on_cash() -> void:
+	var saves := {"甲": {"coins": 3}, "乙": {"coins": 1}}
+	var lobby := _lobby(saves)
+	_hide_room(lobby, "hide")
+	lobby.room.tick(Config.HIDE_COUNTDOWN + 0.1)
+	lobby.room.model.forfeit(0)          # 只有 3 币的找的人放弃
+	lobby.tick(0.1)
+	check_eq(int(saves["甲"]["coins"]), 0, "输家最多扣到 0")
+	check_eq(int(saves["乙"]["coins"]), 4, "赢家拿实际扣到的 3 币")
+
+
+func test_hide_drop_ends_without_pay() -> void:
+	var saves := _fresh()
+	var lobby := _lobby(saves)
+	_hide_room(lobby, "hide")
+	lobby.drop("乙", PackedStringArray(["甲"]))
+	check_eq(lobby.room.over, true, "有人掉线就立刻收局")
+	lobby.tick(0.1)
+	check_eq(int(saves["甲"]["coins"]), 0, "掉线不结账")
+	check_eq(lobby.room.paid, false, "没写盘就不算结过账")

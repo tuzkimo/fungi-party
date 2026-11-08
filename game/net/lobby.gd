@@ -10,7 +10,7 @@ extends RefCounted
 
 ## 已经搬上服务器的几款：只有这些能开局。其余几款还在客户端跑单机逻辑，
 ## 邀进去等于白占着「同时 1 房」。每搬完一款往这里加一条。
-const MODELLED: Array[String] = ["classroom", "bomb", "owl", "race"]
+const MODELLED: Array[String] = ["classroom", "bomb", "owl", "race", "hide"]
 
 ## 被邀请人账号 → {from, kind, at}。同一时刻只留最新的一条，重发即覆盖。
 var pending := {}
@@ -45,7 +45,11 @@ func invite(from: String, to: String, kind: String, online: PackedStringArray, n
 
 ## 回答邀请。接受时两人各扣一次体力并成局，返回 {ok, error, result, room, saves}。
 ## saves 是两边的新存档：调用方要落盘，并把各自的发给各自（被邀请人那份也会随 op 回执走）。
-func answer(from: String, to: String, kind: String, accept: bool, online: PackedStringArray, now: float) -> Dictionary:
+## `role` 只有捉迷藏用：接受的人自己选「我藏」（`hide`）还是「我找」（`seek`），不选就拒。
+func answer(
+	from: String, to: String, kind: String, accept: bool,
+	online: PackedStringArray, now: float, role := ""
+) -> Dictionary:
 	var found: Variant = pending.get(to, null)
 	if found == null:
 		return {"ok": false, "error": "invite"}
@@ -57,6 +61,8 @@ func answer(from: String, to: String, kind: String, accept: bool, online: Packed
 		return {"ok": false, "error": "expired"}
 	if not accept:
 		return {"ok": true, "result": {"accepted": false}}
+	if kind == "hide" and role != "hide" and role != "seek":
+		return {"ok": false, "error": "role"}
 	if room != null:
 		return {"ok": false, "error": "busy"}
 	if not online.has(from):
@@ -64,6 +70,10 @@ func answer(from: String, to: String, kind: String, accept: bool, online: Packed
 	room = NetRoom.create(kind, [from, to], randi())
 	if room == null:
 		return {"ok": false, "error": "room"}
+	if kind == "hide":
+		var hider := to if role == "hide" else from
+		var seeker := from if role == "hide" else to
+		(room.model as HideRound).assign(room.seat_of(hider), room.seat_of(seeker))
 	settled = false
 	_clear_invites(from)
 	_clear_invites(to)
@@ -96,11 +106,26 @@ func leave(name: String, settle: bool = true) -> void:
 			settled = true
 
 
+## 按「放弃」（`leave_room`）：捉迷藏里就是认输，对方赢、照常结账。
+## 其它四款保持老规矩（主动走不结账，否则炸弹里走人等于白拿第一）。
+func forfeit(name: String) -> void:
+	if room != null and room.kind == "hide" and room.seat_of(name) >= 0:
+		if (room.model as HideRound).forfeit(room.seat_of(name)):
+			room.over = true
+			room.winner = int(room.model.winner)
+		return
+	leave(name, false)
+
+
 ## 掉线（不是主动走）：别人还在这一局里就让他那格空着打完，一个不剩了才收局结账。
 ## 一个人手机掉网不能把另一个人的一局瞬间结算掉 —— 真机上就是这么丢了整局。
 func drop(name: String, online: PackedStringArray) -> void:
 	_clear_invites(name)
 	if room == null or room.seat_of(name) < 0:
+		return
+	# 捉迷藏少一个人就没法玩：立刻收局，掉线不赔钱
+	if room.kind == "hide":
+		leave(name, false)
 		return
 	for seat in room.seats:
 		if not bool(seat["npc"]) and online.has(str(seat["account"])):
@@ -126,9 +151,28 @@ func _settle() -> void:
 	if room.elapsed < Config.NET_SETTLE_MIN_SECONDS:
 		return
 	var payouts := room.payouts()
+	# 负的一边按余额封顶（不够就扣到 0），实际扣下来的总额再给收钱的人，
+	# 不这么写「输家破产」就等于让服务器凭空印币 —— 钱包只有一个来源。
+	var pot := 0
+	var credit_total := 0
+	for name in payouts:
+		var delta := int(payouts[name])
+		if delta > 0:
+			credit_total += delta
+		elif delta < 0:
+			var save := _read.call(str(name)) as Dictionary
+			pot += mini(-delta, maxi(0, int(save.get("coins", 0))))
 	for name in payouts:
 		var save := (_read.call(str(name)) as Dictionary).duplicate(true)
-		save["coins"] = int(save.get("coins", 0)) + int(payouts[name])
+		var delta := int(payouts[name])
+		var coins := int(save.get("coins", 0))
+		if delta < 0:
+			save["coins"] = coins - mini(-delta, maxi(0, coins))
+		elif delta > 0 and credit_total > 0:
+			# 有钱进就有钱出：有欠账（pot）时只能分到实收的那份，全是收入（pot = 0）时是游戏挣的
+			var pool := pot if pot > 0 else credit_total
+			var share := int(round(float(pool) * float(delta) / float(credit_total)))
+			save["coins"] = coins + mini(delta, share)
 		_write.call(str(name), save)
 	# 写完了才算「结了账」：快照里的收益和存档里的币必须是同一份
 	room.paid = true

@@ -46,6 +46,8 @@ func test_invitable_skips_the_second_player() -> void:
 func test_only_modelled_games_are_offered() -> void:
 	var kinds := InvitePanel.kinds()
 	for kind in NetLobby.MODELLED:
+		if kind == "hide":
+			continue   # 捉迷藏只能走到跟前发起，不进右上角面板
 		check(kinds.has(kind), "%s 搬上服务器了就能邀请" % kind)
 	check(kinds.has("race"), "赛跑也能邀请了")
 
