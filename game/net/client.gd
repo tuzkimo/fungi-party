@@ -38,6 +38,8 @@ var world := {}
 var clock := Config.MORNING_TIME
 ## 世界上第几天：服务器给，只当天色的一部分（体力恢复跟它没关系了）
 var day := 1
+## 森林里是否正在捉迷藏：所有人靠它藏名字（观战的人没有 SESSION，只能读这个）
+var hide_round := false
 ## 谁在邀请我：[{from, kind}]，跟着 WORLD 一起来
 var invites := []
 ## 我所在的这一局（服务器发的快照）；空 = 不在局里
@@ -85,6 +87,7 @@ func close() -> void:
 	data = {}
 	invites = []
 	session = {}
+	hide_round = false
 	_in_room = false
 	key_hex = ""
 
@@ -224,6 +227,7 @@ func _drain() -> void:
 				world.erase("%s|1" % str(body.get("me", player_name)))
 				clock = float(body.get("clock", clock))
 				day = int(body.get("day", day))
+				hide_round = bool(body.get("hide", false))
 				invites = body.get("invites", [])
 				world_changed.emit()
 			NetProtocol.Msg.SESSION:

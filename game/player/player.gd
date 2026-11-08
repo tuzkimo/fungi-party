@@ -16,6 +16,10 @@ var seat := 0
 var leader: Node3D = null
 
 var speed_input := Vector2.ZERO
+## 捉迷藏：找的人在倒数里站住不动（锁输入，重力照旧）
+var input_locked := false
+## 捉迷藏：藏的人在找的阶段降速
+var speed_scale := 1.0
 var _name: NameTag = null
 var _touch: TouchControls = null
 var _prev_touch_held := false
@@ -136,7 +140,9 @@ func _physics_process(delta: float) -> void:
 	var dir := Vector3.ZERO
 	var speed := Config.WALK_SPEED
 	var want_jump := false
-	if leader != null and is_instance_valid(leader):
+	if input_locked:
+		speed_input = Vector2.ZERO
+	elif leader != null and is_instance_valid(leader):
 		speed = _follow_speed()
 		dir = _follow_direction()
 		speed_input = Vector2(dir.x, dir.z)
@@ -147,6 +153,7 @@ func _physics_process(delta: float) -> void:
 		speed_input = input
 		speed = Config.RUN_SPEED if Input.is_action_pressed("run") else Config.WALK_SPEED
 		dir = Player.resolve_direction(input, _cam.global_rotation.y if _cam != null else 0.0)
+	speed *= speed_scale
 
 	var on_floor := is_on_floor()
 	var accel := Config.ACCEL if on_floor else Config.ACCEL * Config.AIR_CONTROL

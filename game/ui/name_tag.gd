@@ -14,6 +14,10 @@ const FADE_MARGIN := 8.0
 ## 不淡的时候的透明度（名字不能太抢眼）
 const BASE_ALPHA := 0.92
 
+## 捉迷藏期间整座森林都不挂名字（不然远处一眼就认出「那个是 XX」）。
+## 所有人（含观战的人）都读这一位，由 `HideGame` 按服务器的 WORLD 标记置位。
+static var hidden := false
+
 
 ## 挂到 host 头顶 height 处（host 通常是角色那个 Node3D，y=0 是脚底）。
 static func attach(host: Node3D, text: String, height: float) -> NameTag:
@@ -38,5 +42,5 @@ func _process(_delta: float) -> void:
 		return
 	var distance := global_position.distance_to(camera.global_position)
 	var fade := clampf((FADE_END - distance) / FADE_MARGIN, 0.0, 1.0)
-	visible = fade > 0.0
+	visible = fade > 0.0 and not hidden
 	modulate.a = BASE_ALPHA * fade

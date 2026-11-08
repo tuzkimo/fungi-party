@@ -61,7 +61,11 @@ func _ensure_net() -> NetClient:
 func _on_join_room() -> void:
 	if _net == null:
 		return
-	var path := NetRoom.scene_path(str(_net.session.get("kind", "")))
+	var kind := str(_net.session.get("kind", ""))
+	if kind == "hide":
+		# 捉迷藏留在森林里打：不换场景，HideGame 自己按 SESSION 驱动
+		return
+	var path := NetRoom.scene_path(kind)
 	if path == "":
 		push_error("服务器给的 kind 不认识：%s" % str(_net.session.get("kind", "")))
 		return
