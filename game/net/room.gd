@@ -4,8 +4,8 @@ extends RefCounted
 ## 一局的骨架：座位表、时钟、规则模型。服务器只跑这里的 RefCounted 东西，绝不实例化 3D 场景。
 ## 座位秩序沿用全项目的规矩：真人占 0..n-1（由调用方排好），人机从 n 往后补。
 
-## 四款小游戏，和 game/minigame/ 下的场景一一对应
-const KINDS: Array[String] = ["classroom", "bomb", "owl", "race"]
+## 五款：前四款是独立场景的小游戏，`hide` 是唯一一款留在森林里打的（`scene_path` 返回空串）
+const KINDS: Array[String] = ["classroom", "bomb", "owl", "race", "hide"]
 
 var kind := ""
 ## 长度恒为 Config.SEAT_COUNT，每格 {account: String, npc: bool}；人机格 account 为空
@@ -83,6 +83,17 @@ func input(account: String, payload: Dictionary) -> bool:
 		return true
 	if kind == "race":
 		return _race_input(seat, payload)
+	if kind == "hide":
+		# 捉迷藏只有「点一下捉到」这一种输入；位置另走 MOVE，不在这里
+		var hit: Variant = payload.get("catch", false)
+		if typeof(hit) != TYPE_BOOL:
+			return false
+		if bool(hit):
+			(model as HideRound).catch(seat)
+			# 捉到就是「这一局结束了」：别等下一次 tick 才让 _settle 看见
+			over = bool(model.over)
+			winner = int(model.winner)
+		return true
 	var held: Variant = payload.get("press", false)
 	if typeof(held) != TYPE_BOOL:
 		return false
@@ -134,6 +145,9 @@ func tick(delta: float) -> void:
 	elif kind == "race":
 		# 赛跑的横移和跳/冲也都已经进了模型，这里只推时间
 		(model as RaceRound).tick(delta)
+	elif kind == "hide":
+		# 捉迷藏的位置由 MOVE 直接喂进模型，也不用人机补位
+		(model as HideRound).tick(delta)
 	else:
 		var press: Array[bool] = []
 		for i in seats.size():
@@ -186,6 +200,8 @@ func _build_model() -> void:
 			model = owl
 		"race":
 			model = RaceRound.new(session_seed, human_count())
+		"hide":
+			model = HideRound.new()
 
 
 func human_count() -> int:

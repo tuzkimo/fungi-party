@@ -280,3 +280,18 @@ func test_race_tick_needs_no_press_array() -> void:
 	var game: Dictionary = room.snapshot()["game"]
 	check(float(game["countdown"]) <= 0.0, "倒数走完了")
 	check(float((game["racers"] as Array)[0]["z"]) > 1.0, "服务器上真人也在跑")
+
+
+## 捉迷藏是第一种「不换场景」的对局：房建在服务器上，场景还是森林。
+func test_hide_room() -> void:
+	var room := NetRoom.create("hide", ["甲", "乙"])
+	check(room != null, "hide 房能建")
+	check(room.model is HideRound, "模型是 HideRound")
+	check_eq(NetRoom.scene_path("hide"), "", "捉迷藏不换场景")
+	check_eq(room.input("甲", {"catch": "yes"}), false, "catch 必须是真布尔")
+	room.tick(Config.HIDE_COUNTDOWN + 0.1)
+	room.model.feed(1, 0, Vector3.ZERO)
+	room.model.feed(0, 0, Vector3(0, 0, 1.0))
+	check_eq(room.input("甲", {"catch": true}), true, "合法 catch 被收下")
+	check_eq(room.over, true, "捉到就收局")
+	check_eq(room.payouts(), {"甲": Config.HIDE_STAKE, "乙": -Config.HIDE_STAKE}, "两边各结一份")

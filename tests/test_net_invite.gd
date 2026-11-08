@@ -173,6 +173,8 @@ func test_room_clock_and_hard_stop() -> void:
 
 func test_scene_path_for_every_kind() -> void:
 	for kind in NetRoom.KINDS:
+		if kind == "hide":
+			continue   # 捉迷藏留在森林里打，没有自己的场景
 		check(NetRoom.scene_path(kind) != "", "%s 有场景" % kind)
 	check_eq(NetRoom.scene_path("nope"), "", "不认识的 kind 没有场景")
 	check_eq(NetRoom.scene_path("classroom"), Config.CLASSROOM_PATH, "教室场景路径")
