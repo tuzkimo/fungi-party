@@ -206,3 +206,23 @@ const HIDE_CATCH := 2.5
 const HIDE_STAKE := 5
 ## 找的阶段藏的人速度倍率：不降速就是赛跑，同速永远捉不到
 const HIDE_HIDER_SPEED := 0.5
+
+## 森林里的藏点（v8）：位置只影响这里的几何，树和石头都会绕开。
+## `face` 只给 crates 用：朝目标建筑的方向（高那个箱子摆在那一侧）。
+const HIDE_SPOTS: Array[Dictionary] = [
+	{"kind": "stone", "pos": Vector3(17.0, 0.0, 14.0)},
+	{"kind": "stone", "pos": Vector3(-17.0, 0.0, -16.0)},
+	{"kind": "stone", "pos": Vector3(24.0, 0.0, -18.0)},
+	{"kind": "stone", "pos": Vector3(-24.0, 0.0, 16.0)},
+	{"kind": "stone", "pos": Vector3(33.0, 0.0, 4.0)},
+	{"kind": "stone", "pos": Vector3(-33.0, 0.0, -4.0)},
+	{"kind": "crates", "pos": Vector3(12.4, 0.0, 2.0), "face": Vector3(-1.0, 0.0, 0.0)},
+	{"kind": "crates", "pos": Vector3(3.4, 0.0, -11.0), "face": Vector3(1.0, 0.0, 0.0)},
+	{"kind": "crates", "pos": Vector3(-7.0, 0.0, -13.4), "face": Vector3(0.0, 0.0, 1.0)},
+	{"kind": "log", "pos": Vector3(26.0, 0.0, 6.0)},
+	{"kind": "log", "pos": Vector3(-26.0, 0.0, -22.0)},
+	{"kind": "cave", "pos": Vector3(30.0, 0.0, 18.0)},
+	{"kind": "cave", "pos": Vector3(-30.0, 0.0, -10.0)},
+	{"kind": "cap", "pos": Vector3(14.0, 0.0, 28.0)},
+	{"kind": "cap", "pos": Vector3(-14.0, 0.0, -28.0)},
+]

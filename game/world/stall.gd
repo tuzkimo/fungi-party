@@ -16,6 +16,16 @@ func _ready() -> void:
 
 	_box("Counter", Vector3(2.4, 0.9, 0.8), Vector3(0.0, 0.45, 0.0), _solid(WOOD))
 	_box("Awning", Vector3(3.0, 0.12, 2.0), Vector3(0.0, 2.3, -0.2), _solid(CLOTH))
+	# 顶棚得能站人（木箱梯子上得去）：只有碰撞，不加格子，看得见的还是那块布
+	var awning := StaticBody3D.new()
+	awning.name = "AwningBody"
+	var awning_shape := CollisionShape3D.new()
+	var awning_box := BoxShape3D.new()
+	awning_box.size = Vector3(3.0, 0.16, 2.0)
+	awning_shape.shape = awning_box
+	awning_shape.position = Vector3(0.0, 2.3, -0.2)
+	awning.add_child(awning_shape)
+	add_child(awning)
 	for side in [-1.0, 1.0]:
 		for far in [-1.0, 1.0]:
 			_box("Post", Vector3(0.08, 2.3, 0.08), Vector3(side * 1.4, 1.15, -0.2 + far * 0.88), _solid(WOOD))

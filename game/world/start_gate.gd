@@ -20,6 +20,16 @@ func _ready() -> void:
 	_box("PostLeft", Vector3(0.24, 2.6, 0.24), Vector3(-1.2, 1.3, 0.0), post)
 	_box("PostRight", Vector3(0.24, 2.6, 0.24), Vector3(1.2, 1.3, 0.0), post)
 	_box("Lintel", Vector3(2.7, 0.3, 0.32), Vector3(0.0, 2.6, 0.0), _solid(FLAG_COLOR))
+	# 门楣能站人（木箱梯子上去就是一棵树的树冠高度）：只给碰撞
+	var lintel := StaticBody3D.new()
+	lintel.name = "LintelBody"
+	var lintel_shape := CollisionShape3D.new()
+	var lintel_box := BoxShape3D.new()
+	lintel_box.size = Vector3(2.7, 0.32, 0.32)
+	lintel_shape.shape = lintel_box
+	lintel_shape.position = Vector3(0.0, 2.6, 0.0)
+	lintel.add_child(lintel_shape)
+	add_child(lintel)
 	_box("Line", Vector3(2.2, 0.02, 0.4), Vector3(0.0, 0.01, 0.9), _solid(LINE_COLOR))
 
 	_area = Area3D.new()

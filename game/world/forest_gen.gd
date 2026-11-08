@@ -9,6 +9,9 @@ extends Node3D
 @export var seed_value := 1
 @export var clear_radius := 6.0
 
+## 撒完的树（x/z）：藏点的垫脚石要按真树位摆（见 HideSpots）
+var trees: Array[Vector3] = []
+
 const TRUNK_TRIS_SEGMENTS := 6
 ## POI 跟前的净空：树长进帐篷/饭店里比空地难看
 const POI_CLEARANCE := 3.5
@@ -50,7 +53,12 @@ func generate() -> void:
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
-	var spots := ForestGen.scatter_positions(rng, tree_count, radius, clear_radius, Config.POI_SPOTS)
+	# 树和石头都要避开 POI 和藏点：垫脚石不能长在树心里
+	var keep_out: Array[Vector3] = []
+	keep_out.append_array(Config.POI_SPOTS)
+	keep_out.append_array(HideSpots.spots())
+	var spots := ForestGen.scatter_positions(rng, tree_count, radius, clear_radius, keep_out)
+	trees = spots
 
 	var trunk_mesh := CylinderMesh.new()
 	trunk_mesh.top_radius = 0.16
@@ -102,17 +110,18 @@ func generate() -> void:
 		index += 1
 		canopy_index += 2
 
-	_build_rocks(rng)
+	_build_rocks(rng, keep_out)
+	HideSpots.build(self, trees, rng)
 
 
-func _build_rocks(rng: RandomNumberGenerator) -> void:
+func _build_rocks(rng: RandomNumberGenerator, keep_out: Array[Vector3]) -> void:
 	var rock_mesh := SphereMesh.new()
 	rock_mesh.radius = 0.6
 	rock_mesh.height = 0.9
 	rock_mesh.radial_segments = 8
 	rock_mesh.rings = 4
 
-	var spots := ForestGen.scatter_positions(rng, rock_count, radius, clear_radius, Config.POI_SPOTS)
+	var spots := ForestGen.scatter_positions(rng, rock_count, radius, clear_radius, keep_out)
 	var rocks := _multimesh("Rocks", rock_mesh, rock_count, rng)
 	for i in spots.size():
 		var scale_factor := rng.randf_range(0.5, 1.6)

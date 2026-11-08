@@ -47,16 +47,25 @@ func _ready() -> void:
 	sign_bowl.material_override = _solid(BOWL)
 	add_child(sign_bowl)
 
-	# 整栋房子的碰撞：相机射线拦得住，玩家也进不去（本来就不做室内）
+	# 整栋房子的碰撞：墙只做到 2.2 米（跟视觉墙一样高），再单给两块斜屋顶做碰撞——
+	# 原来一块 2.9 米的实心 box 顶面是平的，站上去会插进斜板里
 	var shell := StaticBody3D.new()
 	shell.name = "Shell"
 	add_child(shell)
 	var shell_shape := CollisionShape3D.new()
 	var shell_box := BoxShape3D.new()
-	shell_box.size = Vector3(4.4, 2.9, 4.0)
+	shell_box.size = Vector3(4.4, 2.2, 4.0)
 	shell_shape.shape = shell_box
-	shell_shape.position = Vector3(0.0, 1.45, 0.0)
+	shell_shape.position = Vector3(0.0, 1.1, 0.0)
 	shell.add_child(shell_shape)
+	for side in [-1.0, 1.0]:
+		var roof_shape := CollisionShape3D.new()
+		var roof_box := BoxShape3D.new()
+		roof_box.size = Vector3(2.6, 0.2, 4.6)
+		roof_shape.shape = roof_box
+		roof_shape.position = Vector3(side * 1.15, 2.75, 0.0)
+		roof_shape.rotation = Vector3(0.0, 0.0, -side * ROOF_ANGLE)
+		shell.add_child(roof_shape)
 
 	_area = Area3D.new()
 	_area.name = "Trigger"
