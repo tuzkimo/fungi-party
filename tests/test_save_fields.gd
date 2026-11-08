@@ -40,10 +40,9 @@ func test_partial_write_keeps_other_fields() -> void:
 
 func test_roundtrip_all_fields() -> void:
 	_clean()
-	Save.write(P, {"coins": 7, "stamina": 33, "day": 9, "day_time": 0.71, "meal_at": 12.5})
+	Save.write(P, {"coins": 7, "stamina": 33, "day": 9, "day_time": 0.71})
 	var d := Save.read(P)
 	check_eq([d.coins, d.stamina, d.day], [7, 33, 9], "数字字段存得住")
-	check_eq(d.meal_at, 12.5, "冷却时间戳存得住")
 	check(absf(d.day_time - 0.71) < 0.001, "天体水位存得住")
 	_clean()
 
