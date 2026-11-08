@@ -21,3 +21,11 @@ func test_lock_and_speed() -> void:
 	check_eq(HideGame.speed_scale("seeking", true), Config.HIDE_HIDER_SPEED, "找的阶段藏的人降速")
 	check_eq(HideGame.speed_scale("countdown", true), 1.0, "倒数阶段不降速")
 	check_eq(HideGame.speed_scale("over", true), 1.0, "收了局恢复满速")
+
+
+func test_hint_and_result_text() -> void:
+	check_eq(HideGame.hint_text("countdown", true), "别偷看", "找的人在倒数里别看")
+	check_eq(HideGame.hint_text("seeking", false), "藏好，别动", "藏的人提示")
+	check_eq(HideGame.result_text(5), "你赢了 +5 蘑菇币", "赢了")
+	check_eq(HideGame.result_text(-5), "你输了 5 蘑菇币", "输了")
+	check_eq(HideGame.result_text(0), "这一局没算钱", "没结账")

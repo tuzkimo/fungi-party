@@ -6,7 +6,7 @@ extends CanvasLayer
 ## 动态拼的文字只用 ASCII 标点：系统字体不一定有全角 （），真机上是豆腐块。
 
 signal invite_pressed(to: String, kind: String)
-signal answer_pressed(from: String, kind: String, accept: bool)
+signal answer_pressed(from: String, kind: String, accept: bool, role: String)
 ## 面板底下那个「退出登录」：只发信号，断开和清本机凭据归 main.gd
 signal logout_pressed
 
@@ -16,7 +16,10 @@ const KIND_NAMES := {
 	"bomb": "传炸弹",
 	"owl": "喂猫头鹰",
 	"race": "赛跑",
+	"hide": "捉迷藏",
 }
+## 不进右上角面板的款：捉迷藏只能走到跟前发起（否则 50 米外也能邀）
+const PANEL_SKIP: Array[String] = ["hide"]
 ## 服务器拒绝的理由 → 人话（服务器只回 code，`NetOps` / `NetLobby` 那几处）
 const ERRORS := {
 	"offline": "对方不在线",
@@ -37,6 +40,7 @@ var _people: VBoxContainer
 var _empty: Label
 var _status: Label
 var _banner: PanelContainer
+var _banner_row: HBoxContainer
 var _banner_text: Label
 var _invite := {}
 var _shown: Array[String] = []
@@ -131,16 +135,17 @@ func _ready() -> void:
 	_root.add_child(_banner)
 
 	var row := HBoxContainer.new()
+	row.name = "Row"
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 16)
 	_banner.add_child(row)
+	_banner_row = row
 
 	_banner_text = Label.new()
 	_banner_text.name = "Text"
 	row.add_child(_banner_text)
 
-	row.add_child(_banner_button("接受", true))
-	row.add_child(_banner_button("拒绝", false))
+	_rebuild_buttons("")
 
 
 ## 站在 POI 跟前就把右上角让出去（面板一关就自动回来）
@@ -196,9 +201,12 @@ static func invitable(world: Dictionary) -> Array[String]:
 
 
 ## 服务器上真在跑的那几款（NetLobby.MODELLED）；不在的中文名表里也不摆。
+## 捉迷藏排掉：它得走到跟前发起（`NearPanel`），这里能隔着一整座森林发。
 static func kinds() -> Array[String]:
 	var out: Array[String] = []
 	for kind in NetLobby.MODELLED:
+		if PANEL_SKIP.has(kind):
+			continue
 		if KIND_NAMES.has(kind):
 			out.append(str(kind))
 	return out
@@ -244,7 +252,22 @@ func _fill_banner(invites: Array) -> void:
 		return
 	_invite = invite.duplicate()
 	_banner_text.text = invite_text(invite)
+	_rebuild_buttons(str(invite.get("kind", "")))
 	_banner.visible = true
+
+
+## 横幅上的按钮随款变：捉迷藏多一个「我藏 / 我找」（角色由接受的人自己选）。
+func _rebuild_buttons(kind: String) -> void:
+	for child in _banner_row.get_children():
+		if child != _banner_text:
+			child.free()
+	if kind == "hide":
+		_banner_row.add_child(_banner_button("我藏", true, "hide"))
+		_banner_row.add_child(_banner_button("我找", true, "seek"))
+		_banner_row.add_child(_banner_button("拒绝", false, ""))
+	else:
+		_banner_row.add_child(_banner_button("接受", true, ""))
+		_banner_row.add_child(_banner_button("拒绝", false, ""))
 
 
 func _hide_banner() -> void:
@@ -252,11 +275,11 @@ func _hide_banner() -> void:
 	_banner.visible = false
 
 
-func _banner_button(text: String, accept: bool) -> Button:
+func _banner_button(text: String, accept: bool, role: String) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.custom_minimum_size = Vector2(150.0, 56.0)
-	button.pressed.connect(_on_answer_button.bind(accept))
+	button.pressed.connect(_on_answer_button.bind(accept, role))
 	UIStyle.style_button(button)
 	return button
 
@@ -277,13 +300,13 @@ func _on_logout_button() -> void:
 	logout_pressed.emit()
 
 
-func _on_answer_button(accept: bool) -> void:
+func _on_answer_button(accept: bool, role: String) -> void:
 	if _invite.is_empty():
 		return
 	var from := str(_invite.get("from", ""))
 	var kind := str(_invite.get("kind", ""))
 	_hide_banner()
-	answer_pressed.emit(from, kind, accept)
+	answer_pressed.emit(from, kind, accept, role)
 
 
 ## main.gd 报成功时用得上：等的这个人答应了没。

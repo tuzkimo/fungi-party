@@ -16,6 +16,8 @@
 [ext_resource type="Script" path="res://game/ui/start_menu.gd" id="14_start_menu"]
 [ext_resource type="Script" path="res://game/ui/invite_panel.gd" id="15_invite_panel"]
 [ext_resource type="Script" path="res://game/hide/hide_game.gd" id="16_hide_game"]
+[ext_resource type="Script" path="res://game/ui/hide_panel.gd" id="17_hide_panel"]
+[ext_resource type="Script" path="res://game/ui/near_panel.gd" id="18_near_panel"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("7_main")
@@ -60,5 +62,12 @@ script = ExtResource("14_start_menu")
 [node name="InvitePanel" type="CanvasLayer" parent="."]
 script = ExtResource("15_invite_panel")
 
+[node name="HidePanel" type="CanvasLayer" parent="."]
+script = ExtResource("17_hide_panel")
+
+[node name="NearPanel" type="CanvasLayer" parent="."]
+script = ExtResource("18_near_panel")
+
 [node name="HideGame" type="Node" parent="."]
 script = ExtResource("16_hide_game")
+panel_path = NodePath("../HidePanel")

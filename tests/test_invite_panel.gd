@@ -91,7 +91,7 @@ func test_incoming_invite_banner_and_accept() -> void:
 	var panel := _open()
 	var answered := []
 	panel.answer_pressed.connect(
-		func(from: String, kind: String, accept: bool) -> void: answered.append([from, kind, accept])
+		func(from: String, kind: String, accept: bool, role: String) -> void: answered.append([from, kind, accept, role])
 	)
 	panel.sync({}, [{"from": "小明", "kind": "classroom"}])
 	check(panel._banner.visible, "横幅弹出来")
@@ -100,7 +100,7 @@ func test_incoming_invite_banner_and_accept() -> void:
 	check(accept != null, "有接受按钮")
 	if accept != null:
 		accept.pressed.emit()
-	check_eq(answered, [["小明", "classroom", true]], "发回接受")
+	check_eq(answered, [["小明", "classroom", true, ""]], "发回接受")
 	check(not panel._banner.visible, "按完就收起来")
 	panel.free()
 
@@ -109,14 +109,14 @@ func test_decline_answers_no() -> void:
 	var panel := _open()
 	var answered := []
 	panel.answer_pressed.connect(
-		func(from: String, kind: String, accept: bool) -> void: answered.append([from, kind, accept])
+		func(from: String, kind: String, accept: bool, role: String) -> void: answered.append([from, kind, accept, role])
 	)
 	panel.sync({}, [{"from": "小红", "kind": "classroom"}])
 	var decline := _banner_button(panel, "拒绝")
 	check(decline != null, "有拒绝按钮")
 	if decline != null:
 		decline.pressed.emit()
-	check_eq(answered, [["小红", "classroom", false]], "发回拒绝")
+	check_eq(answered, [["小红", "classroom", false, ""]], "发回拒绝")
 	panel.free()
 
 
@@ -157,4 +157,26 @@ func test_logout_button_emits() -> void:
 		logout.pressed.emit()
 	check_eq(out.size(), 1, "发一次信号")
 	check(not panel._panel.visible, "按完把面板收起来")
+	panel.free()
+
+
+## 捉迷藏：接受那张横幅多一个「我藏 / 我找」，答案里带角色。
+func test_hide_banner_asks_for_a_role() -> void:
+	var panel := _open()
+	var got := []
+	panel.answer_pressed.connect(
+		func(from: String, kind: String, accept: bool, role: String) -> void:
+			got.append([from, kind, accept, role])
+	)
+	panel.sync({}, [{"from": "小明", "kind": "hide"}])
+	check_eq(panel._banner_text.text, "小明 邀请你玩捉迷藏", "横幅文字")
+	_banner_button(panel, "我藏").pressed.emit()
+	check_eq(got, [["小明", "hide", true, "hide"]], "按我藏 → 我藏")
+	panel.sync({}, [{"from": "小明", "kind": "hide"}])
+	_banner_button(panel, "我找").pressed.emit()
+	check_eq(got.size(), 2, "弹回来还能再选")
+	check_eq(got[1][3], "seek", "按我找 → 我找")
+	panel.sync({}, [{"from": "小明", "kind": "hide"}])
+	_banner_button(panel, "拒绝").pressed.emit()
+	check_eq(got[2], ["小明", "hide", false, ""], "拒绝不带角色")
 	panel.free()

@@ -11,6 +11,7 @@ var _second: Player = null
 
 @onready var _join_panel: JoinPanel = $JoinPanel
 @onready var _invite_panel: InvitePanel = $InvitePanel
+@onready var _near_panel: NearPanel = $NearPanel
 @onready var _forest: Node3D = $Forest
 @onready var _start_menu: StartMenu = $StartMenu
 
@@ -27,6 +28,7 @@ func _ready() -> void:
 	_invite_panel.invite_pressed.connect(_on_invite)
 	_invite_panel.answer_pressed.connect(_on_answer)
 	_invite_panel.logout_pressed.connect(_on_logout)
+	_near_panel.hide_pressed.connect(_on_near_hide)
 	_first = Player.of_seat(get_tree(), 0)
 	_spawn_second()
 	_net = _ensure_net()
@@ -108,9 +110,15 @@ func _on_invite(to: String, kind: String) -> void:
 	_net.request("invite", {"to": to, "kind": kind})
 
 
-func _on_answer(from: String, kind: String, accept: bool) -> void:
+func _on_answer(from: String, kind: String, accept: bool, role: String) -> void:
 	_invite_panel.set_status("")
-	_net.request("answer", {"from": from, "kind": kind, "accept": accept})
+	_net.request("answer", {"from": from, "kind": kind, "accept": accept, "role": role})
+
+
+## 走到别人跟前按「和 X 玩捉迷藏」（捉迷藏只能这么发起）
+func _on_near_hide(to: String) -> void:
+	_invite_panel.set_status("")
+	_net.request("invite", {"to": to, "kind": "hide"})
 
 
 ## 邀请被拒（体力不够 / 对方下线 / 已经有一局在开）要说一声，不然按下去像没反应。
@@ -180,6 +188,15 @@ func _animate_ghosts(delta: float) -> void:
 		var before := ghost.global_position
 		ghost.apply(state, delta)
 		ghost.bob(delta, before.distance_to(ghost.global_position) > 0.002)
+
+
+## 跟前有没有人能发起捉迷藏：POI 浮层开着、或本来就在一局里，就不弹
+func _near_target() -> String:
+	if _first == null or _net == null or not _net.ready():
+		return ""
+	if _net.in_room("hide") or InvitePanel.poi_overlay_open(get_tree()):
+		return ""
+	return NearPanel.nearest(_net.world, _first.global_position, Config.HIDE_NEAR_RANGE)
 
 
 ## 体力条、饭店、帐篷都读 DayLoop，而它 _ready 那次读的是本机存档（那时还没登录完），
