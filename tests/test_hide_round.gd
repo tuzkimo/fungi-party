@@ -97,3 +97,13 @@ func test_snapshot_fields() -> void:
 	var s := r.snapshot()
 	for key in ["phase", "left", "seeker", "hider", "caught", "revealed", "can_catch", "over", "winner"]:
 		check(s.has(key), "快照有 %s" % key)
+
+
+## 找的人那一份世界快照：没现形之前藏的人整个不在（两份 slot 都剔）。
+func test_view_for_hides_hider_when_not_revealed() -> void:
+	var players := {"甲": {}, "乙": {}, "乙|1": {}, "丙": {}}
+	var seen := HideRound.view_for(players, "甲", "乙", false)
+	check_eq(seen.keys().size(), 2, "藏的人两份都剔掉")
+	check(seen.has("甲") and seen.has("丙"), "自己和别人还在")
+	check_eq(HideRound.view_for(players, "甲", "乙", true).keys().size(), 4, "现形之后照常")
+	check_eq(HideRound.view_for(players, "", "乙", false).keys().size(), 4, "没角色就不动")

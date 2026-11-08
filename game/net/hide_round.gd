@@ -129,6 +129,19 @@ static func reveal_ok(seeker: Array, hider: Array) -> bool:
 	return nearest_distance(seeker, hider) <= Config.HIDE_REVEAL
 
 
+## 找的人这一份世界快照里该看见谁：没现形之前藏的人整个不在（他两份都剔）。
+## 只在「给找的人发」时调；别人（含藏的人自己、观战的人）照常看得见。
+static func view_for(
+	players: Dictionary, seeker: String, hider: String, revealed: bool
+) -> Dictionary:
+	if revealed or seeker == "" or hider == "":
+		return players
+	var out := players.duplicate(true)
+	for key in hide_keys(hider):
+		out.erase(key)
+	return out
+
+
 ## 一个账号在世界快照里占两份：本人 + 同屏 2P。
 static func hide_keys(account: String) -> Array[String]:
 	var out: Array[String] = []

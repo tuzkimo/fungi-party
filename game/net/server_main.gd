@@ -212,6 +212,12 @@ func _on_move(session: Dictionary, body: Dictionary) -> void:
 		"skin": skin if SkinCatalog.by_id(skin) != null else "",
 	}
 	session["slots"] = slots
+	# 捉迷藏的距离判定只能用这里的坐标：服务器没 3D，位置就靠这条上报
+	var room := _lobby.room
+	if room != null and room.kind == "hide":
+		var seat := room.seat_of(str(session["name"]))
+		if seat >= 0:
+			(room.model as HideRound).feed(seat, slot, spot)
 
 
 ## 邀请 / 回答邀请。这两条也要回 OP_RESULT：客户端的 _inflight 只认它，不回就是 10 秒后掉线。
@@ -225,11 +231,11 @@ func _on_room_op(from: int, me: String, op: String, args: Dictionary) -> void:
 		"answer":
 			result = _lobby.answer(
 				str(args.get("from", "")), me, str(args.get("kind", "")),
-				bool(args.get("accept", false)), online, now
+				bool(args.get("accept", false)), online, now, str(args.get("role", ""))
 			)
 		_:
-			# leave_room：主动回森林，房腾出来（主动退出不结账，见 NetLobby.leave）
-			_lobby.leave(me, false)
+			# leave_room：主动回森林 / 按「放弃」。捉迷藏里这是认输，照常结账（NetLobby.forfeit）
+			_lobby.forfeit(me)
 			result = {"ok": true}
 	var saves: Dictionary = result.get("saves", {})
 	for name in saves:
@@ -286,6 +292,15 @@ func _on_input(session: Dictionary, body: Dictionary) -> void:
 
 ## 每 1/10 秒给每个登录的人一份世界快照（各自一份：邀请是发给具体某个人的）。
 func _broadcast_world() -> void:
+	var hide_on := _lobby.room != null and _lobby.room.kind == "hide" and not _lobby.room.over
+	var hider := ""
+	var seeker := ""
+	var revealed := true
+	if hide_on:
+		var model := _lobby.room.model as HideRound
+		hider = str(_lobby.room.seats[model.hider_seat]["account"])
+		seeker = str(_lobby.room.seats[model.seeker_seat]["account"])
+		revealed = model.revealed
 	var players := {}
 	for id in _sessions:
 		var session: Dictionary = _sessions[id]
@@ -308,12 +323,18 @@ func _broadcast_world() -> void:
 		var session: Dictionary = _sessions[id]
 		if not bool(session.get("authed", false)):
 			continue
+		var me := str(session["name"])
+		var view := players
+		# 捉迷藏：找的人在藏的人现形之前收不到他 —— 真藏，不是只不画
+		if hide_on and not revealed and me == seeker:
+			view = HideRound.view_for(players, me, hider, false)
 		_send(int(id), NetProtocol.Msg.WORLD, {
 			"clock": _clock.time_of_day(),
 			"day": _clock.day,
-			"players": players,
-			"me": str(session["name"]),
-			"invites": _lobby.invites_for(str(session["name"]), _online(), _now()),
+			"players": view,
+			"me": me,
+			"hide": hide_on,
+			"invites": _lobby.invites_for(me, _online(), _now()),
 		})
 
 

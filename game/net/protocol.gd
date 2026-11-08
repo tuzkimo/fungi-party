@@ -4,7 +4,7 @@ class_name NetProtocol
 ## 用 Godot 自带的 var_to_bytes / bytes_to_var 序列化，不手写编解码。
 ## 服务器和客户端共用这一份，VERSION 不一致直接拒连——两边的数据结构差一个字段就会跑出诡异状态。
 
-const VERSION := 9
+const VERSION := 10
 ## 一封存档带 15 顶皮肤 id 大约 1 KB，8 KB 已经是很宽松的天花板
 const MAX_PACKET := 8192
 
