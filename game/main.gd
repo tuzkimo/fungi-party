@@ -146,6 +146,7 @@ func _process(delta: float) -> void:
 		_report_position(0, _first)
 		_report_position(1, _second)
 	_animate_ghosts(delta)
+	_near_panel.set_target(_near_target())
 
 
 func _report_position(slot: int, player: Player) -> void:

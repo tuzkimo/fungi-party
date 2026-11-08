@@ -135,7 +135,8 @@ static func _log(root: Node3D, spot: Vector3, yaw: float) -> void:
 ## 石头洞：三块大石垒的小丘，一侧开口
 static func _cave(root: Node3D, spot: Vector3, yaw: float) -> void:
 	_shelter(root, spot, yaw, Vector3(2.4, 2.2, 2.6), STONE, 0.4)
-	for offset in [Vector3(-1.4, 0.9, 0.0), Vector3(1.4, 0.9, 0.0), Vector3(0.0, 2.4, -0.6)]:
+	# 石头只堆在背面和顶上：开口朝 +Z，别用球把洞口堵上（球没有碰撞，堵上去人就从石头里穿过去）
+	for offset in [Vector3(-1.5, 0.8, -1.2), Vector3(1.5, 0.8, -1.2), Vector3(0.0, 2.7, -0.8)]:
 		var mesh := SphereMesh.new()
 		mesh.radius = 1.5
 		mesh.height = 2.6

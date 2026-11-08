@@ -66,6 +66,8 @@ func test_reveal_latches() -> void:
 	r.feed(0, 0, Vector3(0, 0, Config.HIDE_REVEAL + 1.0))
 	r.tick(0.1)
 	check_eq(r.revealed, false, "远的时候没现形")
+	r.tick(Config.HIDE_COUNTDOWN)
+	check_eq(r.revealed, false, "开始找的时候还在 13 米外")
 	r.feed(0, 0, Vector3(0, 0, Config.HIDE_REVEAL - 1.0))
 	r.tick(0.1)
 	check_eq(r.revealed, true, "进 12 米现形")
@@ -107,3 +109,15 @@ func test_view_for_hides_hider_when_not_revealed() -> void:
 	check(seen.has("甲") and seen.has("丙"), "自己和别人还在")
 	check_eq(HideRound.view_for(players, "甲", "乙", true).keys().size(), 4, "现形之后照常")
 	check_eq(HideRound.view_for(players, "", "乙", false).keys().size(), 4, "没角色就不动")
+
+
+## 倒数阶段两个人还站在一起（邀请就是走到跟前发的）：这时候不许锁现形，
+## 否则黑屏一抬找的人就看见藏的人了 —— 整局的核心机制等于没有。
+func test_no_reveal_during_countdown() -> void:
+	var r := _r()
+	r.feed(1, 0, Vector3.ZERO)
+	r.feed(0, 0, Vector3(1.0, 0.0, 0.0))
+	r.tick(0.1)
+	check_eq(r.revealed, false, "倒数阶段挨着也不算现形")
+	r.tick(Config.HIDE_COUNTDOWN)
+	check_eq(r.revealed, true, "进找的那一帧才算")

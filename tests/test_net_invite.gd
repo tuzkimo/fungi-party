@@ -336,3 +336,28 @@ func test_hide_drop_ends_without_pay() -> void:
 	lobby.tick(0.1)
 	check_eq(int(saves["甲"]["coins"]), 0, "掉线不结账")
 	check_eq(lobby.room.paid, false, "没写盘就不算结过账")
+
+
+## 输家一分钱都没有：不能扣成负数，也不能让赢家凭空多出 5 币。
+func test_hide_payout_broke_loser_mints_nothing() -> void:
+	var saves := {"甲": {"coins": 0}, "乙": {"coins": 0}}
+	var lobby := _lobby(saves)
+	_hide_room(lobby, "hide")
+	lobby.room.tick(Config.HIDE_COUNTDOWN + 0.1)
+	lobby.room.model.forfeit(0)
+	lobby.tick(0.1)
+	check_eq(int(saves["甲"]["coins"]), 0, "破产的输家扣不动")
+	check_eq(int(saves["乙"]["coins"]), 0, "赢家也不许凭空拿 5 币")
+
+
+## 捉迷藏的「放弃 = 认输照付」不受 5 秒门槛管：开局一按也得付。
+func test_hide_forfeit_pays_even_right_after_start() -> void:
+	var saves := _fresh()
+	saves["甲"]["coins"] = 20
+	saves["乙"]["coins"] = 20
+	var lobby := _lobby(saves)
+	_hide_room(lobby, "hide")
+	lobby.room.model.forfeit(1)
+	lobby.tick(0.1)
+	check_eq(int(saves["甲"]["coins"]), 25, "开局就放弃，赢家照样 +5")
+	check_eq(int(saves["乙"]["coins"]), 15, "认输的人照样 -5")

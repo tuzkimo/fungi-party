@@ -55,7 +55,9 @@ func tick(delta: float) -> void:
 		over = true
 		winner = hider_seat
 		return
-	if not revealed and reveal_ok(_slots(seeker_seat), _slots(hider_seat)):
+	# 只在进行「找」的时候才算现形：邀请是走到跟前发的，倒数阶段两个人本来就挨着，
+	# 那时候锁上现形等于黑屏一抬就把人交出去了
+	if phase == SEEKING and not revealed and reveal_ok(_slots(seeker_seat), _slots(hider_seat)):
 		revealed = true
 
 

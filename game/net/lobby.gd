@@ -147,19 +147,22 @@ func tick(delta: float) -> void:
 ## 按各人的口数把币写进存档（规则在 NetRoom.payouts / 模型里，这里只搬）。
 func _settle() -> void:
 	settled = true
-	# 刚开局就被收掉的局不结账：否则「邀请 → 立刻走人」能白刷底薪那几币
-	if room.elapsed < Config.NET_SETTLE_MIN_SECONDS:
+	# 刚开局就被收掉的局不结账：否则「邀请 → 立刻走人」能白刷底薪那几币。
+	# 捉迷藏例外：放弃 = 认输照付，一开局就认也得付（不存在白刷，输的那边就是少 5 币）。
+	if room.elapsed < Config.NET_SETTLE_MIN_SECONDS and room.kind != "hide":
 		return
 	var payouts := room.payouts()
 	# 负的一边按余额封顶（不够就扣到 0），实际扣下来的总额再给收钱的人，
 	# 不这么写「输家破产」就等于让服务器凭空印币 —— 钱包只有一个来源。
 	var pot := 0
 	var credit_total := 0
+	var has_debt := false
 	for name in payouts:
 		var delta := int(payouts[name])
 		if delta > 0:
 			credit_total += delta
 		elif delta < 0:
+			has_debt = true
 			var save := _read.call(str(name)) as Dictionary
 			pot += mini(-delta, maxi(0, int(save.get("coins", 0))))
 	for name in payouts:
@@ -169,8 +172,8 @@ func _settle() -> void:
 		if delta < 0:
 			save["coins"] = coins - mini(-delta, maxi(0, coins))
 		elif delta > 0 and credit_total > 0:
-			# 有钱进就有钱出：有欠账（pot）时只能分到实收的那份，全是收入（pot = 0）时是游戏挣的
-			var pool := pot if pot > 0 else credit_total
+			# 有欠账时只能分到实收的那份（输家破产就一分不分），没欠账时是游戏挣的
+			var pool := pot if has_debt else credit_total
 			var share := int(round(float(pool) * float(delta) / float(credit_total)))
 			save["coins"] = coins + mini(delta, share)
 		_write.call(str(name), save)

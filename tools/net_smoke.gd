@@ -377,11 +377,14 @@ func _hide_check() -> void:
 		at -= 2.0
 		guest.send_move(0, Vector3(at, 0.0, 0.0), 0.0, "red", "")
 		await create_timer(0.03).timeout
-	if not guest.world.has(_name):
-		_die("走到 12 米内还是看不见藏的人（现形没生效）")
+	# 倒数阶段走到跟前也看不见：那时候找的人本来就黑屏
+	if guest.world.has(_name):
+		_die("倒数阶段就现形了（黑屏一抬就把人交出去）")
 
-	# 倒数走完才允许捉
+	# 倒数走完才现形、才允许捉
 	await create_timer(Config.HIDE_COUNTDOWN + 0.6).timeout
+	if not guest.world.has(_name):
+		_die("找的时候站在 0 米还看不见藏的人（现形没生效）")
 	game = guest.session.get("game", {})
 	if str(game.get("phase", "")) != HideRound.SEEKING:
 		_die("倒数没走完：%s" % str(game))
