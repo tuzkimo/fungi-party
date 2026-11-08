@@ -27,6 +27,13 @@
   邀请面板底下的「退出登录」清掉本机凭据再回登录表单。**一个账号只留一条连接**：新登录把旧连接踢掉
   （`server_main._kick_others`，否则邀请成局的 `SESSION` 会发给那条已经死掉的连接）。
   接手联机先读 `docs/superpowers/plans/2026-10-25-v7-handoff.md`（现状、约束、下一步、坑都在那一份里）。
+- v8：森林捉迷藏 —— 第一款不换场景、留在世界里打的游戏（`game/hide/hide_game.gd` + `game/ui/hide_panel.gd`）。
+  走到别人 4 米内弹「和 X 玩捉迷藏」（`game/ui/near_panel.gd`），对方在横幅上选「我藏 / 我找」；30 秒藏
+  （找的人黑屏锁输入）、120 秒找（藏的人降速一半）；2.5 米内「捉到」由服务器验距离，超时算藏的人赢；
+  输的付 5 币（**放弃 = 认输照付，掉线 = 收局不结账**）。规则模型 `game/net/hide_round.gd` 跑在服务器上，
+  位置沿用 `MOVE`；找的人在 12 米现形之前，那份 `WORLD` 里根本没有藏的人（真藏，不是不画），现形一次就锁存。
+  这期间全森林的名字牌一起藏起来。森林补了 15 处藏点（`game/world/hide_spots.gd`：垫脚石上树冠、
+  木箱上屋顶/顶棚/门楣、空心断木、石头洞、大蘑菇），饭店屋顶、摊位顶棚、校门门楣是真能站人的。
 - v5：角色可换 —— 红蘑菇之外加了海鲜菇（细长杆 + 小扁帽 + 四根黑棍手脚 + 腮红，按 `refs/海鲜菇角色设计图.png`），帐篷里免费换；体型与皮肤解耦，15 顶皮肤两个角色都能戴
 - 场景：`game/world/` 森林与 POI、`game/minigame/` 教室/赛跑/传炸弹/猫头鹰喂食、`game/skins/` 15 顶皮肤数据（`.tres`）与 `catalog.gd` 总表、`game/player/body/` 角色体型（红蘑菇 / 海鲜菇，`catalog.gd` 总表）、`game/ui/` HUD 与浮层
 
@@ -39,6 +46,7 @@ bash scripts/test.sh                                           # 无头测试（
 godot --path . --script res://tools/shot_body.gd               # 角色渲染成 shots/body_*.png（真窗口，看外观用）
 godot --path . --script res://tools/shot_ingame.gd             # 进森林截一张 shots/ingame.png
 godot --path . --script res://tools/shot_party.gd              # 二号位加入后截一张 shots/party.png
+godot --path . --script res://tools/shot_hide_spots.gd         # 藏点全景 + 断木/石洞/垫脚石各一张 shots/hide_*.png
 godot --path . --script res://tools/shot_race.gd               # 赛跑：倒数 / 跑动 / 结算面板各截一张 shots/race_*.png
 godot --headless --path . --script res://tools/soak_party.gd   # 四款小游戏的双人分支无头过一遍（时间加速 10 倍）
 godot --headless --path . --script res://game/net/server_local.gd -- --port 7000 --saves build/accounts  # 本机起服务器（上限 8 人）
@@ -95,6 +103,15 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
   单机顺带天亮 + 天数 +1。**别再引入「按天 / 按冷却」的限制**——服务器一重启天数就变，会锁死（真机踩过）。
 - 体力只有**一份**（`Save` 里的 stamina 一个字段，2P 共用）：所以吃饭 / 睡觉天然两个人都回体力，
   2P 进小游戏也只扣一次。别给二号位另开一份体力。
+- 捉迷藏是唯一不换场景的局：`NetRoom.scene_path("hide")` 返回空串，`main._on_join_room()` 见到就 return，
+  由森林里常驻的 `HideGame` 按 `SESSION` 驱动。以后再有「在世界里跑」的玩法照这个来，别硬塞进 `change_scene_to_file`。
+- 捉迷藏的规则只在两处：`HideRound`（RefCounted 规则）+ `HideSpots`（几何）。距离判定一律「两边所有 slot
+  两两最小」，服务器不认「谁是带队的」；现形是一次性锁存，别改成每帧比距离。
+- 藏点只由 `HideSpots.build()` 生成，位置表是 `Config.HIDE_SPOTS`；撒树/石头时要把 `HideSpots.spots()`
+  并进 keep-out（已经并了）。垫脚石按真实的树位摆（找 6 米内最近的树），别写死坐标。
+- 捉迷藏不进右上角「邀请」面板（`InvitePanel.PANEL_SKIP`）：那个面板能隔一整座森林发邀请，会绕开「走到跟前」。
+- 结算里的负数 payout 按余额封顶（`NetLobby._settle`）：赢的只拿实际扣到的，不许凭空印币；全正数的局照旧是游戏挣的。
+- 捉迷藏期间 `NameTag.hidden` 由 `WORLD.hide` 驱动 —— 观战的人没有 `SESSION`，读不到这局的状态。
 - 小游戏里别人的座位按**他自己报上来的形象**长（`NetClient.seat_look(seat)` + 视图的 `apply_look_of`）：
   服务器只发账号名，body / skin 在世界快照里。别再给真人画色块（`SEAT_COLORS` 只给人机用）。
 - 帐篷 / 饭店 / 摊位这些浮层都 `add_to_group("poi_panel")`：森林右上角的「邀请」「＋ 加入」

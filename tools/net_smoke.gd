@@ -5,7 +5,7 @@ extends SceneTree
 ##
 ##   godot --headless --path . --script res://tools/net_smoke.gd -- --host 127.0.0.1 --port 7099 --name 冒烟
 
-const WATCHDOG_SECONDS := 60.0
+const WATCHDOG_SECONDS := 150.0
 
 var _client: NetClient
 var _host := "127.0.0.1"
@@ -79,6 +79,7 @@ func _run() -> void:
 	await _bomb_check()
 	await _owl_check()
 	await _race_check()
+	await _hide_check()
 	print("SMOKE OK")
 	quit(0)
 
@@ -332,6 +333,70 @@ func _race_check() -> void:
 	print("赛跑：两人同局，服务器判摇杆，收局结账 %d 币" % (
 		int(_client.data["coins"]) - coins_before
 	))
+
+
+## 捉迷藏：邀请时选角色 → 不换场景（kind=hide）→ 找的人在现形之前收不到藏的人的坐标
+## → 走近 → catch 由服务器验距离 → 各结 ±5。倒数 30 秒躲不掉，所以这一步要多等一会儿。
+func _hide_check() -> void:
+	var guest := NetClient.new()
+	guest.failed.connect(_on_failed)
+	root.add_child(guest)
+	var guest_name := "%sG" % _name
+	guest.connect_to(_host, _port, guest_name, _password)
+	await guest.logged_in
+	var coins_before := int(_client.data["coins"])
+	await _op("invite", {"to": guest_name, "kind": "hide"})
+	if not bool(_client.last_result.get("ok", false)):
+		_die("捉迷藏邀请被拒：%s" % str(_client.last_result.get("error", "")))
+	await create_timer(0.3).timeout
+	# 接受的人选「我找」：发起的人去藏
+	guest.request("answer", {"from": _name, "kind": "hide", "accept": true, "role": "seek"})
+	await guest.changed
+	await create_timer(0.4).timeout
+	for who in [guest, _client]:
+		if str(who.session.get("kind", "")) != "hide":
+			_die("%s 没进到捉迷藏：%s" % [who.me(), str(who.session)])
+	var game: Dictionary = guest.session.get("game", {})
+	if int(game.get("hider", -1)) != 0 or int(game.get("seeker", -1)) != 1:
+		_die("角色不对（发起的人该藏）：%s" % str(game))
+
+	# A 在原点藏着，B 在 40 米外找：没现形之前 B 的世界快照里不该有 A（两份都没有）
+	_client.send_move(0, Vector3.ZERO, 0.0, "red", "")
+	guest.send_move(0, Vector3(40.0, 0.0, 0.0), 0.0, "red", "")
+	await create_timer(0.5).timeout
+	if guest.world.has(_name) or guest.world.has("%s|1" % _name):
+		_die("找的人看得见藏的人：%s" % str(guest.world.keys()))
+	if not guest.hide_round:
+		_die("WORLD 里没带 hide 标记，全森林不会藏名字")
+	if not _client.world.has(guest_name):
+		_die("藏的人反而看不见找的人")
+
+	# 服务器不认瞬移（NET_MOVE_MAX_STEP），一步步走回来
+	var at := 40.0
+	for i in 20:
+		at -= 2.0
+		guest.send_move(0, Vector3(at, 0.0, 0.0), 0.0, "red", "")
+		await create_timer(0.03).timeout
+	if not guest.world.has(_name):
+		_die("走到 12 米内还是看不见藏的人（现形没生效）")
+
+	# 倒数走完才允许捉
+	await create_timer(Config.HIDE_COUNTDOWN + 0.6).timeout
+	game = guest.session.get("game", {})
+	if str(game.get("phase", "")) != HideRound.SEEKING:
+		_die("倒数没走完：%s" % str(game))
+	if not bool(game.get("can_catch", false)):
+		_die("站到 0 米还判不了捉到：%s" % str(game))
+	guest.send_input({"catch": true})
+	await create_timer(0.5).timeout
+	if not bool(guest.session.get("over", false)) or not bool(_client.session.get("over", false)):
+		_die("捉到之后两边都没收到收局：%s / %s" % [str(guest.session), str(_client.session)])
+	if int(guest.data["coins"]) != 5:
+		_die("赢家没拿到 5 币：%d" % int(guest.data["coins"]))
+	if int(_client.data["coins"]) != coins_before - Config.HIDE_STAKE:
+		_die("输家没扣 5 币：%d -> %d" % [coins_before, int(_client.data["coins"])])
+	print("捉迷藏：两人同局，找的人看不见藏的人，走到跟前捉到，各结 5 币")
+	guest.close()
 
 
 ## 收局结账：最后一个人也走人 → 服务器收局写币 → 重连拿回新存档。
