@@ -193,3 +193,16 @@ const NET_INVITE_SECONDS := 20.0
 const NET_ROOM_MAX_SECONDS := 300.0
 ## 短于这个时长的局不结账：「邀请 → 立刻走人」不该挣到底薪那 10 币
 const NET_SETTLE_MIN_SECONDS := 5.0
+
+# v8 森林捉迷藏（留在森林里打，不换场景）
+## 走到这么近才弹「和 X 玩捉迷藏」
+const HIDE_NEAR_RANGE := 4.0
+const HIDE_COUNTDOWN := 30.0
+const HIDE_SEEK_SECONDS := 120.0
+## 找的人这么近才看得见藏的人（进过就锁住，不再收回）
+const HIDE_REVEAL := 12.0
+## 这么近才能「捉到」
+const HIDE_CATCH := 2.5
+const HIDE_STAKE := 5
+## 找的阶段藏的人速度倍率：不降速就是赛跑，同速永远捉不到
+const HIDE_HIDER_SPEED := 0.5
