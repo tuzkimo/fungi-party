@@ -187,8 +187,19 @@ func _on_op(from: int, session: Dictionary, body: Dictionary) -> void:
 	})
 
 
+## 一步最多走 NET_MOVE_MAX_STEP 的两倍（跑速的两倍余量）。超了按比例夹住 —— **不能直接丢掉**：
+## 丢掉的那一份不进服务端，下一条 MOVE 又拿同一份旧坐标去比，这个人就永远卡在旧点上。
+## 真机上就是这么丢的：从小游戏回森林 = 换场景重开，人在原点出生，门口在十几米外，一进门就卡死。
+static func clamp_step(prev: Vector3, spot: Vector3, cap: float) -> Vector3:
+	var step := spot - prev
+	var length := step.length()
+	if length <= cap or length <= 0.0:
+		return spot
+	return prev + step * (cap / length)
+
+
 ## 别人的位置：这是唯一一条不落盘、不回包的消息，只往世界里广播。
-## 位置是信任边界，但作弊后果只有「他飘到别处」：非有限数、飞天、瞬移一律不采信。
+## 位置是信任边界，但作弊后果只有「他飘到别处」：非有限数、飞天按上面那条夹住。
 func _on_move(session: Dictionary, body: Dictionary) -> void:
 	if not bool(session.get("authed", false)):
 		return
@@ -202,8 +213,8 @@ func _on_move(session: Dictionary, body: Dictionary) -> void:
 	spot.y = clampf(spot.y, 0.0, 6.0)
 	var slots: Dictionary = session.get("slots", {})
 	var last: Variant = slots.get(slot, null)
-	if last != null and (spot - Vector3((last as Dictionary)["pos"])).length() > Config.NET_MOVE_MAX_STEP * 2.0:
-		return
+	if last != null:
+		spot = clamp_step(Vector3((last as Dictionary)["pos"]), spot, Config.NET_MOVE_MAX_STEP * 2.0)
 	var skin := str(body.get("skin", ""))
 	slots[slot] = {
 		"pos": spot,
