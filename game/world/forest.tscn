@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource type="Script" path="res://game/world/terrain.gd" id="1_terrain"]
 [ext_resource type="Script" path="res://game/world/forest_gen.gd" id="2_trees"]
@@ -15,6 +15,7 @@
 [ext_resource type="Script" path="res://game/world/clouds.gd" id="13_clouds"]
 [ext_resource type="Script" path="res://game/world/stars.gd" id="14_stars"]
 [ext_resource type="Script" path="res://game/world/owl_tree.gd" id="15_owl_tree"]
+[ext_resource type="Script" path="res://game/world/poop_field.gd" id="16_poop_field"]
 
 [sub_resource type="ProceduralSkyMaterial" id="Sky_mat"]
 sky_top_color = Color(0.33, 0.5, 0.78, 1)
@@ -103,6 +104,9 @@ script = ExtResource("4_day")
 sun_path = NodePath("../Sun")
 environment_path = NodePath("../WorldEnvironment")
 time_of_day = 0.4
+
+[node name="PoopField" type="Node3D" parent="."]
+script = ExtResource("16_poop_field")
 
 [node name="DayLoop" type="Node" parent="."]
 script = ExtResource("10_day_loop")
