@@ -10,7 +10,7 @@ extends RefCounted
 
 ## 已经搬上服务器的几款：只有这些能开局。其余几款还在客户端跑单机逻辑，
 ## 邀进去等于白占着「同时 1 房」。每搬完一款往这里加一条。
-const MODELLED: Array[String] = ["classroom", "bomb", "owl", "race", "hide"]
+const MODELLED: Array[String] = ["classroom", "bomb", "owl", "race", "hide", "poop"]
 
 ## 被邀请人账号 → {from, kind, at}。同一时刻只留最新的一条，重发即覆盖。
 var pending := {}
@@ -106,14 +106,20 @@ func leave(name: String, settle: bool = true) -> void:
 			settled = true
 
 
-## 按「放弃」（`leave_room`）：捉迷藏里就是认输，对方赢、照常结账。
+## 按「放弃」（`leave_room`）：捉迷藏和扔粑粑里就是认输，对方赢、照常结账。
 ## 其它四款保持老规矩（主动走不结账，否则炸弹里走人等于白拿第一）。
 func forfeit(name: String) -> void:
-	if room != null and room.kind == "hide" and room.seat_of(name) >= 0:
-		if (room.model as HideRound).forfeit(room.seat_of(name)):
+	if room != null and room.seat_of(name) >= 0:
+		var seat := room.seat_of(name)
+		var conceded := false
+		if room.model is HideRound:
+			conceded = (room.model as HideRound).forfeit(seat)
+		elif room.model is PoopRound:
+			conceded = (room.model as PoopRound).forfeit(seat)
+		if conceded:
 			room.over = true
 			room.winner = int(room.model.winner)
-		return
+			return
 	leave(name, false)
 
 
@@ -123,8 +129,8 @@ func drop(name: String, online: PackedStringArray) -> void:
 	_clear_invites(name)
 	if room == null or room.seat_of(name) < 0:
 		return
-	# 捉迷藏少一个人就没法玩：立刻收局，掉线不赔钱
-	if room.kind == "hide":
+	# 捉迷藏 / 扔粑粑少一个人就没法玩：立刻收局，掉线不赔钱
+	if room.kind == "hide" or room.kind == "poop":
 		leave(name, false)
 		return
 	for seat in room.seats:
@@ -148,8 +154,8 @@ func tick(delta: float) -> void:
 func _settle() -> void:
 	settled = true
 	# 刚开局就被收掉的局不结账：否则「邀请 → 立刻走人」能白刷底薪那几币。
-	# 捉迷藏例外：放弃 = 认输照付，一开局就认也得付（不存在白刷，输的那边就是少 5 币）。
-	if room.elapsed < Config.NET_SETTLE_MIN_SECONDS and room.kind != "hide":
+	# 捉迷藏 / 扔粑粑例外：放弃 = 认输照付，一开局就认也得付（不存在白刷，输的那边就是少 5 币）。
+	if room.elapsed < Config.NET_SETTLE_MIN_SECONDS and room.kind != "hide" and room.kind != "poop":
 		return
 	var payouts := room.payouts()
 	# 负的一边按余额封顶（不够就扣到 0），实际扣下来的总额再给收钱的人，

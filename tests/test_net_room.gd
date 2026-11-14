@@ -295,3 +295,45 @@ func test_hide_room() -> void:
 	check_eq(room.input("甲", {"catch": true}), true, "合法 catch 被收下")
 	check_eq(room.over, true, "捉到就收局")
 	check_eq(room.payouts(), {"甲": Config.HIDE_STAKE, "乙": -Config.HIDE_STAKE}, "两边各结一份")
+
+
+## ---- 扔粑粑搬上服务器之后（第 7 步）----
+
+
+func test_poop_room_has_no_scene() -> void:
+	var room := NetRoom.create("poop", ["a", "b"])
+	check(room != null, "扔粑粑的房能建")
+	check(room.model is PoopRound, "规则模型是 PoopRound")
+	check_eq(NetRoom.scene_path("poop"), "", "扔粑粑留在森林里打，没有自己的场景")
+
+
+func test_poop_input_is_a_direction() -> void:
+	var room := NetRoom.create("poop", ["a", "b"])
+	var model := room.model as PoopRound
+	model.feed(0, 0, Vector3.ZERO)
+	model.ammo[0] = 1
+	check_eq(room.input("a", {"dirx": "x", "diry": 0, "dirz": 0}), false, "方向不是数就不收")
+	check_eq(room.input("a", {"dirx": INF, "diry": 0.0, "dirz": 0.0}), false, "非有限数不收")
+	check_eq(room.input("a", {"dirx": 0.0, "diry": 0.0, "dirz": -1.0}), true, "合法方向收下")
+	check_eq((room.snapshot()["game"]["shots"] as Array).size(), 1, "立刻飞出去一发")
+
+
+func test_poop_tick_moves_the_shot() -> void:
+	var room := NetRoom.create("poop", ["a", "b"])
+	var model := room.model as PoopRound
+	model.feed(0, 0, Vector3.ZERO)
+	model.feed(1, 0, Vector3(0.0, 0.0, -8.0))
+	model.ammo[0] = 1
+	room.input("a", {"dirx": 0.0, "diry": 0.0, "dirz": -1.0})
+	room.tick(0.8)
+	check_eq((room.snapshot()["game"]["hits"] as Array)[1], 1, "tick 推着粑粑飞过去打中了")
+
+
+## 一局快照 20 Hz 往八个人那儿发：超过 MAX_PACKET 会被服务器静默丢掉，看起来像服务器停了。
+func test_poop_snapshot_fits_in_a_packet() -> void:
+	var room := NetRoom.create("poop", ["a", "b"])
+	(room.model as PoopRound).anchor(Vector3.ZERO)
+	check(
+		not NetProtocol.pack(NetProtocol.Msg.SESSION, room.snapshot()).is_empty(),
+		"满员的扔粑粑快照塞得进一个包"
+	)

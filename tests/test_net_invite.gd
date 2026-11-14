@@ -173,9 +173,11 @@ func test_room_clock_and_hard_stop() -> void:
 
 func test_scene_path_for_every_kind() -> void:
 	for kind in NetRoom.KINDS:
-		if kind == "hide":
-			continue   # 捉迷藏留在森林里打，没有自己的场景
-		check(NetRoom.scene_path(kind) != "", "%s 有场景" % kind)
+		var path := NetRoom.scene_path(kind)
+		if kind == "hide" or kind == "poop":
+			check_eq(path, "", "%s 留在森林里打，没有自己的场景" % kind)
+		else:
+			check(path != "", "%s 有场景" % kind)
 	check_eq(NetRoom.scene_path("nope"), "", "不认识的 kind 没有场景")
 	check_eq(NetRoom.scene_path("classroom"), Config.CLASSROOM_PATH, "教室场景路径")
 
@@ -361,3 +363,43 @@ func test_hide_forfeit_pays_even_right_after_start() -> void:
 	lobby.tick(0.1)
 	check_eq(int(saves["甲"]["coins"]), 25, "开局就放弃，赢家照样 +5")
 	check_eq(int(saves["乙"]["coins"]), 15, "认输的人照样 -5")
+
+
+## ---- 扔粑粑搬上服务器之后（第 7 步）----
+
+
+func test_poop_can_open_a_room() -> void:
+	var lobby := _lobby(_fresh())
+	check(bool(lobby.invite("甲", "乙", "poop", ONLINE, NOW)["ok"]), "扔粑粑邀请发得出去")
+	var r := lobby.answer("甲", "乙", "poop", true, ONLINE, NOW)
+	check(bool(r["ok"]), "接得了")
+	check(lobby.room.model is PoopRound, "开的是扔粑粑的房")
+
+
+## 认输照付：和捉迷藏同一条规矩（按「放弃」= 自己认的）。
+func test_poop_forfeit_pays() -> void:
+	var saves := _fresh()
+	(saves["甲"] as Dictionary)["coins"] = Config.POOP_STAKE
+	(saves["乙"] as Dictionary)["coins"] = Config.POOP_STAKE
+	var lobby := _lobby(saves)
+	lobby.invite("甲", "乙", "poop", ONLINE, NOW)
+	lobby.answer("甲", "乙", "poop", true, ONLINE, NOW)
+	lobby.forfeit("乙")
+	lobby.tick(0.1)
+	check_eq(int(saves["甲"]["coins"]), Config.POOP_STAKE * 2, "赢的拿到 5 币")
+	check_eq(int(saves["乙"]["coins"]), 0, "认输的付出去")
+
+
+## 掉线不结账：手机掉网不该赔钱。
+func test_poop_disconnect_pays_nothing() -> void:
+	var saves := _fresh()
+	(saves["甲"] as Dictionary)["coins"] = Config.POOP_STAKE
+	(saves["乙"] as Dictionary)["coins"] = Config.POOP_STAKE
+	var lobby := _lobby(saves)
+	lobby.invite("甲", "乙", "poop", ONLINE, NOW)
+	lobby.answer("甲", "乙", "poop", true, ONLINE, NOW)
+	lobby.drop("乙", PackedStringArray(["甲"]))
+	lobby.tick(0.1)
+	check(lobby.room == null or lobby.room.over, "一个人掉线就收局")
+	check_eq(int(saves["甲"]["coins"]), Config.POOP_STAKE, "一分不动")
+	check_eq(int(saves["乙"]["coins"]), Config.POOP_STAKE, "一分不动")

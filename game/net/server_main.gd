@@ -223,12 +223,20 @@ func _on_move(session: Dictionary, body: Dictionary) -> void:
 		"skin": skin if SkinCatalog.by_id(skin) != null else "",
 	}
 	session["slots"] = slots
-	# 捉迷藏的距离判定只能用这里的坐标：服务器没 3D，位置就靠这条上报
+	# 捉迷藏 / 扔粑粑的距离判定只能用这里的坐标：服务器没 3D，位置就靠这条上报
 	var room := _lobby.room
-	if room != null and room.kind == "hide":
-		var seat := room.seat_of(str(session["name"]))
-		if seat >= 0:
-			(room.model as HideRound).feed(seat, slot, spot)
+	if room == null:
+		return
+	var seat := room.seat_of(str(session["name"]))
+	if seat < 0:
+		return
+	if room.model is HideRound:
+		(room.model as HideRound).feed(seat, slot, spot)
+	elif room.model is PoopRound:
+		var poop := room.model as PoopRound
+		poop.feed(seat, slot, spot)
+		# 屎壳郎撒在第一个报位置的人那儿（anchor 自己幂等）
+		poop.anchor(spot)
 
 
 ## 邀请 / 回答邀请。这两条也要回 OP_RESULT：客户端的 _inflight 只认它，不回就是 10 秒后掉线。

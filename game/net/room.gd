@@ -4,8 +4,8 @@ extends RefCounted
 ## 一局的骨架：座位表、时钟、规则模型。服务器只跑这里的 RefCounted 东西，绝不实例化 3D 场景。
 ## 座位秩序沿用全项目的规矩：真人占 0..n-1（由调用方排好），人机从 n 往后补。
 
-## 五款：前四款是独立场景的小游戏，`hide` 是唯一一款留在森林里打的（`scene_path` 返回空串）
-const KINDS: Array[String] = ["classroom", "bomb", "owl", "race", "hide"]
+## 六款：前四款是独立场景的小游戏，`hide` / `poop` 是留在森林里打的（`scene_path` 返回空串）
+const KINDS: Array[String] = ["classroom", "bomb", "owl", "race", "hide", "poop"]
 
 var kind := ""
 ## 长度恒为 Config.SEAT_COUNT，每格 {account: String, npc: bool}；人机格 account 为空
@@ -94,6 +94,18 @@ func input(account: String, payload: Dictionary) -> bool:
 			over = bool(model.over)
 			winner = int(model.winner)
 		return true
+	if kind == "poop":
+		# 扔粑粑是「点一下朝哪边扔」：方向是瞄准不是胜负，服务器自己飞、自己判
+		var x: Variant = payload.get("dirx", 0)
+		var y: Variant = payload.get("diry", 0)
+		var z: Variant = payload.get("dirz", 0)
+		for raw in [x, y, z]:
+			if typeof(raw) != TYPE_FLOAT and typeof(raw) != TYPE_INT:
+				return false
+		var dir := Vector3(float(x), float(y), float(z))
+		if not dir.is_finite():
+			return false
+		return (model as PoopRound).throw_poop(seat, dir)
 	var held: Variant = payload.get("press", false)
 	if typeof(held) != TYPE_BOOL:
 		return false
@@ -148,6 +160,9 @@ func tick(delta: float) -> void:
 	elif kind == "hide":
 		# 捉迷藏的位置由 MOVE 直接喂进模型，也不用人机补位
 		(model as HideRound).tick(delta)
+	elif kind == "poop":
+		# 扔粑粑也一样：输入和位置都已经进了模型，这里只推时间
+		(model as PoopRound).tick(delta)
 	else:
 		var press: Array[bool] = []
 		for i in seats.size():
@@ -202,6 +217,9 @@ func _build_model() -> void:
 			model = RaceRound.new(session_seed, human_count())
 		"hide":
 			model = HideRound.new()
+		"poop":
+			# 屎壳郎得等第一个 MOVE 到了才知道撒在哪，所以这里不 anchor
+			model = PoopRound.new(human_count(), session_seed)
 
 
 func human_count() -> int:
