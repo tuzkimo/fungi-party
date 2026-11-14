@@ -23,13 +23,34 @@ func test_aim_dir_is_the_camera_forward() -> void:
 	check(absf(PoopGame.aim_dir(turned).length() - 1.0) < 0.001, "是单位向量")
 
 
-## 第三视角的相机是俯着看人的：照相机正前方扔就是一路扎进地里（5 米外就到胸口以下），
-## 所以扔的方向只取偏航。胸口出手 + 胸口命中，水平那一发才是唯一打得中的。
-func test_aim_dir_ignores_the_camera_pitch() -> void:
-	var pitched := Basis(Vector3.RIGHT, -0.5) * Basis.IDENTITY
-	var dir := PoopGame.aim_dir(pitched)
-	check(absf(dir.y) < 0.0001, "俯仰不进方向（y 是 0，实得 %f）" % dir.y)
-	check(dir.is_equal_approx(Vector3.FORWARD), "俯着看也朝 -Z 扔")
+## 和 FPS 一样：低头就往斜下扔、抬头就往斜上扔。准星画的就是这条线（`PoopGame._aim_point`），
+## 想打平飞就得把镜头放平。
+func test_aim_dir_follows_the_camera_pitch() -> void:
+	var down := PoopGame.aim_dir(Basis(Vector3.RIGHT, -0.5))
+	check(down.y < -0.4, "低头往下扔（实得 %f）" % down.y)
+	var up := PoopGame.aim_dir(Basis(Vector3.RIGHT, 0.4))
+	check(up.y > 0.3, "抬头往上扔（实得 %f）" % up.y)
+	check(absf(up.length() - 1.0) < 0.001, "是单位向量")
+	check(absf(PoopGame.aim_dir(Basis(Vector3.UP, PI * 0.5) * Basis(Vector3.RIGHT, 0.4)).y - up.y) < 0.001, "俯仰不受偏航影响")
+
+
+## 「扔」键单人时贴在动作键的右上：两个圆的挖取圈不能叠，否则按扔会变成按跳。
+func test_throw_center_clears_the_action_key() -> void:
+	var action := Vector2(
+		TouchControls.EDGE_MARGIN + TouchControls.STICK_RADIUS,
+		TouchControls.EDGE_MARGIN + TouchControls.ACTION_RADIUS
+	)
+	# 单人的圆心是相对右下角的，翻成同一套坐标再比
+	var center := -PoopPanel.throw_center(false)
+	var gap := center.distance_to(action) - TouchControls.ACTION_RADIUS * (1.0 + TouchControls.GRAB_FACTOR)
+	check(gap > 0.0, "离动作键的挖取圈还有 %f 像素" % gap)
+	check(center.y > action.y and center.x < action.x, "在动作键的右上")
+
+
+func test_throw_center_duo_keeps_the_bottom_middle() -> void:
+	var center := PoopPanel.throw_center(true)
+	check(absf(center.x) < 1.0, "双人不偏左右（屏幕底正中）")
+	check(center.y < 0.0, "在屏幕底之上")
 
 
 func test_clock_text_moved_to_ui_style() -> void:

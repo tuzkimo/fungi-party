@@ -21,13 +21,11 @@ static func result_text(earned: int) -> String:
 	return "这一局没算钱"
 
 
-## 扔的方向：相机的偏航，不要俯仰。森林是第三视角、相机一直俯着看人，
-## 照相机正前方扔就是一路扎进地里（5 米外就到胸口以下）——出手点和胸口一样高，
-## 水平那一发才打得中人，准星也才说真话。
+## 扔的方向：相机正前方，俯仰也照抄 —— 和 FPS 一样，准星抬到哪就往哪扔（`_aim_point` 画的就是这条线）。
+## 想打平飞就得把镜头放平：相机俯着看人时扔出去的本来就是斜向下的那一发。
 static func aim_dir(basis: Basis) -> Vector3:
 	var forward := -basis.z
-	var flat := Vector3(forward.x, 0.0, forward.z)
-	return flat.normalized() if flat.length() > 0.0 else Vector3.FORWARD
+	return forward.normalized() if forward.length() > 0.0 else Vector3.FORWARD
 
 
 @export var panel_path: NodePath
@@ -109,7 +107,7 @@ func _owner() -> Player:
 
 
 ## 准星该画在哪：把「粑粑会飞到的那一点」投到屏幕上 —— 从自己的胸口沿扔的方向飞一个射程。
-## 相机是俯着看人的，正中不是这条线；没相机就回 (-1, -1)，面板自己画在正中。
+## 出手点在胸口、相机在身后，所以它比正中略低一点；没相机就回 (-1, -1)，面板自己画在正中。
 func _aim_point() -> Vector2:
 	var camera := get_viewport().get_camera_3d()
 	if camera == null:

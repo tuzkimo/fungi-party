@@ -1,12 +1,16 @@
 class_name PoopPanel
 extends CanvasLayer
 
-## 扔粑粑那一局的画面：正中的准星（粑粑直线飞，正中就是落点）、顶上的命中数 / 剩余时间、
-## 右下三个弹药点和「扔」键、左上「放弃」、结算一行字。只画和发信号 —— 发 op 在 PoopGame。
+## 扔粑粑那一局的画面：准星（粑粑会飞到的那个点）、顶上的命中数 / 剩余时间、
+## 「扔」键和它左手边三个弹药点、左上「放弃」、结算一行字。只画和发信号 —— 发 op 在 PoopGame。
 ## 动态拼的文字只用 ASCII 标点（真机系统字体没有全角）。
 
 signal throw_pressed
 signal give_up_pressed
+
+## 「扔」键圆心从动作键圆心往右上挪这么多：拇指不用离开那一片，两个圆的抓取圈也不打架。
+## 挪得太近的话，按「扔」的那一下会被动作键抢走（TouchControls 先于 GUI 拿手指）。
+const THROW_OFFSET := Vector2(96.0, -128.0)
 
 var _root: Control
 var _cross: Control
@@ -18,6 +22,8 @@ var _round := false
 var _ammo := 0
 ## 准星该画在哪（扔的方向在屏幕上的位置）；负坐标 = 屏幕正中
 var _aim := Vector2(-1.0, -1.0)
+## 上次摆「扔」键时是不是双人布局：二号位随时加入，人数一变就得重摆
+var _duo_layout := false
 
 
 func _ready() -> void:
@@ -53,13 +59,6 @@ func _ready() -> void:
 	_throw.text = "扔"
 	_throw.add_theme_font_size_override("font_size", 30)
 	_throw.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.92))
-	# 和「跳」那个动作键一样是个圆的，摆在底下正中（双人时正好在两个人的动作键中间）：
-	# 不能贴右下 —— 那里是二号位摇杆的抓取圈（TouchControls 先于 GUI 拿手指），按扔会变成推摇杆
-	_throw.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_throw.offset_left = -56.0
-	_throw.offset_right = 56.0
-	_throw.offset_top = -164.0
-	_throw.offset_bottom = -52.0
 	_throw.visible = false
 	_throw.pressed.connect(func() -> void: throw_pressed.emit())
 	_throw.add_theme_stylebox_override("normal", _circle(0.22))
@@ -67,6 +66,7 @@ func _ready() -> void:
 	_throw.add_theme_stylebox_override("pressed", _circle(0.55))
 	_throw.add_theme_stylebox_override("disabled", _circle(0.12))
 	_root.add_child(_throw)
+	_place_throw()
 
 	_give_up = Button.new()
 	_give_up.name = "GiveUp"
@@ -96,7 +96,31 @@ func _ready() -> void:
 	_root.add_child(_result)
 
 
-## 准星位置由 PoopGame 每帧算：相机俯着看人，正中不是扔出去的那条线。
+## 「扔」键的圆心，相对锚点：单人 = 动作键的右上（贴着手够）；双人 = 屏幕底下正中。
+## 双人时有本机二号位，右下那片是**他的摇杆**抓取圈，摆不得。
+static func throw_center(duo: bool) -> Vector2:
+	if duo:
+		return Vector2(0.0, -108.0)
+	return Vector2(
+		-TouchControls.EDGE_MARGIN - TouchControls.STICK_RADIUS,
+		-TouchControls.EDGE_MARGIN - TouchControls.ACTION_RADIUS
+	) + THROW_OFFSET
+
+
+## 和「跳」那个动作键一样大小的圆，位置跟着动作键走（二号位随时加入，人数变了要重摆）
+func _place_throw() -> void:
+	var duo := Party.joined()
+	_duo_layout = duo
+	_throw.set_anchors_preset(Control.PRESET_CENTER_BOTTOM if duo else Control.PRESET_BOTTOM_RIGHT)
+	var center := PoopPanel.throw_center(duo)
+	var radius := TouchControls.ACTION_RADIUS
+	_throw.offset_left = center.x - radius
+	_throw.offset_right = center.x + radius
+	_throw.offset_top = center.y - radius
+	_throw.offset_bottom = center.y + radius
+
+
+## 准星位置由 PoopGame 每帧算：出手点在胸口、相机在身后，正中不是扔出去的那条线。
 func set_aim(point: Vector2) -> void:
 	if point.is_equal_approx(_aim):
 		return
@@ -112,6 +136,8 @@ func show_round(top: String, ammo: int) -> void:
 	_throw.visible = true
 	_give_up.visible = true
 	_top.text = top
+	if Party.joined() != _duo_layout:
+		_place_throw()
 	var next := clampi(ammo, 0, Config.POOP_AMMO_MAX)
 	if next != _ammo or not _round:
 		_ammo = next
@@ -163,9 +189,11 @@ func _draw_overlay() -> void:
 	_cross.draw_arc(aim, 12.0, 0.0, TAU, 40, color, 2.0, true)
 	for dir in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
 		_cross.draw_line(aim + dir * 18.0, aim + dir * 26.0, color, 2.0)
-	# 三个弹药点摆在「扔」键右手边（正中那块是玩家自己的身体）
+	# 三个弹药点贴在「扔」键左手边（跟着键走，别到时候离得老远）
+	var button := _throw.get_rect()
+	var center := button.get_center()
 	for i in Config.POOP_AMMO_MAX:
-		var at := Vector2(size.x * 0.5 + 90.0 + 30.0 * float(i), size.y - 108.0)
+		var at := Vector2(center.x - 40.0 - 30.0 * float(Config.POOP_AMMO_MAX - 1 - i), center.y)
 		if i < _ammo:
 			_cross.draw_circle(at, 9.0, Color(0.45, 0.32, 0.18, 0.95))
 		else:

@@ -149,7 +149,7 @@ func _ball_of(beetle: Dictionary) -> Vector3:
 	return Vector3(ball.x, 0.0, ball.y)
 
 
-## 只留水平分量：扔的方向不看俯仰（见 PoopGame.aim_dir）
+## 只留水平分量：这一脚本自己算方向直着打，不走相机（玩家扔的是相机正前方，见 PoopGame.aim_dir）
 func _flat(v: Vector3) -> Vector3:
 	var out := Vector3(v.x, 0.0, v.z)
 	return out.normalized() if out.length() > 0.0 else Vector3.FORWARD
