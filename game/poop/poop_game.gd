@@ -21,10 +21,13 @@ static func result_text(earned: int) -> String:
 	return "这一局没算钱"
 
 
-## 扔的方向：相机的正前方。粑粑直线飞，屏幕正中就是落点，不需要任何补偿。
+## 扔的方向：相机的偏航，不要俯仰。森林是第三视角、相机一直俯着看人，
+## 照相机正前方扔就是一路扎进地里（5 米外就到胸口以下）——出手点和胸口一样高，
+## 水平那一发才打得中人，准星也才说真话。
 static func aim_dir(basis: Basis) -> Vector3:
 	var forward := -basis.z
-	return forward.normalized() if forward.length() > 0.0 else Vector3.FORWARD
+	var flat := Vector3(forward.x, 0.0, forward.z)
+	return flat.normalized() if flat.length() > 0.0 else Vector3.FORWARD
 
 
 @export var panel_path: NodePath
@@ -68,6 +71,7 @@ func _process(delta: float) -> void:
 	_active = true
 	if _panel == null:
 		return
+	_panel.set_aim(_aim_point())
 	_panel.show_round(
 		top_text(_at(hits, seat), _at(hits, 1 - seat), float(game.get("left", 0.0))),
 		_at(ammo, seat)
@@ -86,9 +90,24 @@ func _finish() -> void:
 func _on_throw() -> void:
 	if _net == null:
 		return
-	var camera := get_viewport().get_camera_3d()
-	var dir := aim_dir(camera.global_basis) if camera != null else Vector3.FORWARD
+	var dir := _throw_dir()
 	_net.send_input({"dirx": dir.x, "diry": dir.y, "dirz": dir.z})
+
+
+## 准星该画在哪：把「粑粑会飞到的那一点」投到屏幕上 —— 从自己的胸口沿扔的方向飞一个射程。
+## 相机是俯着看人的，正中不是这条线；没相机就回 (-1, -1)，面板自己画在正中。
+func _aim_point() -> Vector2:
+	var camera := get_viewport().get_camera_3d()
+	if camera == null:
+		return Vector2(-1.0, -1.0)
+	var player := Player.of_seat(get_tree(), 0)
+	var from: Vector3 = player.global_position if player != null else camera.global_position
+	return camera.unproject_position(from + Vector3(0.0, Config.POOP_CHEST, 0.0) + _throw_dir() * Config.POOP_RANGE)
+
+
+func _throw_dir() -> Vector3:
+	var camera := get_viewport().get_camera_3d()
+	return aim_dir(camera.global_basis) if camera != null else Vector3.FORWARD
 
 
 ## 放弃 = 认输，照常结账（服务器那条路是 NetLobby.forfeit）

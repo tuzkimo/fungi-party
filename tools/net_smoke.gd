@@ -80,6 +80,7 @@ func _run() -> void:
 	await _owl_check()
 	await _race_check()
 	await _hide_check()
+	await _poop_check()
 	print("SMOKE OK")
 	quit(0)
 
@@ -399,6 +400,86 @@ func _hide_check() -> void:
 	if int(_client.data["coins"]) != coins_before - Config.HIDE_STAKE:
 		_die("输家没扣 5 币：%d -> %d" % [coins_before, int(_client.data["coins"])])
 	print("捉迷藏：两人同局，找的人看不见藏的人，走到跟前捉到，各结 5 币")
+	guest.close()
+
+
+## 扔粑粑：两人留在森林里打 → 屎壳郎刷出来 → 走过去抢粪 → 扔一发打中对方 → 认输收局。
+## 位置沿用 MOVE，所以抢粪和命中都靠一步一步报上去（服务器不认瞬移，`clamp_step` 会夹住）。
+func _poop_check() -> void:
+	var guest := NetClient.new()
+	guest.failed.connect(_on_failed)
+	root.add_child(guest)
+	var guest_name := "%sH" % _name
+	guest.connect_to(_host, _port, guest_name, _password)
+	await guest.logged_in
+	await _op("invite", {"to": guest_name, "kind": "poop"})
+	if not bool(_client.last_result.get("ok", false)):
+		_die("扔粑粑邀请被拒：%s" % str(_client.last_result.get("error", "")))
+	await create_timer(0.3).timeout
+	guest.request("answer", {"from": _name, "kind": "poop", "accept": true})
+	await guest.changed
+	await create_timer(0.4).timeout
+	for who in [guest, _client]:
+		if str(who.session.get("kind", "")) != "poop":
+			_die("%s 没进到扔粑粑：%s" % [who.me(), str(who.session)])
+	if NetRoom.scene_path("poop") != "":
+		_die("扔粑粑不该有场景")
+
+	# 第一个人报位置时服务器才撒屎壳郎
+	var at := Vector3.ZERO
+	_client.send_move(0, at, 0.0, "red", "")
+	guest.send_move(0, Vector3(6.0, 0.0, 0.0), 0.0, "seafood", "")
+	await create_timer(0.4).timeout
+	var beetles: Array = (_client.session.get("game", {}) as Dictionary).get("beetles", [])
+	if beetles.size() != Config.POOP_BEETLES:
+		_die("屎壳郎没刷出来：%s" % str(_client.session.get("game", {})))
+
+	# 走到第一只的粪球跟前（粪球在它身前 -Z，位置由服务器算）
+	for i in 40:
+		beetles = (_client.session.get("game", {}) as Dictionary).get("beetles", [])
+		if beetles.is_empty():
+			_die("屎壳郎没了")
+		var ball := PoopRound.ball_at(beetles[0])
+		var goal := Vector3(ball.x, 0.0, ball.y)
+		var step_vec := goal - at
+		step_vec.y = 0.0
+		if step_vec.length() <= Config.POOP_PICK_RANGE * 0.6:
+			break
+		at += step_vec.normalized() * minf(2.0, step_vec.length())
+		_client.send_move(0, at, 0.0, "red", "")
+		await create_timer(0.06).timeout
+	await create_timer(0.4).timeout
+	var ammo: Array = (_client.session.get("game", {}) as Dictionary).get("ammo", [])
+	if ammo.is_empty() or int(ammo[_client.seat_index()]) != 1:
+		_die("走到粪球上没抢到：%s" % str(ammo))
+
+	# 把对方摆到 6 米外（也一步一步走），朝他扔一发
+	var aim := at + Vector3(6.0, 0.0, 0.0)
+	var walk := Vector3(6.0, 0.0, 0.0)
+	for i in 40:
+		var d := aim - walk
+		d.y = 0.0
+		if d.length() <= 0.1:
+			break
+		walk += d.normalized() * minf(2.0, d.length())
+		guest.send_move(0, walk, 0.0, "seafood", "")
+		await create_timer(0.06).timeout
+	await create_timer(0.4).timeout
+	var dir := aim - at
+	dir.y = 0.0
+	dir = dir.normalized()
+	_client.send_input({"dirx": dir.x, "diry": 0.0, "dirz": dir.z})
+	await create_timer(0.8).timeout
+	var hits: Array = (_client.session.get("game", {}) as Dictionary).get("hits", [])
+	if hits.is_empty() or int(hits[guest.seat_index()]) != 1:
+		_die("扔了一发没打中（服务端没判命中）：%s" % str(hits))
+
+	# 认输收局：扔粑粑的「放弃」= 认输照付，房位也腾出来
+	_client.request("leave_room", {})
+	await create_timer(0.6).timeout
+	if not bool(_client.session.get("over", false)):
+		_die("认输之后没收到收局：%s" % str(_client.session))
+	print("扔粑粑：两人留在森林里，抢到粪，一发打中，认输收局")
 	guest.close()
 
 

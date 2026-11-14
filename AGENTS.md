@@ -34,6 +34,11 @@
   位置沿用 `MOVE`；找的人在 12 米现形之前，那份 `WORLD` 里根本没有藏的人（真藏，不是不画），现形一次就锁存。
   这期间全森林的名字牌一起藏起来。森林补了 15 处藏点（`game/world/hide_spots.gd`：垫脚石上树冠、
   木箱上屋顶/顶棚/门楣、空心断木、石头洞、大蘑菇），饭店屋顶、摊位顶棚、校门门楣是真能站人的。
+- v9：森林扔粑粑 —— 第二款不换场景的（`game/poop/poop_game.gd` + `game/world/poop_field.gd` + `game/ui/poop_panel.gd`）。
+  走到别人 4 米内弹「和 X 扔粑粑」，服务器开一局 `poop`（规则 `game/net/poop_round.gd`）：5 只屎壳郎在两人中点
+  25 米内推粪球（球被抢走 6 秒后再推一个），走到球 1.5 米内自动抢、槽满 3 发；用相机的**偏航**扔，
+  粑粑直线飞 14 米/秒、30 米消失，一步一个线段扫胸口判命中；先中 3 次输，180 秒到点按挨得少的判、
+  平局不结钱，输的付 5 币；`poop` 不进右上角邀请面板。命中 / 抢粪 / 胜负全在服务器，客户端只报方向。
 - v5：角色可换 —— 红蘑菇之外加了海鲜菇（细长杆 + 小扁帽 + 四根黑棍手脚 + 腮红，按 `refs/海鲜菇角色设计图.png`），帐篷里免费换；体型与皮肤解耦，15 顶皮肤两个角色都能戴
 - 场景：`game/world/` 森林与 POI、`game/minigame/` 教室/赛跑/传炸弹/猫头鹰喂食、`game/skins/` 15 顶皮肤数据（`.tres`）与 `catalog.gd` 总表、`game/player/body/` 角色体型（红蘑菇 / 海鲜菇，`catalog.gd` 总表）、`game/ui/` HUD 与浮层
 
@@ -54,6 +59,8 @@ bash scripts/net_smoke.sh                                      # 联机冒烟：
 godot --path . --script res://tools/net_login_shot.gd -- --port 7000   # 桌面看一眼启动菜单和登录（shots/login*.png）
 godot --path . --script res://tools/net_world_shot.gd -- --port 7000   # 桌面看一眼共享森林里的替身（shots/world.png）
 godot --path . --script res://tools/net_invite_shot.gd -- --port 7000   # 桌面看一眼邀请：列表 + 横幅 + 接受后进教室（shots/invite.png）
+godot --path . --script res://tools/net_poop_shot.gd -- --port 7000     # 桌面看一眼扔粑粑：屎壳郎 + 准星 + 弹药点（shots/poop_*.png）
+godot --headless --path . --script res://tools/net_move_repro.gd -- --port 7099  # 换场景回来卡在门口的回归（该是 OK 不是 STUCK）
 bash scripts/deploy-server.sh 用户@主机                           # 手动发一次服务端（平时 push main 就自动上线，见 docs/server-deploy.md）
 godot --headless --path . --export-debug "Android" build/app.apk   # 调试包，带 FPS/DRAW/TRI 信息条
 bash scripts/export-release.sh                                      # 正式签名包 build/fungi_party_<版本>_arm64.apk
@@ -109,7 +116,13 @@ adb exec-out screencap -p > shots/shot.png                     # 设备截图
   两两最小」，服务器不认「谁是带队的」；现形是一次性锁存，别改成每帧比距离。
 - 藏点只由 `HideSpots.build()` 生成，位置表是 `Config.HIDE_SPOTS`；撒树/石头时要把 `HideSpots.spots()`
   并进 keep-out（已经并了）。垫脚石按真实的树位摆（找 6 米内最近的树），别写死坐标。
-- 捉迷藏不进右上角「邀请」面板（`InvitePanel.PANEL_SKIP`）：那个面板能隔一整座森林发邀请，会绕开「走到跟前」。
+- 捉迷藏 / 扔粑粑不进右上角「邀请」面板（`InvitePanel.PANEL_SKIP`）：那个面板能隔一整座森林发邀请，会绕开「走到跟前」。
+- 扔粑粑的方向只取**偏航**（`PoopGame.aim_dir`）：森林是第三视角、相机一直俯着看人，照相机正前方扔 5 米外
+  就扎到胸口以下。出手点和胸口一样高（`POOP_CHEST`），水平那一发才打得中人。
+- 准星画的是「自己胸口沿扔的方向飞一个射程」那一点在屏幕上的投影（`PoopGame._aim_point`），相机俯着看人时
+  它就不在正中 —— 那才是对的，别改成固定正中。
+- 从小游戏回森林的那一跳是 `clamp_step` **夹住**，不是把一整条 MOVE 丢掉：丢掉就永远拿旧坐标去比，
+  别人会一直看见他定在门口（`ede37e7`）。扔粑粑的坐标就是命中点和出手点，这条不能回退。
 - 结算里的负数 payout 按余额封顶（`NetLobby._settle`）：赢的只拿实际扣到的，不许凭空印币；全正数的局照旧是游戏挣的。
 - 捉迷藏期间 `NameTag.hidden` 由 `WORLD.hide` 驱动 —— 观战的人没有 `SESSION`，读不到这局的状态。
 - 小游戏里别人的座位按**他自己报上来的形象**长（`NetClient.seat_look(seat)` + 视图的 `apply_look_of`）：

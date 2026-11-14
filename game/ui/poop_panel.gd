@@ -16,6 +16,8 @@ var _give_up: Button
 var _result: Label
 var _round := false
 var _ammo := 0
+## 准星该画在哪（扔的方向在屏幕上的位置）；负坐标 = 屏幕正中
+var _aim := Vector2(-1.0, -1.0)
 
 
 func _ready() -> void:
@@ -49,27 +51,32 @@ func _ready() -> void:
 	_throw = Button.new()
 	_throw.name = "Throw"
 	_throw.text = "扔"
-	_throw.custom_minimum_size = Vector2(360.0, 96.0)
-	_throw.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_throw.offset_left = -180.0
-	_throw.offset_right = 180.0
-	# 和捉迷藏的「捉到」同一处：再往下就压到 TouchControls 的摇杆和动作键
-	_throw.offset_top = -280.0
-	_throw.offset_bottom = -184.0
+	_throw.add_theme_font_size_override("font_size", 30)
+	_throw.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.92))
+	# 和「跳」那个动作键一样是个圆的，摆在它上面一格：正中那块地留给准星和视野
+	_throw.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_throw.offset_left = -286.0
+	_throw.offset_right = -174.0
+	_throw.offset_top = -382.0
+	_throw.offset_bottom = -270.0
 	_throw.visible = false
 	_throw.pressed.connect(func() -> void: throw_pressed.emit())
-	UIStyle.style_button(_throw)
+	_throw.add_theme_stylebox_override("normal", _circle(0.22))
+	_throw.add_theme_stylebox_override("hover", _circle(0.30))
+	_throw.add_theme_stylebox_override("pressed", _circle(0.55))
+	_throw.add_theme_stylebox_override("disabled", _circle(0.12))
 	_root.add_child(_throw)
 
 	_give_up = Button.new()
 	_give_up.name = "GiveUp"
 	_give_up.text = "放弃"
 	_give_up.custom_minimum_size = Vector2(150.0, 56.0)
-	_give_up.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_give_up.offset_left = -75.0
-	_give_up.offset_right = 75.0
-	_give_up.offset_top = 110.0
-	_give_up.offset_bottom = 166.0
+	# 左上角体力条下面：正中和右上都是看得到人的地方，别在那儿摆按钮
+	_give_up.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_give_up.offset_left = 20.0
+	_give_up.offset_right = 170.0
+	_give_up.offset_top = 170.0
+	_give_up.offset_bottom = 226.0
 	_give_up.visible = false
 	_give_up.pressed.connect(func() -> void: give_up_pressed.emit())
 	UIStyle.style_button(_give_up)
@@ -86,6 +93,14 @@ func _ready() -> void:
 	_result.offset_bottom = 60.0
 	_result.visible = false
 	_root.add_child(_result)
+
+
+## 准星位置由 PoopGame 每帧算：相机俯着看人，正中不是扔出去的那条线。
+func set_aim(point: Vector2) -> void:
+	if point.is_equal_approx(_aim):
+		return
+	_aim = point
+	_cross.queue_redraw()
 
 
 ## 这一局的常规画面：顶上一句话 + 手上几发。
@@ -121,6 +136,16 @@ func close() -> void:
 	_cross.queue_redraw()
 
 
+## 和 TouchControls 那个动作键一样的半透明圆
+static func _circle(alpha: float) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(1.0, 1.0, 1.0, alpha)
+	style.set_corner_radius_all(56)
+	style.border_color = Color(1.0, 1.0, 1.0, 0.45)
+	style.set_border_width_all(3)
+	return style
+
+
 func _draw_overlay() -> void:
 	if not _round:
 		return
@@ -128,13 +153,19 @@ func _draw_overlay() -> void:
 	var mid := size * 0.5
 	var color := Color(1.0, 1.0, 1.0, 0.55)
 	# 空心圆 + 四道短十字：细、半透明，别挡视线
-	_cross.draw_arc(mid, 12.0, 0.0, TAU, 40, color, 2.0, true)
+	var aim := _aim if _aim.x >= 0.0 else mid
+	# 先垫一圈暗的：白准星压在亮草地/浅绿树上一眼看不见
+	var shade := Color(0.0, 0.0, 0.0, 0.45)
+	_cross.draw_arc(aim, 12.0, 0.0, TAU, 40, shade, 5.0, true)
 	for dir in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
-		_cross.draw_line(mid + dir * 18.0, mid + dir * 26.0, color, 2.0)
-	# 右下三个弹药点，摆在「扔」键上面
-	var left := mid.x - 18.0 * float(Config.POOP_AMMO_MAX - 1)
+		_cross.draw_line(aim + dir * 18.0, aim + dir * 26.0, shade, 5.0)
+	_cross.draw_arc(aim, 12.0, 0.0, TAU, 40, color, 2.0, true)
+	for dir in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
+		_cross.draw_line(aim + dir * 18.0, aim + dir * 26.0, color, 2.0)
+	# 三个弹药点摆在「扔」键正上方
+	var middle := size.x - 230.0
 	for i in Config.POOP_AMMO_MAX:
-		var at := Vector2(left + 36.0 * float(i), size.y - 330.0)
+		var at := Vector2(middle + 32.0 * float(i - (Config.POOP_AMMO_MAX - 1) * 0.5), size.y - 404.0)
 		if i < _ammo:
 			_cross.draw_circle(at, 9.0, Color(0.45, 0.32, 0.18, 0.95))
 		else:

@@ -23,6 +23,15 @@ func test_aim_dir_is_the_camera_forward() -> void:
 	check(absf(PoopGame.aim_dir(turned).length() - 1.0) < 0.001, "是单位向量")
 
 
+## 第三视角的相机是俯着看人的：照相机正前方扔就是一路扎进地里（5 米外就到胸口以下），
+## 所以扔的方向只取偏航。胸口出手 + 胸口命中，水平那一发才是唯一打得中的。
+func test_aim_dir_ignores_the_camera_pitch() -> void:
+	var pitched := Basis(Vector3.RIGHT, -0.5) * Basis.IDENTITY
+	var dir := PoopGame.aim_dir(pitched)
+	check(absf(dir.y) < 0.0001, "俯仰不进方向（y 是 0，实得 %f）" % dir.y)
+	check(dir.is_equal_approx(Vector3.FORWARD), "俯着看也朝 -Z 扔")
+
+
 func test_clock_text_moved_to_ui_style() -> void:
 	check_eq(UIStyle.clock_text(95.4), "1:35", "一分三十五秒")
 	check_eq(UIStyle.clock_text(-3.0), "0:00", "负数不显示负号")
