@@ -207,6 +207,31 @@ const HIDE_STAKE := 5
 ## 找的阶段藏的人速度倍率：不降速就是赛跑，同速永远捉不到
 const HIDE_HIDER_SPEED := 0.5
 
+# v9 森林扔粑粑（留在森林里打的第二款）
+## 和捉迷藏同一个「走到跟前才能发起」的距离：两个按钮共用一个范围
+const POOP_NEAR_RANGE := HIDE_NEAR_RANGE
+const POOP_SECONDS := 180.0
+const POOP_HITS := 3
+const POOP_STAKE := 5
+const POOP_AMMO_MAX := 3
+## 直线飞，不下坠：准星才说真话
+const POOP_THROW_SPEED := 14.0
+const POOP_RANGE := 30.0
+## 命中半径是胸口那个球：靶子直径 1.2 米
+const POOP_HIT_RADIUS := 0.6
+const POOP_CHEST := 0.7
+const POOP_BEETLES := 5
+## 屎壳郎撒在两人连线中点这么远以内
+const POOP_SPAWN_RADIUS := 25.0
+## 粪球被抢走多久之后那只屎壳郎再推一个出来
+const POOP_BALL_REFILL := 6.0
+const POOP_PICK_RANGE := 1.5
+const POOP_BEETLE_SPEED := 0.7
+## 屎壳郎每隔这么久换一个方向（乱走）
+const POOP_BEETLE_WANDER := 3.0
+## 粪球推在屎壳郎身前多远（节点自己的 -Z）
+const POOP_BALL_AHEAD := 0.6
+
 ## 森林里的藏点（v8）：位置只影响这里的几何，树和石头都会绕开。
 ## `face` 只给 crates 用：朝目标建筑的方向（高那个箱子摆在那一侧）。
 const HIDE_SPOTS: Array[Dictionary] = [
