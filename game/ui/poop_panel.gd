@@ -53,12 +53,13 @@ func _ready() -> void:
 	_throw.text = "扔"
 	_throw.add_theme_font_size_override("font_size", 30)
 	_throw.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.92))
-	# 和「跳」那个动作键一样是个圆的，摆在它上面一格：正中那块地留给准星和视野
-	_throw.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_throw.offset_left = -286.0
-	_throw.offset_right = -174.0
-	_throw.offset_top = -382.0
-	_throw.offset_bottom = -270.0
+	# 和「跳」那个动作键一样是个圆的，摆在底下正中（双人时正好在两个人的动作键中间）：
+	# 不能贴右下 —— 那里是二号位摇杆的抓取圈（TouchControls 先于 GUI 拿手指），按扔会变成推摇杆
+	_throw.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_throw.offset_left = -56.0
+	_throw.offset_right = 56.0
+	_throw.offset_top = -164.0
+	_throw.offset_bottom = -52.0
 	_throw.visible = false
 	_throw.pressed.connect(func() -> void: throw_pressed.emit())
 	_throw.add_theme_stylebox_override("normal", _circle(0.22))
@@ -162,10 +163,9 @@ func _draw_overlay() -> void:
 	_cross.draw_arc(aim, 12.0, 0.0, TAU, 40, color, 2.0, true)
 	for dir in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
 		_cross.draw_line(aim + dir * 18.0, aim + dir * 26.0, color, 2.0)
-	# 三个弹药点摆在「扔」键正上方
-	var middle := size.x - 230.0
+	# 三个弹药点摆在「扔」键右手边（正中那块是玩家自己的身体）
 	for i in Config.POOP_AMMO_MAX:
-		var at := Vector2(middle + 32.0 * float(i - (Config.POOP_AMMO_MAX - 1) * 0.5), size.y - 404.0)
+		var at := Vector2(size.x * 0.5 + 90.0 + 30.0 * float(i), size.y - 108.0)
 		if i < _ammo:
 			_cross.draw_circle(at, 9.0, Color(0.45, 0.32, 0.18, 0.95))
 		else:

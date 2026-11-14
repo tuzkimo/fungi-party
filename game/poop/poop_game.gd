@@ -91,7 +91,21 @@ func _on_throw() -> void:
 	if _net == null:
 		return
 	var dir := _throw_dir()
-	_net.send_input({"dirx": dir.x, "diry": dir.y, "dirz": dir.z})
+	_net.send_input({"slot": _owner_slot(), "dirx": dir.x, "diry": dir.y, "dirz": dir.z})
+
+
+## 镜头现在挂在谁身上就是谁在扔（同屏 2P 谁推摇杆谁带队、谁拿镜头）。
+func _owner_slot() -> int:
+	var player := _owner()
+	return clampi(player.seat, 0, 1) if player != null else 0
+
+
+func _owner() -> Player:
+	var camera := get_viewport().get_camera_3d()
+	if camera == null:
+		return null
+	var rig := camera.get_parent()
+	return (rig.get_parent() if rig != null else null) as Player
 
 
 ## 准星该画在哪：把「粑粑会飞到的那一点」投到屏幕上 —— 从自己的胸口沿扔的方向飞一个射程。
@@ -100,7 +114,7 @@ func _aim_point() -> Vector2:
 	var camera := get_viewport().get_camera_3d()
 	if camera == null:
 		return Vector2(-1.0, -1.0)
-	var player := Player.of_seat(get_tree(), 0)
+	var player := _owner()
 	var from: Vector3 = player.global_position if player != null else camera.global_position
 	return camera.unproject_position(from + Vector3(0.0, Config.POOP_CHEST, 0.0) + _throw_dir() * Config.POOP_RANGE)
 

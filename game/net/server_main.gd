@@ -223,6 +223,8 @@ func _on_move(session: Dictionary, body: Dictionary) -> void:
 		"skin": skin if SkinCatalog.by_id(skin) != null else "",
 	}
 	session["slots"] = slots
+	# shortcut: 步长上限是「每包 2.4 米」而不是「每秒」——改过的客户端发得够快就能瞬移抢粪/贴脸，
+	# 升级时机：真的有人靠这个刷币，或者服务端开放给陌生人时，改成按时间的预算并让冒烟脚本按正常速度走。
 	# 捉迷藏 / 扔粑粑的距离判定只能用这里的坐标：服务器没 3D，位置就靠这条上报
 	var room := _lobby.room
 	if room == null:

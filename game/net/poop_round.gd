@@ -85,12 +85,13 @@ func tick(delta: float) -> void:
 
 
 ## 点一下扔：只验弹药和方向，方向是瞄准不是胜负（服务器自己飞、自己判）。
-func throw_poop(seat: int, dir: Vector3) -> bool:
+## `slot` 是客户端报的「现在是谁身上的球」（同屏 2P 谁带队就谁扔），没报过位置就退回别的 slot。
+func throw_poop(seat: int, dir: Vector3, slot := 0) -> bool:
 	if over or seat < 0 or seat >= humans:
 		return false
 	if int(ammo.get(seat, 0)) <= 0 or not aim_ok(dir):
 		return false
-	var origin: Variant = _origin(seat)
+	var origin: Variant = _origin(seat, slot)
 	if origin == null:
 		return false
 	ammo[seat] = int(ammo[seat]) - 1
@@ -205,14 +206,14 @@ func _fly_shots(step: float) -> void:
 			shots.remove_at(i)
 
 
-## 出手点是 slot 0（同屏 2P 的领队），没有就用 slot 1；都没报过位置就扔不出去。
-func _origin(seat: int) -> Variant:
+## 出手点：客户端报的那个 slot（同屏 2P 谁带队就谁扔），没报过再退回 slot 0 / 1。
+func _origin(seat: int, slot := 0) -> Variant:
 	var slots: Variant = _pos.get(seat, null)
 	if slots == null:
 		return null
-	for slot in [0, 1]:
-		if (slots as Dictionary).has(slot):
-			return ((slots as Dictionary)[slot] as Vector3) + Vector3(0.0, Config.POOP_CHEST, 0.0)
+	for want in [slot, 0, 1]:
+		if (slots as Dictionary).has(want):
+			return ((slots as Dictionary)[want] as Vector3) + Vector3(0.0, Config.POOP_CHEST, 0.0)
 	return null
 
 

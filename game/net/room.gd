@@ -105,7 +105,16 @@ func input(account: String, payload: Dictionary) -> bool:
 		var dir := Vector3(float(x), float(y), float(z))
 		if not dir.is_finite():
 			return false
-		return (model as PoopRound).throw_poop(seat, dir)
+		# slot：同屏 2P 里现在带队的是谁 —— 球从他身上飞出去
+		var body := 0
+		if payload.has("slot"):
+			var raw_slot: Variant = payload["slot"]
+			if typeof(raw_slot) != TYPE_INT and typeof(raw_slot) != TYPE_FLOAT:
+				return false
+			body = int(raw_slot)
+			if body != 0 and body != 1:
+				return false
+		return (model as PoopRound).throw_poop(seat, dir, body)
 	var held: Variant = payload.get("press", false)
 	if typeof(held) != TYPE_BOOL:
 		return false

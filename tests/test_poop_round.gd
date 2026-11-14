@@ -99,6 +99,27 @@ func test_throw_needs_ammo_and_a_direction() -> void:
 	check_eq(r.shots.size(), 1, "天上有一发")
 
 
+## 同屏 2P 谁带队，谁身上的球飞出去？扔的是那一具身体的球。
+func test_throw_can_come_from_the_second_player() -> void:
+	var r := _r()
+	_place(r, [Vector3(0, 0, 0)])
+	r.feed(0, 0, Vector3(0.0, 0.0, 10.0))
+	r.feed(0, 1, Vector3(0.0, 0.0, -2.0))
+	r.ammo[0] = 1
+	check_eq(r.throw_poop(0, Vector3.FORWARD, 1), true, "2P 那个 slot 也能出手")
+	check(absf(float(r.shots[0]["z"]) + 2.0) < 0.001, "从 slot 1 的位置飞出去（实得 %f）" % float(r.shots[0]["z"]))
+
+
+## slot 1 还没报过位置就退回 slot 0：别因为二号位没进场就扔不出去。
+func test_throw_falls_back_to_slot_zero() -> void:
+	var r := _r()
+	_place(r, [Vector3(0, 0, 0)])
+	r.feed(0, 0, Vector3(0.0, 0.0, 10.0))
+	r.ammo[0] = 1
+	check_eq(r.throw_poop(0, Vector3.FORWARD, 1), true, "只有 slot 0 也扔得出去")
+	check(absf(float(r.shots[0]["z"]) - 10.0) < 0.001, "退回 slot 0 的位置")
+
+
 func test_throw_without_positions_fails() -> void:
 	var r := _r()
 	_place(r, [Vector3(0, 0, 0)])

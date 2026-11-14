@@ -314,6 +314,7 @@ func test_poop_input_is_a_direction() -> void:
 	model.ammo[0] = 1
 	check_eq(room.input("a", {"dirx": "x", "diry": 0, "dirz": 0}), false, "方向不是数就不收")
 	check_eq(room.input("a", {"dirx": INF, "diry": 0.0, "dirz": 0.0}), false, "非有限数不收")
+	check_eq(room.input("a", {"dirx": NAN, "diry": 0.0, "dirz": 0.0}), false, "NaN 也不收")
 	check_eq(room.input("a", {"dirx": 0.0, "diry": 0.0, "dirz": -1.0}), true, "合法方向收下")
 	check_eq((room.snapshot()["game"]["shots"] as Array).size(), 1, "立刻飞出去一发")
 
@@ -329,11 +330,37 @@ func test_poop_tick_moves_the_shot() -> void:
 	check_eq((room.snapshot()["game"]["hits"] as Array)[1], 1, "tick 推着粑粑飞过去打中了")
 
 
+## 我们这边 2P 谁带队，谁身上的球飞出去：客户端报 slot，服务器只用它的坐标。
+func test_poop_input_names_the_throwing_body() -> void:
+	var room := NetRoom.create("poop", ["a", "b"])
+	var model := room.model as PoopRound
+	model.feed(0, 0, Vector3(0.0, 0.0, 10.0))
+	model.feed(0, 1, Vector3(0.0, 0.0, -2.0))
+	model.ammo[0] = 1
+	check_eq(room.input("a", {"slot": "1", "dirx": 0.0, "diry": 0.0, "dirz": -1.0}), false, "slot 不是数就不收")
+	check_eq(room.input("a", {"slot": 4, "dirx": 0.0, "diry": 0.0, "dirz": -1.0}), false, "slot 只收 0/1")
+	check(room.input("a", {"slot": 1, "dirx": 0.0, "diry": 0.0, "dirz": -1.0}), "slot 1 是合法输入")
+	var shots: Array = room.snapshot()["game"]["shots"]
+	check_eq(shots.size(), 1, "飞出去一发")
+	check(absf(float((shots[0] as Dictionary)["z"]) + 2.0) < 0.001, "从 slot 1 报的那份位置出手")
+
+
 ## 一局快照 20 Hz 往八个人那儿发：超过 MAX_PACKET 会被服务器静默丢掉，看起来像服务器停了。
+## 最坏情况 = 两人各报两份位置 + 5 只屎壳郎 + 6 发在飞（满槽 3 发 × 两个人）。
 func test_poop_snapshot_fits_in_a_packet() -> void:
 	var room := NetRoom.create("poop", ["a", "b"])
-	(room.model as PoopRound).anchor(Vector3.ZERO)
+	var model := room.model as PoopRound
+	model.anchor(Vector3.ZERO)
+	model.feed(0, 0, Vector3(1.0, 0.0, 2.0))
+	model.feed(0, 1, Vector3(3.0, 0.0, 4.0))
+	model.feed(1, 0, Vector3(-1.0, 0.0, -2.0))
+	model.feed(1, 1, Vector3(-3.0, 0.0, -4.0))
+	for i in 6:
+		model.shots.append({
+			"owner": i % 2, "x": 12.5, "y": 0.7, "z": -33.25,
+			"dx": 0.577, "dy": 0.0, "dz": -0.577, "left": 2.142,
+		})
 	check(
 		not NetProtocol.pack(NetProtocol.Msg.SESSION, room.snapshot()).is_empty(),
-		"满员的扔粑粑快照塞得进一个包"
+		"最坏情况（两份位置 + 5 只屎壳郎 + 6 发在飞）的扔粑粑快照塞得进一个包"
 	)
