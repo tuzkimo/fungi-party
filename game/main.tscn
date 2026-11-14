@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="PackedScene" path="res://game/world/forest.tscn" id="1_forest"]
 [ext_resource type="PackedScene" path="res://game/ui/debug_hud.tscn" id="2_hud"]
@@ -18,6 +18,8 @@
 [ext_resource type="Script" path="res://game/hide/hide_game.gd" id="16_hide_game"]
 [ext_resource type="Script" path="res://game/ui/hide_panel.gd" id="17_hide_panel"]
 [ext_resource type="Script" path="res://game/ui/near_panel.gd" id="18_near_panel"]
+[ext_resource type="Script" path="res://game/poop/poop_game.gd" id="19_poop_game"]
+[ext_resource type="Script" path="res://game/ui/poop_panel.gd" id="20_poop_panel"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("7_main")
@@ -71,3 +73,10 @@ script = ExtResource("18_near_panel")
 [node name="HideGame" type="Node" parent="."]
 script = ExtResource("16_hide_game")
 panel_path = NodePath("../HidePanel")
+
+[node name="PoopPanel" type="CanvasLayer" parent="."]
+script = ExtResource("20_poop_panel")
+
+[node name="PoopGame" type="Node" parent="."]
+script = ExtResource("19_poop_game")
+panel_path = NodePath("../PoopPanel")

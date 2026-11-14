@@ -97,9 +97,9 @@ func _ready() -> void:
 	_root.add_child(_result)
 
 
+## 倒计时文案现在归 UIStyle（扔粑粑也要用），这里留一层转调
 static func clock_text(seconds: float) -> String:
-	var whole := maxi(0, int(seconds))
-	return "%d:%02d" % [whole / 60, whole % 60]
+	return UIStyle.clock_text(seconds)
 
 
 ## 这一局的常规画面：black = 找的人那 30 秒黑屏；hint 是「快去藏 / 去捉 / 藏好」这类一句话。

@@ -28,6 +28,12 @@ static func theme() -> Theme:
 	return result
 
 
+## 一局的倒计时："1:35"；负数当 0（到点了不显示负号）。
+static func clock_text(seconds: float) -> String:
+	var whole := maxi(0, int(seconds))
+	return "%d:%02d" % [whole / 60, whole % 60]
+
+
 static func panel() -> StyleBoxFlat:
 	# 默认 Panel 是半透明的，场景穿过来会把字吃掉
 	var style := StyleBoxFlat.new()
