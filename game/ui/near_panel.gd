@@ -1,13 +1,15 @@
 class_name NearPanel
 extends CanvasLayer
 
-## 森林里走到别人跟前才弹的那一个按钮：「和 X 玩捉迷藏」。
+## 森林里走到别人跟前才弹的那两个按钮：「和 X 玩捉迷藏」「和 X 扔粑粑」。
 ## 只画和发信号，最近的是谁由 main.gd 每帧算（它手里有 world 和自己的坐标）。
 
 signal hide_pressed(to: String)
+signal poop_pressed(to: String)
 
 var _root: Control
 var _button: Button
+var _poop: Button
 var _name := ""
 
 
@@ -33,6 +35,20 @@ func _ready() -> void:
 	UIStyle.style_button(_button)
 	_root.add_child(_button)
 
+	_poop = Button.new()
+	_poop.name = "Poop"
+	_poop.custom_minimum_size = Vector2(420.0, 72.0)
+	_poop.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_poop.offset_left = -210.0
+	_poop.offset_right = 210.0
+	# 竖着排在捉迷藏那个上面
+	_poop.offset_top = -370.0
+	_poop.offset_bottom = -298.0
+	_poop.visible = false
+	_poop.pressed.connect(func() -> void: poop_pressed.emit(_name))
+	UIStyle.style_button(_poop)
+	_root.add_child(_poop)
+
 
 ## 换人（或空串收起）。同一帧重复同一个名字不重建文字。
 func set_target(name: String) -> void:
@@ -41,6 +57,8 @@ func set_target(name: String) -> void:
 	_name = name
 	_button.visible = name != ""
 	_button.text = "和 %s 玩捉迷藏" % name
+	_poop.visible = name != ""
+	_poop.text = "和 %s 扔粑粑" % name
 
 
 ## 世界里离我最近的那个真账号（同屏 2P 的 `账号|1` 不是人）；太远就是空串。

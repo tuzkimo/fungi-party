@@ -46,10 +46,17 @@ func test_invitable_skips_the_second_player() -> void:
 func test_only_modelled_games_are_offered() -> void:
 	var kinds := InvitePanel.kinds()
 	for kind in NetLobby.MODELLED:
-		if kind == "hide" or kind == "poop":
-			continue   # 捉迷藏 / 扔粑粑只能走到跟前发起，不进右上角面板
+		if InvitePanel.PANEL_SKIP.has(kind):
+			check(not kinds.has(kind), "%s 只能走到跟前发起，不进右上角面板" % kind)
+			continue
 		check(kinds.has(kind), "%s 搬上服务器了就能邀请" % kind)
 	check(kinds.has("race"), "赛跑也能邀请了")
+
+
+func test_poop_has_a_chinese_name() -> void:
+	check_eq(InvitePanel.kind_name("poop"), "扔粑粑", "横幅要念得出这一款叫什么")
+	var text := InvitePanel.invite_text({"from": "小明", "kind": "poop"})
+	check(text.contains("扔粑粑"), "横幅文案带上名字：%s" % text)
 
 
 func test_sync_lists_one_button_per_player_and_game() -> void:

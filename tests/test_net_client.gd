@@ -55,3 +55,17 @@ func test_close_forgets_the_key() -> void:
 	client.close()
 	check_eq(client.key_hex, "", "close() 之后没有凭据")
 	client.free()
+
+
+func test_in_any_room() -> void:
+	var client := NetClient.new()
+	check_eq(client.in_any_room(), false, "没连上不算在局里")
+	client.state = NetClient.State.READY
+	check_eq(client.in_any_room(), false, "连上了但没被拉进局也不算")
+	client.session = {"kind": "poop"}
+	check_eq(client.in_any_room(), true, "在局里")
+	check_eq(client.in_room("poop"), true, "in_room 照样按款判")
+	check_eq(client.in_room("hide"), false, "不是这一款就不是")
+	client.session = {"kind": "poop", "over": true}
+	check_eq(client.in_any_room(), false, "收了的局不算在局里")
+	client.free()

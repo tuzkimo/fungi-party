@@ -17,9 +17,10 @@ const KIND_NAMES := {
 	"owl": "喂猫头鹰",
 	"race": "赛跑",
 	"hide": "捉迷藏",
+	"poop": "扔粑粑",
 }
 ## 不进右上角面板的款：捉迷藏只能走到跟前发起（否则 50 米外也能邀）
-const PANEL_SKIP: Array[String] = ["hide"]
+const PANEL_SKIP: Array[String] = ["hide", "poop"]
 ## 服务器拒绝的理由 → 人话（服务器只回 code，`NetOps` / `NetLobby` 那几处）
 const ERRORS := {
 	"offline": "对方不在线",

@@ -134,6 +134,11 @@ func in_room(kind: String) -> bool:
 	return ready() and str(session.get("kind", "")) == kind and not bool(session.get("over", false))
 
 
+## 在任何一局里（不管哪一款）：森林里的「走到跟前发起」和这一局自己的浮层都要靠它让位。
+func in_any_room() -> bool:
+	return ready() and not session.is_empty() and not bool(session.get("over", false))
+
+
 ## 第 seat 号座位那个人长什么样：自己按本机存档 / 2P，别人按他 MOVE 报上来的形象。
 ## 服务器只发账号名，形象在世界快照里（`world[账号]` 的 body / skin）。还没报过就回落默认红蘑菇。
 func seat_look(seat: int) -> Dictionary:

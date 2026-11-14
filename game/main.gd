@@ -29,6 +29,7 @@ func _ready() -> void:
 	_invite_panel.answer_pressed.connect(_on_answer)
 	_invite_panel.logout_pressed.connect(_on_logout)
 	_near_panel.hide_pressed.connect(_on_near_hide)
+	_near_panel.poop_pressed.connect(_on_near_poop)
 	_first = Player.of_seat(get_tree(), 0)
 	_spawn_second()
 	_net = _ensure_net()
@@ -64,8 +65,8 @@ func _on_join_room() -> void:
 	if _net == null:
 		return
 	var kind := str(_net.session.get("kind", ""))
-	if kind == "hide":
-		# 捉迷藏留在森林里打：不换场景，HideGame 自己按 SESSION 驱动
+	if NetRoom.KINDS.has(kind) and NetRoom.scene_path(kind) == "":
+		# 留在森林里打的（捉迷藏 / 扔粑粑）不换场景：常驻节点自己按 SESSION 驱动
 		return
 	var path := NetRoom.scene_path(kind)
 	if path == "":
@@ -119,6 +120,12 @@ func _on_answer(from: String, kind: String, accept: bool, role: String) -> void:
 func _on_near_hide(to: String) -> void:
 	_invite_panel.set_status("")
 	_net.request("invite", {"to": to, "kind": "hide"})
+
+
+## 走到别人跟前按「和 X 扔粑粑」（扔粑粑也只能这么发起）
+func _on_near_poop(to: String) -> void:
+	_invite_panel.set_status("")
+	_net.request("invite", {"to": to, "kind": "poop"})
 
 
 ## 邀请被拒（体力不够 / 对方下线 / 已经有一局在开）要说一声，不然按下去像没反应。
@@ -191,13 +198,13 @@ func _animate_ghosts(delta: float) -> void:
 		ghost.bob(delta, before.distance_to(ghost.global_position) > 0.002)
 
 
-## 跟前有没有人能发起捉迷藏：POI 浮层开着、或本来就在一局里，就不弹
+## 跟前有没有人能发起一局：POI 浮层开着、或本来就在一局里，就不弹
 func _near_target() -> String:
 	if _first == null or _net == null or not _net.ready():
 		return ""
-	if _net.in_room("hide") or InvitePanel.poi_overlay_open(get_tree()):
+	if _net.in_any_room() or InvitePanel.poi_overlay_open(get_tree()):
 		return ""
-	return NearPanel.nearest(_net.world, _first.global_position, Config.HIDE_NEAR_RANGE)
+	return NearPanel.nearest(_net.world, _first.global_position, Config.POOP_NEAR_RANGE)
 
 
 ## 体力条、饭店、帐篷都读 DayLoop，而它 _ready 那次读的是本机存档（那时还没登录完），
