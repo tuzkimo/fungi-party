@@ -231,6 +231,13 @@ const POOP_BEETLE_SPEED := 0.7
 const POOP_BEETLE_WANDER := 3.0
 ## 粪球推在屎壳郎身前多远（节点自己的 -Z）
 const POOP_BALL_AHEAD := 0.6
+## 一局的底噪音量（dB）：音效要在它前面
+const BGM_DB := -13.0
+## 被打中溅在帽子上几块色块
+const POOP_SPLATS := 3
+## 粑粑身后拖几个越来越小的点 / 本体每秒自转多少弧度
+const POOP_TRAIL := 4
+const POOP_SPIN := 9.0
 
 ## 森林里的藏点（v8）：位置只影响这里的几何，树和石头都会绕开。
 ## `face` 只给 crates 用：朝目标建筑的方向（高那个箱子摆在那一侧）。

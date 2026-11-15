@@ -22,6 +22,7 @@ func test_one_shots_not_silent() -> void:
 	check(_not_silent(Sfx.pcm_boom(RATE)), "爆炸有声")
 	check(_not_silent(Sfx.pcm_pop(RATE)), "接住有声")
 	check(_not_silent(Sfx.pcm_whoosh(RATE)), "扔出有声")
+	check(_not_silent(Sfx.pcm_splat(RATE)), "命中那一下有声")
 
 
 func test_tick_interval_tightens_with_danger() -> void:

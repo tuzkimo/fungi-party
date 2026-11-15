@@ -8,6 +8,7 @@ const MIX_RATE := 22050
 const TICK_SECONDS := 0.06
 const BOOM_SECONDS := 0.5
 const POP_SECONDS := 0.08
+const SPLAT_SECONDS := 0.28
 const WHOOSH_SECONDS := 0.15
 const WIN_SECONDS := 0.34
 ## 滴答间隔：平静 0.55 秒一次，白热 0.12 秒一次。
@@ -67,11 +68,12 @@ func _ensure() -> void:
 		"throw": _wave(pcm_whoosh(MIX_RATE)),
 		"boom": _wave(pcm_boom(MIX_RATE)),
 		"win": _wave(pcm_win(MIX_RATE)),
+		"splat": _wave(pcm_splat(MIX_RATE)),
 	}
-	_fizz.play()
+	# 嗤嗤声不在这里起：那是传炸弹的底噪，别的局（扔粑粑）借这个节点时不该带着一片噪声
 
 
-## kind ∈ "tick" "catch" "throw" "boom" "win"。
+## kind ∈ "tick" "catch" "throw" "boom" "win" "splat"。
 func play(kind: String) -> void:
 	_ensure()
 	if not _streams.has(kind):
@@ -179,6 +181,24 @@ static func pcm_whoosh(mix_rate: int) -> PackedByteArray:
 		low1 = lerpf(low1, rng.randf_range(-1.0, 1.0), 0.5)
 		low2 = lerpf(low2, low1, 0.5)
 		samples[i] = (low1 - low2) * sin(PI * t / WHOOSH_SECONDS) * 1.5
+	return _to_bytes(samples)
+
+
+## 命中：湿的一下 —— 低通噪声的「啪叽」叠一下下扫的闷响，尾巴收得很快。
+static func pcm_splat(mix_rate: int) -> PackedByteArray:
+	var count := int(SPLAT_SECONDS * mix_rate)
+	var samples := PackedFloat32Array()
+	samples.resize(count)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 17
+	var low := 0.0
+	var phase := 0.0
+	for i in count:
+		var t := float(i) / float(mix_rate)
+		# 噪声越来越「闷」：一阶低通跟着时间收紧，听着像拍在软的地方
+		low = lerpf(low, rng.randf_range(-1.0, 1.0), lerpf(0.55, 0.12, t / SPLAT_SECONDS))
+		phase += TAU * lerpf(240.0, 90.0, t / SPLAT_SECONDS) / float(mix_rate)
+		samples[i] = (low * 0.9 + sin(phase) * 0.35) * exp(-t * 16.0)
 	return _to_bytes(samples)
 
 

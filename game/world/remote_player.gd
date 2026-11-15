@@ -10,6 +10,23 @@ var _label: Label3D
 var _target := Vector3.ZERO
 var _yaw := 0.0
 var _look := ""
+## 被粑粑砸中的晃动；-1 表示没在晃
+var _hit_anim := -1.0
+
+
+func _ready() -> void:
+	add_to_group("remote_player")
+
+
+## 按账号找替身：扔粑粑要给被打中的那位挂色块 / 晃一下
+static func of(tree: SceneTree, account_name: String) -> RemotePlayer:
+	if tree == null or account_name == "":
+		return null
+	for node in tree.get_nodes_in_group("remote_player"):
+		var ghost := node as RemotePlayer
+		if ghost != null and ghost.account == account_name:
+			return ghost
+	return null
 
 
 func setup(name_text: String, body_id: String, skin_id: String) -> void:
@@ -40,6 +57,16 @@ func apply(state: Dictionary, delta: float, instant := false) -> void:
 	rotation.y = lerp_angle(rotation.y, _yaw, clampf(delta * Config.NET_GHOST_LERP, 0.0, 1.0))
 
 
+## 被砸中：晃一下（位置由快照给，只动朝向，不动坐标）
+func hit() -> void:
+	_hit_anim = 0.0
+
+
+## 外观那棵树的根：溅上的色块挂在它身上
+func look_mesh() -> MushroomMesh:
+	return _mesh
+
+
 ## 走起来像在走：位置变了就把帽檐上下颠一颠（省钱版走路动画）
 func bob(delta: float, moving: bool) -> void:
 	if _mesh == null:
@@ -49,3 +76,9 @@ func bob(delta: float, moving: bool) -> void:
 		_mesh.position.y = rest + sin(Time.get_ticks_msec() * 0.012) * 0.04
 	else:
 		_mesh.position.y = lerpf(rest, 0.0, clampf(delta * 8.0, 0.0, 1.0))
+	if _hit_anim >= 0.0:
+		_hit_anim += delta
+		_mesh.rotation.z = Movement.hit_wobble(_hit_anim)
+		if _hit_anim >= Movement.HIT_ANIM_SECONDS:
+			_hit_anim = -1.0
+			_mesh.rotation.z = 0.0

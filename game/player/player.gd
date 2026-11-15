@@ -27,6 +27,8 @@ var _was_on_floor := true
 var _land_timer := 0.0
 var _walk_phase := 0.0
 var _chew := -1.0   # >= 0 表示正在吃饭，-1 表示没在咬
+var _throw_anim := -1.0   # 扔出去的起手；-1 表示没在扔
+var _hit_anim := -1.0     # 被打中的晃动；-1 表示没被砸中
 
 
 ## 存档变了（比如刚在登录界面拿到服务器上那份）就重刷外观。
@@ -230,6 +232,21 @@ func chew() -> void:
 	_chew = 0.0
 
 
+## 扔出去那一下的起手：纯表现，和服务器认不认这一发无关（手上有没有球在 PoopGame 判）。
+func throw_pulse() -> void:
+	_throw_anim = 0.0
+
+
+## 被粑粑砸中：晃一下 + 弹一下。不锁输入、不改位置（那是改玩法，设计里明确不做）。
+func hit() -> void:
+	_hit_anim = 0.0
+
+
+## 外观那棵树的根：溅上的色块挂在它身上（PoopField 用）
+func look_mesh() -> MushroomMesh:
+	return _visual
+
+
 func _turn(dir: Vector3, delta: float) -> void:
 	if dir.length() < 0.1:
 		return
@@ -247,7 +264,21 @@ func _animate(speed: float, delta: float) -> void:
 		_land_timer = maxf(0.0, _land_timer - delta)
 		var k := _land_timer / 0.15
 		squash = Vector3(1.0 + 0.15 * k, 1.0 - 0.15 * k, 1.0 + 0.15 * k)
+	var lean := 0.0
+	if _throw_anim >= 0.0:
+		_throw_anim += delta
+		lean = Movement.throw_lean(_throw_anim)
+		if _throw_anim >= Movement.THROW_ANIM_SECONDS:
+			_throw_anim = -1.0
+	var wobble := 0.0
+	if _hit_anim >= 0.0:
+		_hit_anim += delta
+		wobble = Movement.hit_wobble(_hit_anim)
+		squash = squash * Movement.hit_squash(_hit_anim)
+		if _hit_anim >= Movement.HIT_ANIM_SECONDS:
+			_hit_anim = -1.0
 	_visual.scale = squash
+	_visual.rotation = Vector3(lean, 0.0, wobble)
 
 	if is_on_floor() and speed > 0.2:
 		_walk_phase += delta * speed * 3.0

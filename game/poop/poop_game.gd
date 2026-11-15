@@ -32,7 +32,11 @@ static func aim_dir(basis: Basis) -> Vector3:
 
 var _net: NetClient = null
 var _panel: PoopPanel = null
+var _sfx: Sfx
+var _bgm: Bgm
 var _active := false
+## 客户端镜像的弹药数：只用来决定「要不要播起手动作和风声」，真弹药在服务器
+var _ammo := 0
 ## 收局之后结果那行字还留多久（秒）
 var _result_left := 0.0
 
@@ -45,6 +49,12 @@ func _ready() -> void:
 		return
 	_panel.throw_pressed.connect(_on_throw)
 	_panel.give_up_pressed.connect(_on_give_up)
+	_sfx = Sfx.new()
+	_sfx.name = "Sfx"
+	add_child(_sfx)
+	_bgm = Bgm.new()
+	_bgm.name = "Bgm"
+	add_child(_bgm)
 
 
 func _process(delta: float) -> void:
@@ -55,6 +65,7 @@ func _process(delta: float) -> void:
 	if not _net.in_room("poop"):
 		if _active:
 			_finish()
+		_bgm.stop()
 		if _result_left > 0.0:
 			_result_left -= delta
 			if _result_left <= 0.0:
@@ -67,12 +78,14 @@ func _process(delta: float) -> void:
 	var hits: Array = game.get("hits", [])
 	var ammo: Array = game.get("ammo", [])
 	_active = true
+	_ammo = _at(ammo, seat)
+	_bgm.start()
 	if _panel == null:
 		return
 	_panel.set_aim(_aim_point())
 	_panel.show_round(
 		top_text(_at(hits, seat), _at(hits, 1 - seat), float(game.get("left", 0.0))),
-		_at(ammo, seat)
+		_ammo
 	)
 
 
@@ -88,6 +101,13 @@ func _finish() -> void:
 func _on_throw() -> void:
 	if _net == null:
 		return
+	# 手上没球就别演出（服务器这条路会拒掉）：弹药判断只在表现层，真弹药在服务器
+	if _ammo <= 0:
+		return
+	var player := _owner()
+	if player != null:
+		player.throw_pulse()
+	_sfx.play("throw")
 	var dir := _throw_dir()
 	_net.send_input({"slot": _owner_slot(), "dirx": dir.x, "diry": dir.y, "dirz": dir.z})
 

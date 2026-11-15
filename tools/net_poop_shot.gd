@@ -100,11 +100,26 @@ func _run() -> void:
 		str((current_scene.get_node("PoopPanel") as PoopPanel)._aim), _beetles(net).size()
 	])
 
-	# A 连扔两发，正对 B
+	# A 连扔两发：第一发往侧后方、只为拍「飞在天上」那张（正对 B 时整发都被自己的蘑菇挡住），
+	# 第二发才真打 B
 	var at_dir := _flat(foe - at)
-	for i in 2:
-		net.send_input({"dirx": at_dir.x, "diry": 0.0, "dirz": at_dir.z})
-		await create_timer(0.7).timeout
+	var side := at_dir.rotated(Vector3.UP, -1.2)
+	if rig != null:
+		# 拍飞行那张时把镜头抬平：低头的机位会把粑粑和自己的蘑菇叠在一起
+		rig._pitch = 0.05
+	await create_timer(0.2).timeout
+	net.send_input({"dirx": side.x, "diry": 0.15, "dirz": side.z})
+	await create_timer(0.22).timeout
+	var field := current_scene.get_node("Forest/PoopField") as PoopField
+	var cam := root.get_camera_3d()
+	for node in field._shots:
+		print("  天上那发在屏幕 %s / 世界 %s" % [str(cam.unproject_position(node.global_position)), str(node.global_position)])
+	root.get_texture().get_image().save_png("res://shots/poop_flight.png")
+	print("shots/poop_flight.png：天上 %d 发" % (net.session["game"]["shots"] as Array).size())
+	await create_timer(0.5).timeout
+	if rig != null:
+		rig._pitch = -0.30
+	net.send_input({"dirx": at_dir.x, "diry": 0.0, "dirz": at_dir.z})
 	# B 抢一发再扔回来：命中数只能靠真挨打刷出来
 	var b_at := await _walk_other(foe, _nearest_balls(net, 1)[0] as Vector3)
 	await create_timer(0.5).timeout
@@ -119,6 +134,7 @@ func _run() -> void:
 	var hits: Array = game.get("hits", [])
 	print("命中数 %s（座位 %d 是我）" % [str(hits), seat])
 	root.get_texture().get_image().save_png("res://shots/poop_hud.png")
+	print("溅上的色块 %d 块" % (field._splats.size() if field != null else -1))
 	print("shots/poop_hud.png：顶上 %s" % PoopGame.top_text(
 		int(hits[seat]), int(hits[1 - seat]), float(game.get("left", 0.0))
 	))
